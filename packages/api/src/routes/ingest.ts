@@ -97,7 +97,7 @@ ingestRoutes.post("/batch", async (c) => {
       wordCount: crawlPageResult.word_count,
       contentHash: crawlPageResult.content_hash,
       extracted: crawlPageResult.extracted,
-      lighthouse: crawlPageResult.lighthouse,
+      lighthouse: crawlPageResult.lighthouse ?? null,
       llmScores: null, // LLM scoring is done asynchronously if enabled
     };
 

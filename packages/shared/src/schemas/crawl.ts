@@ -57,7 +57,7 @@ export const CrawlPageResultSchema = z.object({
   content_hash: z.string(),
   html_r2_key: z.string(),
   extracted: ExtractedDataSchema,
-  lighthouse: LighthouseResultSchema.nullable(),
+  lighthouse: LighthouseResultSchema.nullable().optional(),
   timing_ms: z.number(),
 });
 
