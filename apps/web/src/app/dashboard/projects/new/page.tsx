@@ -2,6 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -52,76 +62,66 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">New Project</h1>
-        <p className="mt-1 text-muted-foreground">
-          Add a website to audit for AI-readiness.
-        </p>
-      </div>
+    <div className="mx-auto max-w-lg">
+      <Card>
+        <CardHeader>
+          <CardTitle>New Project</CardTitle>
+          <CardDescription>
+            Add a website to audit for AI-readiness.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Name field */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Project Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="My Website"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name}</p>
+              )}
+            </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Name field */}
-        <div className="space-y-2">
-          <label htmlFor="name" className="text-sm font-medium text-foreground">
-            Project Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            placeholder="My Website"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {errors.name && (
-            <p className="text-sm text-destructive">{errors.name}</p>
-          )}
-        </div>
+            {/* Domain field */}
+            <div className="space-y-2">
+              <Label htmlFor="domain">Domain</Label>
+              <Input
+                id="domain"
+                type="text"
+                placeholder="example.com"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+              />
+              {errors.domain && (
+                <p className="text-sm text-destructive">{errors.domain}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Enter the root domain to audit. https:// will be added
+                automatically if omitted.
+              </p>
+            </div>
 
-        {/* Domain field */}
-        <div className="space-y-2">
-          <label
-            htmlFor="domain"
-            className="text-sm font-medium text-foreground"
-          >
-            Domain
-          </label>
-          <input
-            id="domain"
-            type="text"
-            placeholder="example.com"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {errors.domain && (
-            <p className="text-sm text-destructive">{errors.domain}</p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Enter the root domain to audit. https:// will be added automatically
-            if omitted.
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? "Creating..." : "Create Project"}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-2">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create Project"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
