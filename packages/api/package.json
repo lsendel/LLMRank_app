@@ -1,0 +1,23 @@
+{
+  "name": "@llm-boost/api",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4",
+    "@llm-boost/db": "workspace:*",
+    "@llm-boost/shared": "workspace:*",
+    "@llm-boost/scoring": "workspace:*",
+    "@llm-boost/llm": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7",
+    "wrangler": "^4"
+  }
+}

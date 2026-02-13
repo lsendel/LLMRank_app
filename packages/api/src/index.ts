@@ -1,0 +1,99 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { createDb, type Database } from "@llm-boost/db";
+import { healthRoutes } from "./routes/health";
+import { projectRoutes } from "./routes/projects";
+import { crawlRoutes } from "./routes/crawls";
+import { pageRoutes } from "./routes/pages";
+import { billingRoutes } from "./routes/billing";
+import { ingestRoutes } from "./routes/ingest";
+
+// ---------------------------------------------------------------------------
+// Bindings & Variables
+// ---------------------------------------------------------------------------
+
+export type Bindings = {
+  R2: R2Bucket;
+  KV: KVNamespace;
+  DATABASE_URL: string;
+  SHARED_SECRET: string;
+  ANTHROPIC_API_KEY: string;
+  STRIPE_SECRET_KEY: string;
+  CLERK_SECRET_KEY: string;
+  CLERK_PUBLISHABLE_KEY: string;
+  CRAWLER_URL: string;
+};
+
+export type Variables = {
+  db: Database;
+  userId: string;
+  parsedBody: string;
+};
+
+export type AppEnv = {
+  Bindings: Bindings;
+  Variables: Variables;
+};
+
+// ---------------------------------------------------------------------------
+// App
+// ---------------------------------------------------------------------------
+
+const app = new Hono<AppEnv>();
+
+// Global middleware
+app.use("*", logger());
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Signature",
+      "X-Timestamp",
+    ],
+    maxAge: 86400,
+  }),
+);
+
+// Database middleware — creates a db instance per request and stores it on context
+app.use("*", async (c, next) => {
+  const db = createDb(c.env.DATABASE_URL);
+  c.set("db", db);
+  await next();
+});
+
+// Routes
+app.route("/api/health", healthRoutes);
+app.route("/api/projects", projectRoutes);
+app.route("/api/crawls", crawlRoutes);
+app.route("/api/pages", pageRoutes);
+app.route("/api/billing", billingRoutes);
+app.route("/ingest", ingestRoutes);
+
+// Fallback
+app.notFound((c) => {
+  return c.json(
+    { error: { code: "NOT_FOUND", message: "Route not found" } },
+    404,
+  );
+});
+
+// Global error handler
+app.onError((err, c) => {
+  console.error("Unhandled error:", err);
+  return c.json(
+    {
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred",
+      },
+    },
+    500,
+  );
+});
+
+export default app;
