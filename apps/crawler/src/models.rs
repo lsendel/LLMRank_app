@@ -1,0 +1,147 @@
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+// --- Crawl Configuration ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlConfig {
+    pub seed_urls: Vec<String>,
+    pub max_pages: u32,
+    pub max_depth: u32,
+    #[serde(default = "default_true")]
+    pub respect_robots: bool,
+    #[serde(default = "default_true")]
+    pub run_lighthouse: bool,
+    #[serde(default = "default_true")]
+    pub extract_schema: bool,
+    #[serde(default = "default_true")]
+    pub extract_links: bool,
+    #[serde(default = "default_true")]
+    pub check_llms_txt: bool,
+    #[serde(default = "default_user_agent")]
+    pub user_agent: String,
+    #[serde(default = "default_rate_limit_ms")]
+    pub rate_limit_ms: u32,
+    #[serde(default = "default_timeout_s")]
+    pub timeout_s: u32,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_user_agent() -> String {
+    "AISEOBot/1.0".to_string()
+}
+
+fn default_rate_limit_ms() -> u32 {
+    1000
+}
+
+fn default_timeout_s() -> u32 {
+    30
+}
+
+// --- Job Payload ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlJobPayload {
+    pub job_id: String,
+    pub callback_url: String,
+    pub config: CrawlConfig,
+}
+
+// --- Extracted Data ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractedData {
+    pub h1: Vec<String>,
+    pub h2: Vec<String>,
+    pub h3: Vec<String>,
+    pub h4: Vec<String>,
+    pub h5: Vec<String>,
+    pub h6: Vec<String>,
+    pub schema_types: Vec<String>,
+    pub internal_links: Vec<String>,
+    pub external_links: Vec<String>,
+    pub images_without_alt: u32,
+    pub has_robots_meta: bool,
+    pub robots_directives: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub og_tags: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub structured_data: Option<Vec<serde_json::Value>>,
+}
+
+// --- Lighthouse Result ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LighthouseResult {
+    pub performance: f64,
+    pub seo: f64,
+    pub accessibility: f64,
+    pub best_practices: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lh_r2_key: Option<String>,
+}
+
+// --- Crawl Page Result ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlPageResult {
+    pub url: String,
+    pub status_code: u16,
+    pub title: Option<String>,
+    pub meta_description: Option<String>,
+    pub canonical_url: Option<String>,
+    pub word_count: u32,
+    pub content_hash: String,
+    pub html_r2_key: String,
+    pub extracted: ExtractedData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lighthouse: Option<LighthouseResult>,
+    pub timing_ms: u64,
+}
+
+// --- Crawl Stats ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlStats {
+    pub pages_found: u32,
+    pub pages_crawled: u32,
+    pub pages_errored: u32,
+    pub elapsed_s: f64,
+}
+
+// --- Crawl Result Batch ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlResultBatch {
+    pub job_id: String,
+    pub batch_index: u32,
+    pub is_final: bool,
+    pub pages: Vec<CrawlPageResult>,
+    pub stats: CrawlStats,
+}
+
+// --- Job Status ---
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JobStatusKind {
+    Pending,
+    Queued,
+    Crawling,
+    Scoring,
+    Complete,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobStatus {
+    pub job_id: String,
+    pub status: JobStatusKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stats: Option<CrawlStats>,
+}
