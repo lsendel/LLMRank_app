@@ -19,9 +19,13 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 aws-sdk-s3 = "1"
 aws-config = "1"
+aws-credential-types = { version = "1", features = ["hardcoded-credentials"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 tokio-util = "0.7"
 thiserror = "2"
+flate2 = "1"
+nonzero_ext = "0.3"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 axum-test = "16"

@@ -14,7 +14,7 @@ use crate::AppState;
 /// Accepts a new crawl job payload. Validates the input and returns 202 Accepted.
 /// Actual job processing will be wired up in Task 8.
 pub async fn create_job(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(payload): Json<CrawlJobPayload>,
 ) -> impl IntoResponse {
     tracing::info!(
@@ -24,8 +24,7 @@ pub async fn create_job(
         "Received crawl job"
     );
 
-    // TODO (Task 8): Send payload to the job manager via mpsc channel.
-    // For now, just acknowledge receipt.
+    state.job_manager.submit(payload.clone()).await;
 
     (
         StatusCode::ACCEPTED,
@@ -40,17 +39,12 @@ pub async fn create_job(
 ///
 /// Returns the current status of a crawl job. Stub implementation for now.
 pub async fn get_job_status(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(job_id): Path<String>,
 ) -> impl IntoResponse {
     tracing::info!(job_id = %job_id, "Status request");
 
-    // TODO (Task 8): Look up actual job status from the job manager.
-    let status = JobStatus {
-        job_id,
-        status: JobStatusKind::Pending,
-        stats: None,
-    };
+    let status = state.job_manager.status(&job_id).await;
 
     (StatusCode::OK, Json(status))
 }
@@ -59,12 +53,12 @@ pub async fn get_job_status(
 ///
 /// Cancels a running crawl job. Stub implementation for now.
 pub async fn cancel_job(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(job_id): Path<String>,
 ) -> impl IntoResponse {
     tracing::info!(job_id = %job_id, "Cancel request");
 
-    // TODO (Task 8): Send cancellation signal to the job manager.
+    state.job_manager.cancel(&job_id).await;
 
     (
         StatusCode::OK,

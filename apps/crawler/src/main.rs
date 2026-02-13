@@ -13,11 +13,13 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::config::Config;
+use crate::jobs::JobManager;
 
 /// Shared application state passed to all Axum handlers.
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
+    pub job_manager: Arc<JobManager>,
 }
 
 #[tokio::main]
@@ -30,11 +32,14 @@ async fn main() {
         .init();
 
     // Load configuration from environment variables
-    let config = Config::from_env().expect("Failed to load configuration from environment");
+    let config = Arc::new(Config::from_env().expect("Failed to load configuration from environment"));
     let port = config.port;
 
+    let job_manager = Arc::new(JobManager::new(config.clone()));
+
     let state = AppState {
-        config: Arc::new(config),
+        config: config.clone(),
+        job_manager,
     };
 
     // CORS layer — permissive for the internal service

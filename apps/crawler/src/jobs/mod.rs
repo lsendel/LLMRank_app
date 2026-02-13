@@ -1,5 +1,477 @@
-// Job manager - to be implemented in Task 8.
-//
-// Will use tokio::sync::mpsc for a bounded job queue, with
-// CancellationToken for cooperative cancellation and batch
-// result accumulation.
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio_util::sync::CancellationToken;
+use url::Url;
+
+use crate::config::Config;
+use crate::crawler::fetcher::RateLimitedFetcher;
+use crate::crawler::frontier::Frontier;
+use crate::crawler::robots::RobotsChecker;
+use crate::crawler::{CrawlEngine, CrawlEngineError};
+use crate::lighthouse::LighthouseRunner;
+use crate::models::*;
+use crate::storage::{StorageClient, StorageConfig};
+
+type HmacSha256 = Hmac<Sha256>;
+
+/// Internal state for a running or completed job.
+struct JobEntry {
+    status: JobStatusKind,
+    stats: Option<CrawlStats>,
+    cancel_token: CancellationToken,
+}
+
+/// Manages crawl job lifecycle: submission, status queries, and cancellation.
+pub struct JobManager {
+    config: Arc<Config>,
+    jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>>,
+    tx: mpsc::Sender<CrawlJobPayload>,
+}
+
+impl JobManager {
+    /// Create a new JobManager.
+    /// Spawns a background task that processes incoming jobs from the mpsc channel.
+    pub fn new(config: Arc<Config>) -> Self {
+        let (tx, rx) = mpsc::channel::<CrawlJobPayload>(64);
+        let jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+
+        let manager = JobManager {
+            config: config.clone(),
+            jobs: jobs.clone(),
+            tx,
+        };
+
+        // Spawn the consumer loop
+        tokio::spawn(Self::process_loop(rx, jobs, config));
+
+        manager
+    }
+
+    /// Submit a new crawl job. Returns the job_id.
+    pub async fn submit(&self, payload: CrawlJobPayload) -> String {
+        let job_id = payload.job_id.clone();
+
+        let entry = Arc::new(Mutex::new(JobEntry {
+            status: JobStatusKind::Queued,
+            stats: None,
+            cancel_token: CancellationToken::new(),
+        }));
+
+        self.jobs.write().await.insert(job_id.clone(), entry);
+
+        if let Err(e) = self.tx.send(payload).await {
+            tracing::error!("Failed to enqueue job: {}", e);
+        }
+
+        job_id
+    }
+
+    /// Cancel a running job by its ID.
+    pub async fn cancel(&self, job_id: &str) {
+        let jobs = self.jobs.read().await;
+        if let Some(entry) = jobs.get(job_id) {
+            let mut e = entry.lock().await;
+            e.cancel_token.cancel();
+            e.status = JobStatusKind::Cancelled;
+        }
+    }
+
+    /// Get the current status of a job.
+    pub async fn status(&self, job_id: &str) -> JobStatus {
+        let jobs = self.jobs.read().await;
+        if let Some(entry) = jobs.get(job_id) {
+            let e = entry.lock().await;
+            JobStatus {
+                job_id: job_id.to_string(),
+                status: e.status,
+                stats: e.stats.clone(),
+            }
+        } else {
+            JobStatus {
+                job_id: job_id.to_string(),
+                status: JobStatusKind::Pending,
+                stats: None,
+            }
+        }
+    }
+
+    /// Background loop that takes jobs off the channel and spawns a task for each.
+    async fn process_loop(
+        mut rx: mpsc::Receiver<CrawlJobPayload>,
+        jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>>,
+        config: Arc<Config>,
+    ) {
+        while let Some(payload) = rx.recv().await {
+            let job_id = payload.job_id.clone();
+            let jobs_clone = jobs.clone();
+            let config_clone = config.clone();
+
+            // Get the job entry (created during submit)
+            let entry = {
+                let map = jobs.read().await;
+                match map.get(&job_id) {
+                    Some(e) => e.clone(),
+                    None => continue,
+                }
+            };
+
+            tokio::spawn(async move {
+                Self::run_crawl_job(payload, entry, config_clone).await;
+
+                // Clean up is not needed -- we keep the entry for status queries.
+                let _ = jobs_clone;
+            });
+        }
+    }
+
+    /// Execute the actual crawl job.
+    async fn run_crawl_job(
+        payload: CrawlJobPayload,
+        entry: Arc<Mutex<JobEntry>>,
+        config: Arc<Config>,
+    ) {
+        let cancel_token = {
+            let e = entry.lock().await;
+            e.cancel_token.clone()
+        };
+
+        // Mark as crawling
+        {
+            let mut e = entry.lock().await;
+            e.status = JobStatusKind::Crawling;
+        }
+
+        let job_start = Instant::now();
+        let crawl_config = &payload.config;
+
+        // Set up components
+        let rate_per_sec = if crawl_config.rate_limit_ms > 0 {
+            (1000 / crawl_config.rate_limit_ms).max(1)
+        } else {
+            2
+        };
+
+        let fetcher = RateLimitedFetcher::new(
+            rate_per_sec,
+            crawl_config.timeout_s as u64,
+            &crawl_config.user_agent,
+        );
+
+        let lighthouse_runner = if crawl_config.run_lighthouse {
+            Some(LighthouseRunner::new(config.max_concurrent_lighthouse))
+        } else {
+            None
+        };
+
+        let storage = StorageClient::new(StorageConfig {
+            endpoint: config.r2_endpoint.clone(),
+            access_key: config.r2_access_key.clone(),
+            secret_key: config.r2_secret_key.clone(),
+            bucket: config.r2_bucket.clone(),
+        });
+
+        // Determine domain from first seed URL for robots check
+        let domain = crawl_config
+            .seed_urls
+            .first()
+            .and_then(|u| Url::parse(u).ok())
+            .and_then(|u| u.host_str().map(|h| h.to_string()));
+
+        // Fetch robots.txt if configured
+        let robots = if crawl_config.respect_robots {
+            if let Some(ref d) = domain {
+                RobotsChecker::new(d).await.ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Initialize frontier
+        let mut frontier = Frontier::new(&crawl_config.seed_urls, crawl_config.max_depth);
+
+        let mut pages_crawled: u32 = 0;
+        let mut pages_errored: u32 = 0;
+        let mut batch_pages: Vec<CrawlPageResult> = Vec::new();
+        let mut batch_index: u32 = 0;
+        let mut last_batch_time = Instant::now();
+
+        while let Some((url, depth)) = frontier.next() {
+            // Check cancellation
+            if cancel_token.is_cancelled() {
+                tracing::info!(job_id = %payload.job_id, "Job cancelled");
+                break;
+            }
+
+            // Check max pages
+            if pages_crawled >= crawl_config.max_pages {
+                tracing::info!(job_id = %payload.job_id, "Max pages reached");
+                break;
+            }
+
+            // Check robots.txt
+            if let Some(ref checker) = robots {
+                if !checker.is_allowed(&url, &crawl_config.user_agent) {
+                    tracing::debug!(url = %url, "Blocked by robots.txt");
+                    continue;
+                }
+            }
+
+            let page_start = Instant::now();
+
+            // Fetch the page
+            let fetch_result = match fetcher.fetch(&url).await {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::warn!(url = %url, error = %e, "Fetch failed");
+                    pages_errored += 1;
+                    continue;
+                }
+            };
+
+            let timing_ms = page_start.elapsed().as_millis() as u64;
+
+            // Parse the HTML
+            let parsed = Parser::parse(&fetch_result.body, &fetch_result.final_url);
+
+            // Compute content hash
+            let content_hash = {
+                use sha2::Digest;
+                let mut hasher = sha2::Sha256::new();
+                hasher.update(fetch_result.body.as_bytes());
+                hex::encode(hasher.finalize())
+            };
+
+            // Upload HTML to R2
+            let html_r2_key = format!(
+                "crawls/{}/html/{}.html.gz",
+                payload.job_id,
+                hex::encode(&content_hash.as_bytes()[..8])
+            );
+            if let Err(e) = storage.upload_html(&html_r2_key, &fetch_result.body).await {
+                tracing::warn!(url = %url, error = %e, "Failed to upload HTML to R2");
+            }
+
+            // Run Lighthouse if configured
+            let lighthouse_result = if let Some(ref runner) = lighthouse_runner {
+                match runner.run_lighthouse(&url).await {
+                    Ok(mut result) => {
+                        // Upload lighthouse JSON
+                        let lh_key = format!(
+                            "crawls/{}/lighthouse/{}.json.gz",
+                            payload.job_id,
+                            hex::encode(&content_hash.as_bytes()[..8])
+                        );
+                        let lh_json = serde_json::to_string(&result).unwrap_or_default();
+                        if let Err(e) = storage.upload_json(&lh_key, &lh_json).await {
+                            tracing::warn!(url = %url, error = %e, "Failed to upload LH JSON");
+                        }
+                        result.lh_r2_key = Some(lh_key);
+                        Some(result)
+                    }
+                    Err(e) => {
+                        tracing::warn!(url = %url, error = %e, "Lighthouse audit failed");
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            // Build structured data from JSON-LD
+            let structured_data: Option<Vec<serde_json::Value>> = if crawl_config.extract_schema {
+                let values: Vec<serde_json::Value> = parsed
+                    .schema_json_ld
+                    .iter()
+                    .filter_map(|s| serde_json::from_str(s).ok())
+                    .collect();
+                if values.is_empty() {
+                    None
+                } else {
+                    Some(values)
+                }
+            } else {
+                None
+            };
+
+            // Extract schema types from JSON-LD
+            let schema_types: Vec<String> = parsed
+                .schema_json_ld
+                .iter()
+                .filter_map(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                .filter_map(|v| v.get("@type").and_then(|t| t.as_str()).map(|s| s.to_string()))
+                .collect();
+
+            let og_tags = if parsed.og_tags.is_empty() {
+                None
+            } else {
+                Some(parsed.og_tags.clone())
+            };
+
+            // Add discovered links to frontier
+            if crawl_config.extract_links {
+                frontier.add_discovered(&parsed.internal_links, depth + 1);
+            }
+
+            let page_result = CrawlPageResult {
+                url: fetch_result.final_url,
+                status_code: fetch_result.status_code,
+                title: parsed.title,
+                meta_description: parsed.meta_description,
+                canonical_url: parsed.canonical_url,
+                word_count: parsed.word_count,
+                content_hash,
+                html_r2_key,
+                extracted: ExtractedData {
+                    h1: parsed.headings.h1,
+                    h2: parsed.headings.h2,
+                    h3: parsed.headings.h3,
+                    h4: parsed.headings.h4,
+                    h5: parsed.headings.h5,
+                    h6: parsed.headings.h6,
+                    schema_types,
+                    internal_links: parsed.internal_links,
+                    external_links: parsed.external_links,
+                    images_without_alt: parsed.images_without_alt,
+                    has_robots_meta: parsed.has_robots_meta,
+                    robots_directives: parsed.robots_directives,
+                    og_tags,
+                    structured_data,
+                },
+                lighthouse: lighthouse_result,
+                timing_ms,
+            };
+
+            batch_pages.push(page_result);
+            pages_crawled += 1;
+
+            // Update stats in the entry
+            {
+                let mut e = entry.lock().await;
+                e.stats = Some(CrawlStats {
+                    pages_found: frontier.pending_count() as u32 + pages_crawled + pages_errored,
+                    pages_crawled,
+                    pages_errored,
+                    elapsed_s: job_start.elapsed().as_secs_f64(),
+                });
+            }
+
+            // Send batch every 10 pages or 30 seconds
+            let should_send_batch =
+                batch_pages.len() >= 10 || last_batch_time.elapsed().as_secs() >= 30;
+
+            if should_send_batch && !batch_pages.is_empty() {
+                let batch = CrawlResultBatch {
+                    job_id: payload.job_id.clone(),
+                    batch_index,
+                    is_final: false,
+                    pages: std::mem::take(&mut batch_pages),
+                    stats: CrawlStats {
+                        pages_found: frontier.pending_count() as u32
+                            + pages_crawled
+                            + pages_errored,
+                        pages_crawled,
+                        pages_errored,
+                        elapsed_s: job_start.elapsed().as_secs_f64(),
+                    },
+                };
+
+                Self::send_callback(&payload.callback_url, &batch, &config.shared_secret).await;
+                batch_index += 1;
+                last_batch_time = Instant::now();
+            }
+        }
+
+        // Send final batch
+        let final_stats = CrawlStats {
+            pages_found: frontier.pending_count() as u32 + pages_crawled + pages_errored,
+            pages_crawled,
+            pages_errored,
+            elapsed_s: job_start.elapsed().as_secs_f64(),
+        };
+
+        let final_batch = CrawlResultBatch {
+            job_id: payload.job_id.clone(),
+            batch_index,
+            is_final: true,
+            pages: batch_pages,
+            stats: final_stats.clone(),
+        };
+
+        Self::send_callback(&payload.callback_url, &final_batch, &config.shared_secret).await;
+
+        // Update final status
+        {
+            let mut e = entry.lock().await;
+            if e.status != JobStatusKind::Cancelled {
+                e.status = JobStatusKind::Complete;
+            }
+            e.stats = Some(final_stats);
+        }
+
+        tracing::info!(
+            job_id = %payload.job_id,
+            pages_crawled = pages_crawled,
+            pages_errored = pages_errored,
+            elapsed_s = job_start.elapsed().as_secs_f64(),
+            "Crawl job complete"
+        );
+    }
+
+    /// POST a CrawlResultBatch to the callback URL with HMAC-SHA256 authentication.
+    async fn send_callback(callback_url: &str, batch: &CrawlResultBatch, secret: &str) {
+        let body = match serde_json::to_string(batch) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::error!("Failed to serialize batch: {}", e);
+                return;
+            }
+        };
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .to_string();
+
+        // Compute HMAC-SHA256(timestamp + body)
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .expect("HMAC can take key of any size");
+        mac.update(timestamp.as_bytes());
+        mac.update(body.as_bytes());
+        let signature = hex::encode(mac.finalize().into_bytes());
+
+        let client = reqwest::Client::new();
+        match client
+            .post(callback_url)
+            .header("Content-Type", "application/json")
+            .header("X-Timestamp", &timestamp)
+            .header("X-Signature", &signature)
+            .body(body)
+            .send()
+            .await
+        {
+            Ok(resp) => {
+                tracing::info!(
+                    status = resp.status().as_u16(),
+                    batch_index = batch.batch_index,
+                    is_final = batch.is_final,
+                    "Callback sent"
+                );
+            }
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    batch_index = batch.batch_index,
+                    "Failed to send callback"
+                );
+            }
+        }
+    }
+}
