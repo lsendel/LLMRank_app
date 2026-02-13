@@ -57,6 +57,19 @@ export const llmProviderEnum = pgEnum("llm_provider", [
   "copilot",
 ]);
 
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "trialing",
+  "past_due",
+  "canceled",
+]);
+
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "succeeded",
+  "pending",
+  "failed",
+]);
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -78,6 +91,7 @@ export const users = pgTable("users", {
     .notNull()
     .default(true),
   notifyOnScoreDrop: boolean("notify_on_score_drop").notNull().default(true),
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -243,4 +257,73 @@ export const visibilityChecks = pgTable(
     checkedAt: timestamp("checked_at").notNull().defaultNow(),
   },
   (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)],
+);
+
+// ---------------------------------------------------------------------------
+// Subscriptions
+// ---------------------------------------------------------------------------
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    planCode: text("plan_code").notNull(),
+    status: subscriptionStatusEnum("status").notNull().default("active"),
+    stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    stripeCustomerId: text("stripe_customer_id"),
+    currentPeriodStart: timestamp("current_period_start"),
+    currentPeriodEnd: timestamp("current_period_end"),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    canceledAt: timestamp("canceled_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_subscriptions_user").on(t.userId),
+    index("idx_subscriptions_stripe").on(t.stripeSubscriptionId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------------
+
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    subscriptionId: uuid("subscription_id").references(() => subscriptions.id),
+    stripeInvoiceId: text("stripe_invoice_id").notNull().unique(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("usd"),
+    status: paymentStatusEnum("status").notNull().default("succeeded"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_payments_user").on(t.userId),
+    index("idx_payments_subscription").on(t.subscriptionId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Plan Price History (audit trail)
+// ---------------------------------------------------------------------------
+
+export const planPriceHistory = pgTable(
+  "plan_price_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    planCode: text("plan_code").notNull(),
+    oldPriceCents: integer("old_price_cents").notNull(),
+    newPriceCents: integer("new_price_cents").notNull(),
+    changedBy: uuid("changed_by").references(() => users.id),
+    reason: text("reason"),
+    changedAt: timestamp("changed_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_price_history_plan").on(t.planCode)],
 );

@@ -6,3 +6,5 @@ export { crawlQueries } from "./queries/crawls";
 export { pageQueries } from "./queries/pages";
 export { scoreQueries } from "./queries/scores";
 export { visibilityQueries } from "./queries/visibility";
+export { billingQueries } from "./queries/billing";
+export { adminQueries } from "./queries/admin";
