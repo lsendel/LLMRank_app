@@ -9,3 +9,5 @@ dist/
 target/
 .vercel
 .DS_Store
+.idea/
+.claude/
