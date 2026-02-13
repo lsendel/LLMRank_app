@@ -9,11 +9,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4",
     "@llm-boost/db": "workspace:*",
-    "@llm-boost/shared": "workspace:*",
+    "@llm-boost/llm": "workspace:*",
     "@llm-boost/scoring": "workspace:*",
-    "@llm-boost/llm": "workspace:*"
+    "@llm-boost/shared": "workspace:*",
+    "drizzle-orm": "^0.38",
+    "hono": "^4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",

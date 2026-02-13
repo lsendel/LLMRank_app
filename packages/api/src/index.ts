@@ -1,13 +1,16 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { createDb, type Database } from "@llm-boost/db";
+import { createDb, type Database, users } from "@llm-boost/db";
+import { PLAN_LIMITS } from "@llm-boost/shared";
+import { eq } from "drizzle-orm";
 import { healthRoutes } from "./routes/health";
 import { projectRoutes } from "./routes/projects";
 import { crawlRoutes } from "./routes/crawls";
 import { pageRoutes } from "./routes/pages";
 import { billingRoutes } from "./routes/billing";
 import { ingestRoutes } from "./routes/ingest";
+import { visibilityRoutes } from "./routes/visibility";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -73,6 +76,7 @@ app.route("/api/crawls", crawlRoutes);
 app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
 app.route("/ingest", ingestRoutes);
+app.route("/api/visibility", visibilityRoutes);
 
 // Fallback
 app.notFound((c) => {
@@ -96,4 +100,27 @@ app.onError((err, c) => {
   );
 });
 
-export default app;
+// ---------------------------------------------------------------------------
+// Scheduled handler — monthly credit reset (1st of every month)
+// ---------------------------------------------------------------------------
+
+async function resetMonthlyCredits(env: Bindings) {
+  const db = createDb(env.DATABASE_URL);
+  for (const [plan, limits] of Object.entries(PLAN_LIMITS)) {
+    await db
+      .update(users)
+      .set({ crawlCreditsRemaining: limits.crawlsPerMonth })
+      .where(eq(users.plan, plan as (typeof users.plan.enumValues)[number]));
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  async scheduled(
+    _event: ScheduledEvent,
+    env: Bindings,
+    _ctx: ExecutionContext,
+  ) {
+    await resetMonthlyCredits(env);
+  },
+};

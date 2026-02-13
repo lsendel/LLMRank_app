@@ -123,6 +123,72 @@ billingRoutes.post("/checkout", authMiddleware, async (c) => {
 // POST /webhook — Handle Stripe webhooks (no auth — uses Stripe signature)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// GET /usage — Return current usage against plan limits (requires auth)
+// ---------------------------------------------------------------------------
+
+billingRoutes.get("/usage", authMiddleware, async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const limits = PLAN_LIMITS[user.plan];
+  return c.json({
+    data: {
+      plan: user.plan,
+      crawlCreditsRemaining: user.crawlCreditsRemaining,
+      crawlCreditsTotal: limits.crawlsPerMonth,
+      maxPagesPerCrawl: limits.pagesPerCrawl,
+      maxDepth: limits.maxCrawlDepth,
+      maxProjects: limits.projects,
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /portal — Create Stripe Customer Portal session (requires auth)
+// ---------------------------------------------------------------------------
+
+billingRoutes.post("/portal", authMiddleware, async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user?.stripeCustomerId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "No active subscription found",
+        },
+      },
+      422,
+    );
+  }
+
+  const body = await c.req.json<{ returnUrl: string }>();
+  const session = await stripeRequest<{ url: string }>(
+    c.env.STRIPE_SECRET_KEY,
+    "POST",
+    "/billing_portal/sessions",
+    {
+      customer: user.stripeCustomerId,
+      return_url: body.returnUrl,
+    },
+  );
+
+  return c.json({ data: { url: session.url } });
+});
+
+// ---------------------------------------------------------------------------
+// POST /webhook — Handle Stripe webhooks (no auth — uses Stripe signature)
+// ---------------------------------------------------------------------------
+
 billingRoutes.post("/webhook", async (c) => {
   const db = c.get("db");
   const signature = c.req.header("stripe-signature");
