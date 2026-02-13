@@ -152,7 +152,7 @@ crawlRoutes.post("/", async (c) => {
   );
 
   try {
-    const crawlerResponse = await fetch(`${c.env.CRAWLER_URL}/crawl`, {
+    const crawlerResponse = await fetch(`${c.env.CRAWLER_URL}/api/v1/jobs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

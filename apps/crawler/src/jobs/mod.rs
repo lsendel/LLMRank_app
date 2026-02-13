@@ -341,7 +341,7 @@ impl JobManager {
             .expect("HMAC can take key of any size");
         mac.update(timestamp.as_bytes());
         mac.update(body.as_bytes());
-        let signature = hex::encode(mac.finalize().into_bytes());
+        let signature = format!("hmac-sha256={}", hex::encode(mac.finalize().into_bytes()));
 
         let client = reqwest::Client::new();
         match client

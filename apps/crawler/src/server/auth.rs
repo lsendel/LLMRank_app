@@ -98,7 +98,12 @@ pub async fn verify_hmac(
 
     let expected = hex::encode(mac.finalize().into_bytes());
 
-    if expected != signature {
+    // Strip "hmac-sha256=" prefix if present (API sends this format)
+    let provided_hex = signature
+        .strip_prefix("hmac-sha256=")
+        .unwrap_or(&signature);
+
+    if expected != provided_hex {
         return (StatusCode::UNAUTHORIZED, "HMAC signature verification failed").into_response();
     }
 
