@@ -30,16 +30,14 @@ export interface Project {
   id: string;
   name: string;
   domain: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   settings: {
     maxPages: number;
     maxDepth: number;
     schedule: "manual" | "daily" | "weekly" | "monthly";
   };
-  last_crawl_id: string | null;
-  last_score: number | null;
-  last_letter_grade: string | null;
+  latestCrawl?: CrawlJob | null;
 }
 
 export interface CreateProjectInput {
@@ -58,66 +56,60 @@ export interface UpdateProjectInput {
 
 export interface CrawlJob {
   id: string;
-  project_id: string;
+  projectId: string;
   status: "pending" | "crawling" | "scoring" | "complete" | "failed";
-  started_at: string | null;
-  completed_at: string | null;
-  pages_found: number;
-  pages_crawled: number;
-  pages_scored: number;
-  pages_errored: number;
-  overall_score: number | null;
-  letter_grade: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  pagesFound: number;
+  pagesCrawled: number;
+  pagesScored: number;
+  pagesErrored: number;
+  overallScore: number | null;
+  letterGrade: string | null;
   scores: {
     technical: number;
     content: number;
-    ai_readiness: number;
+    aiReadiness: number;
     performance: number;
   } | null;
-  error_message: string | null;
-}
-
-export interface CrawlProgress {
-  status: "pending" | "crawling" | "scoring" | "complete" | "failed";
-  pages_found: number;
-  pages_crawled: number;
-  pages_scored: number;
-  started_at: string | null;
+  errorMessage: string | null;
+  projectName?: string;
+  projectId2?: string;
 }
 
 export interface CrawledPage {
   id: string;
-  crawl_id: string;
+  crawlId: string;
   url: string;
-  status_code: number;
+  statusCode: number;
   title: string | null;
-  meta_description: string | null;
-  word_count: number;
-  overall_score: number | null;
-  technical_score: number | null;
-  content_score: number | null;
-  ai_readiness_score: number | null;
-  performance_score: number | null;
-  letter_grade: string | null;
-  issue_count: number;
+  metaDescription: string | null;
+  wordCount: number;
+  overallScore: number | null;
+  technicalScore: number | null;
+  contentScore: number | null;
+  aiReadinessScore: number | null;
+  performanceScore: number | null;
+  letterGrade: string | null;
+  issueCount: number;
 }
 
 export interface PageDetail extends CrawledPage {
-  canonical_url: string | null;
+  canonicalUrl: string | null;
   extracted: {
     h1: string[];
     h2: string[];
-    schema_types: string[];
-    internal_links: string[];
-    external_links: string[];
-    images_without_alt: number;
-    has_robots_meta: boolean;
+    schemaTypes: string[];
+    internalLinks: string[];
+    externalLinks: string[];
+    imagesWithoutAlt: number;
+    hasRobotsMeta: boolean;
   };
   lighthouse: {
     performance: number;
     seo: number;
     accessibility: number;
-    best_practices: number;
+    bestPractices: number;
   } | null;
   issues: PageIssue[];
 }
@@ -131,33 +123,26 @@ export interface PageIssue {
   data?: Record<string, unknown>;
 }
 
-export interface ProjectScore {
-  crawl_id: string;
-  overall_score: number;
-  technical_score: number;
-  content_score: number;
-  ai_readiness_score: number;
-  performance_score: number;
-  letter_grade: string;
-  scored_at: string;
-}
-
 export interface BillingInfo {
   plan: "free" | "starter" | "pro" | "agency";
-  crawls_used: number;
-  crawls_limit: number;
-  projects_used: number;
-  projects_limit: number;
-  current_period_end: string;
-  stripe_customer_id: string | null;
+  crawlCreditsRemaining: number;
+  crawlCreditsTotal: number;
+  maxPagesPerCrawl: number;
+  maxDepth: number;
+  maxProjects: number;
 }
 
 export interface DashboardStats {
-  total_projects: number;
-  total_crawls: number;
-  avg_score: number;
-  credits_remaining: number;
-  credits_total: number;
+  totalProjects: number;
+  totalCrawls: number;
+  avgScore: number;
+  creditsRemaining: number;
+  creditsTotal: number;
+}
+
+export interface DashboardActivity extends CrawlJob {
+  projectName: string;
+  projectId: string;
 }
 
 // ─── Request helpers ────────────────────────────────────────────────
@@ -204,9 +189,25 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
+// ─── Envelope unwrapper ─────────────────────────────────────────────
+
+interface ApiEnvelope<T> {
+  data: T;
+}
+
+interface PaginatedEnvelope<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 // ─── Base client ────────────────────────────────────────────────────
 
-export const apiClient = {
+const apiClient = {
   get<T>(path: string, options?: RequestOptions): Promise<T> {
     return request<T>(path, { ...options, method: "GET" });
   },
@@ -219,163 +220,161 @@ export const apiClient = {
     return request<T>(path, { ...options, method: "PUT", body });
   },
 
-  patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    return request<T>(path, { ...options, method: "PATCH", body });
-  },
-
   delete<T>(path: string, options?: RequestOptions): Promise<T> {
     return request<T>(path, { ...options, method: "DELETE" });
   },
 };
+
+// ─── Query string helper ────────────────────────────────────────────
+
+function buildQueryString(
+  params?: Record<string, string | number | undefined>,
+): string {
+  if (!params) return "";
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      searchParams.set(key, String(value));
+    }
+  }
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : "";
+}
 
 // ─── Domain-specific API methods ────────────────────────────────────
 
 export const api = {
   // ── Dashboard ───────────────────────────────────────────────────
   dashboard: {
-    getStats(token: string): Promise<DashboardStats> {
-      return apiClient.get("/dashboard/stats", { token });
+    async getStats(token: string): Promise<DashboardStats> {
+      const res = await apiClient.get<ApiEnvelope<DashboardStats>>(
+        "/api/dashboard/stats",
+        { token },
+      );
+      return res.data;
     },
-    getRecentActivity(token: string): Promise<CrawlJob[]> {
-      return apiClient.get("/dashboard/activity", { token });
+    async getRecentActivity(token: string): Promise<DashboardActivity[]> {
+      const res = await apiClient.get<ApiEnvelope<DashboardActivity[]>>(
+        "/api/dashboard/activity",
+        { token },
+      );
+      return res.data;
     },
   },
 
   // ── Projects ────────────────────────────────────────────────────
   projects: {
-    list(
+    async list(
       token: string,
       params?: { page?: number; limit?: number },
     ): Promise<PaginatedResponse<Project>> {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const qs = searchParams.toString();
-      return apiClient.get(`/projects${qs ? `?${qs}` : ""}`, { token });
+      const qs = buildQueryString(params);
+      return apiClient.get<PaginatedResponse<Project>>(`/api/projects${qs}`, {
+        token,
+      });
     },
 
-    get(token: string, projectId: string): Promise<Project> {
-      return apiClient.get(`/projects/${projectId}`, { token });
+    async get(token: string, projectId: string): Promise<Project> {
+      const res = await apiClient.get<ApiEnvelope<Project>>(
+        `/api/projects/${projectId}`,
+        { token },
+      );
+      return res.data;
     },
 
-    create(token: string, data: CreateProjectInput): Promise<Project> {
-      return apiClient.post("/projects", data, { token });
+    async create(token: string, data: CreateProjectInput): Promise<Project> {
+      const res = await apiClient.post<ApiEnvelope<Project>>(
+        "/api/projects",
+        data,
+        { token },
+      );
+      return res.data;
     },
 
-    update(
+    async update(
       token: string,
       projectId: string,
       data: UpdateProjectInput,
     ): Promise<Project> {
-      return apiClient.patch(`/projects/${projectId}`, data, { token });
+      const res = await apiClient.put<ApiEnvelope<Project>>(
+        `/api/projects/${projectId}`,
+        data,
+        { token },
+      );
+      return res.data;
     },
 
-    delete(token: string, projectId: string): Promise<void> {
-      return apiClient.delete(`/projects/${projectId}`, { token });
+    async delete(token: string, projectId: string): Promise<void> {
+      await apiClient.delete<ApiEnvelope<{ id: string; deleted: boolean }>>(
+        `/api/projects/${projectId}`,
+        { token },
+      );
     },
   },
 
   // ── Crawls ──────────────────────────────────────────────────────
   crawls: {
-    start(token: string, projectId: string): Promise<CrawlJob> {
-      return apiClient.post(`/projects/${projectId}/crawls`, undefined, {
-        token,
-      });
+    async start(token: string, projectId: string): Promise<CrawlJob> {
+      const res = await apiClient.post<ApiEnvelope<CrawlJob>>(
+        "/api/crawls",
+        { projectId },
+        { token },
+      );
+      return res.data;
     },
 
-    list(
+    async list(
       token: string,
       projectId: string,
       params?: { page?: number; limit?: number },
     ): Promise<PaginatedResponse<CrawlJob>> {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const qs = searchParams.toString();
-      return apiClient.get(
-        `/projects/${projectId}/crawls${qs ? `?${qs}` : ""}`,
+      const qs = buildQueryString(params);
+      return apiClient.get<PaginatedResponse<CrawlJob>>(
+        `/api/crawls/project/${projectId}${qs}`,
         { token },
       );
     },
 
-    get(token: string, crawlId: string): Promise<CrawlJob> {
-      return apiClient.get(`/crawls/${crawlId}`, { token });
-    },
-
-    getProgress(token: string, crawlId: string): Promise<CrawlProgress> {
-      return apiClient.get(`/crawls/${crawlId}/progress`, { token });
-    },
-
-    cancel(token: string, crawlId: string): Promise<void> {
-      return apiClient.post(`/crawls/${crawlId}/cancel`, undefined, { token });
+    async get(token: string, crawlId: string): Promise<CrawlJob> {
+      const res = await apiClient.get<ApiEnvelope<CrawlJob>>(
+        `/api/crawls/${crawlId}`,
+        { token },
+      );
+      return res.data;
     },
   },
 
   // ── Pages ───────────────────────────────────────────────────────
   pages: {
-    list(
+    async list(
       token: string,
       crawlId: string,
-      params?: { page?: number; limit?: number; sort?: string; order?: string },
+      params?: {
+        page?: number;
+        limit?: number;
+        sort?: string;
+        order?: string;
+      },
     ): Promise<PaginatedResponse<CrawledPage>> {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      if (params?.sort) searchParams.set("sort", params.sort);
-      if (params?.order) searchParams.set("order", params.order);
-      const qs = searchParams.toString();
-      return apiClient.get(`/crawls/${crawlId}/pages${qs ? `?${qs}` : ""}`, {
-        token,
-      });
-    },
-
-    get(token: string, pageId: string): Promise<PageDetail> {
-      return apiClient.get(`/pages/${pageId}`, { token });
-    },
-  },
-
-  // ── Scores ──────────────────────────────────────────────────────
-  scores: {
-    getProjectHistory(
-      token: string,
-      projectId: string,
-      params?: { limit?: number },
-    ): Promise<ProjectScore[]> {
-      const searchParams = new URLSearchParams();
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const qs = searchParams.toString();
-      return apiClient.get(
-        `/projects/${projectId}/scores${qs ? `?${qs}` : ""}`,
+      const qs = buildQueryString(params);
+      return apiClient.get<PaginatedResponse<CrawledPage>>(
+        `/api/pages/job/${crawlId}${qs}`,
         { token },
       );
+    },
+
+    async get(token: string, pageId: string): Promise<PageDetail> {
+      const res = await apiClient.get<ApiEnvelope<PageDetail>>(
+        `/api/pages/${pageId}`,
+        { token },
+      );
+      return res.data;
     },
   },
 
   // ── Issues ──────────────────────────────────────────────────────
   issues: {
-    listForProject(
-      token: string,
-      projectId: string,
-      params?: {
-        page?: number;
-        limit?: number;
-        severity?: string;
-        category?: string;
-      },
-    ): Promise<PaginatedResponse<PageIssue>> {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      if (params?.severity) searchParams.set("severity", params.severity);
-      if (params?.category) searchParams.set("category", params.category);
-      const qs = searchParams.toString();
-      return apiClient.get(
-        `/projects/${projectId}/issues${qs ? `?${qs}` : ""}`,
-        { token },
-      );
-    },
-
-    listForCrawl(
+    async listForCrawl(
       token: string,
       crawlId: string,
       params?: {
@@ -385,52 +384,53 @@ export const api = {
         category?: string;
       },
     ): Promise<PaginatedResponse<PageIssue>> {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      if (params?.severity) searchParams.set("severity", params.severity);
-      if (params?.category) searchParams.set("category", params.category);
-      const qs = searchParams.toString();
-      return apiClient.get(`/crawls/${crawlId}/issues${qs ? `?${qs}` : ""}`, {
-        token,
-      });
+      const qs = buildQueryString(params);
+      return apiClient.get<PaginatedResponse<PageIssue>>(
+        `/api/pages/issues/job/${crawlId}${qs}`,
+        { token },
+      );
     },
   },
 
   // ── Billing ─────────────────────────────────────────────────────
   billing: {
-    getInfo(token: string): Promise<BillingInfo> {
-      return apiClient.get("/billing", { token });
+    async getInfo(token: string): Promise<BillingInfo> {
+      const res = await apiClient.get<ApiEnvelope<BillingInfo>>(
+        "/api/billing/usage",
+        { token },
+      );
+      return res.data;
     },
 
-    createCheckoutSession(
+    async createCheckoutSession(
       token: string,
       plan: string,
-    ): Promise<{ checkout_url: string }> {
-      return apiClient.post("/billing/checkout", { plan }, { token });
+      successUrl: string,
+      cancelUrl: string,
+    ): Promise<{ sessionId: string; url: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ sessionId: string; url: string }>
+      >("/api/billing/checkout", { plan, successUrl, cancelUrl }, { token });
+      return res.data;
     },
 
-    createPortalSession(token: string): Promise<{ portal_url: string }> {
-      return apiClient.post("/billing/portal", undefined, { token });
+    async createPortalSession(
+      token: string,
+      returnUrl: string,
+    ): Promise<{ url: string }> {
+      const res = await apiClient.post<ApiEnvelope<{ url: string }>>(
+        "/api/billing/portal",
+        { returnUrl },
+        { token },
+      );
+      return res.data;
     },
   },
 
   // ── Account ─────────────────────────────────────────────────────
   account: {
-    deleteAccount(token: string): Promise<void> {
-      return apiClient.delete("/account", { token });
-    },
-
-    updateNotificationPreferences(
-      token: string,
-      prefs: {
-        crawl_complete?: boolean;
-        weekly_report?: boolean;
-        score_drops?: boolean;
-        new_issues?: boolean;
-      },
-    ): Promise<void> {
-      return apiClient.patch("/account/notifications", prefs, { token });
+    async deleteAccount(token: string): Promise<void> {
+      await apiClient.delete<void>("/api/account", { token });
     },
   },
 };

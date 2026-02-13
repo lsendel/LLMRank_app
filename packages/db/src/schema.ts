@@ -64,6 +64,7 @@ export const llmProviderEnum = pgEnum("llm_provider", [
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
+  clerkId: text("clerk_id").unique(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
   plan: planEnum("plan").notNull().default("free"),

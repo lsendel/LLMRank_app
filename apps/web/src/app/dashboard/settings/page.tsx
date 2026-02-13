@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,17 +30,8 @@ import {
   AlertTriangle,
   Check,
 } from "lucide-react";
-
-// Placeholder data
-const currentPlan = {
-  tier: "starter" as const,
-  name: "Starter",
-  crawlsPerMonth: 10,
-  crawlsUsed: 4,
-  pagesPerCrawl: 100,
-  projects: 5,
-  projectsUsed: 3,
-};
+import { useApi } from "@/lib/use-api";
+import { api, type BillingInfo } from "@/lib/api";
 
 const plans = [
   {
@@ -56,7 +48,7 @@ const plans = [
   {
     tier: "starter",
     name: "Starter",
-    price: "$29/mo",
+    price: "$79/mo",
     features: [
       "5 projects",
       "100 pages per crawl",
@@ -68,7 +60,7 @@ const plans = [
   {
     tier: "pro",
     name: "Pro",
-    price: "$99/mo",
+    price: "$149/mo",
     features: [
       "20 projects",
       "500 pages per crawl",
@@ -80,7 +72,7 @@ const plans = [
   {
     tier: "agency",
     name: "Agency",
-    price: "$249/mo",
+    price: "$299/mo",
     features: [
       "50 projects",
       "2000 pages per crawl",
@@ -92,7 +84,19 @@ const plans = [
   },
 ];
 
+const planNameMap: Record<string, string> = {
+  free: "Free",
+  starter: "Starter",
+  pro: "Pro",
+  agency: "Agency",
+};
+
 export default function SettingsPage() {
+  const { withToken } = useApi();
+  const { signOut } = useClerk();
+
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [loading, setLoading] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState({
     crawlComplete: true,
     weeklyReport: true,
@@ -101,26 +105,75 @@ export default function SettingsPage() {
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [upgrading, setUpgrading] = useState<string | null>(null);
 
-  const handleToggle = (key: keyof typeof emailNotifications) => {
+  useEffect(() => {
+    withToken(async (token) => {
+      const info = await api.billing.getInfo(token);
+      setBilling(info);
+    })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [withToken]);
+
+  function handleToggle(key: keyof typeof emailNotifications) {
     setEmailNotifications((prev) => ({
       ...prev,
       [key]: !prev[key],
     }));
-  };
+  }
 
-  const handleDeleteAccount = async () => {
+  async function handleUpgrade(planTier: string) {
+    setUpgrading(planTier);
+    try {
+      await withToken(async (token) => {
+        const result = await api.billing.createCheckoutSession(
+          token,
+          planTier,
+          window.location.origin + "/dashboard/settings?upgraded=true",
+          window.location.origin + "/dashboard/settings",
+        );
+        window.location.href = result.url;
+      });
+    } catch (err) {
+      console.error(err);
+      setUpgrading(null);
+    }
+  }
+
+  async function handleDeleteAccount() {
     setDeleting(true);
-    // TODO: Call API to delete account
-    setTimeout(() => {
+    try {
+      await withToken(async (token) => {
+        await api.account.deleteAccount(token);
+      });
+      await signOut();
+    } catch (err) {
+      console.error(err);
       setDeleting(false);
       setDeleteDialogOpen(false);
-    }, 2000);
-  };
+    }
+  }
 
-  const creditsRemaining = currentPlan.crawlsPerMonth - currentPlan.crawlsUsed;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-muted-foreground">Loading settings...</p>
+      </div>
+    );
+  }
+
+  const currentTier = billing?.plan ?? "free";
+  const currentPlanName = planNameMap[currentTier] ?? "Free";
+  const crawlsUsed =
+    billing != null
+      ? billing.crawlCreditsTotal - billing.crawlCreditsRemaining
+      : 0;
+  const crawlsTotal = billing?.crawlCreditsTotal ?? 0;
+  const creditsRemaining = billing?.crawlCreditsRemaining ?? 0;
   const creditsPercentUsed =
-    (currentPlan.crawlsUsed / currentPlan.crawlsPerMonth) * 100;
+    crawlsTotal > 0 ? (crawlsUsed / crawlsTotal) * 100 : 0;
+  const currentTierIndex = plans.findIndex((p) => p.tier === currentTier);
 
   return (
     <div className="space-y-8">
@@ -141,7 +194,7 @@ export default function SettingsPage() {
           <CardDescription>
             You are on the{" "}
             <span className="font-semibold text-foreground">
-              {currentPlan.name}
+              {currentPlanName}
             </span>{" "}
             plan.
           </CardDescription>
@@ -152,7 +205,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Crawl Credits</span>
               <span className="font-medium">
-                {creditsRemaining} of {currentPlan.crawlsPerMonth} remaining
+                {creditsRemaining} of {crawlsTotal} remaining
               </span>
             </div>
             <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
@@ -166,15 +219,15 @@ export default function SettingsPage() {
           {/* Usage stats */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">Projects</p>
+              <p className="text-xs text-muted-foreground">Max Projects</p>
               <p className="text-lg font-semibold">
-                {currentPlan.projectsUsed} / {currentPlan.projects}
+                {billing?.maxProjects ?? "--"}
               </p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs text-muted-foreground">Pages per Crawl</p>
               <p className="text-lg font-semibold">
-                {currentPlan.pagesPerCrawl}
+                {billing?.maxPagesPerCrawl ?? "--"}
               </p>
             </div>
             <div className="rounded-lg border border-border p-3">
@@ -182,16 +235,22 @@ export default function SettingsPage() {
                 Monthly Crawls Used
               </p>
               <p className="text-lg font-semibold">
-                {currentPlan.crawlsUsed} / {currentPlan.crawlsPerMonth}
+                {crawlsUsed} / {crawlsTotal}
               </p>
             </div>
           </div>
         </CardContent>
         <CardFooter>
-          <Button>
-            <Zap className="h-4 w-4" />
-            Upgrade Plan
-          </Button>
+          {currentTier !== "agency" && (
+            <Button
+              onClick={() =>
+                handleUpgrade(plans[currentTierIndex + 1]?.tier ?? "starter")
+              }
+            >
+              <Zap className="h-4 w-4" />
+              Upgrade Plan
+            </Button>
+          )}
         </CardFooter>
       </Card>
 
@@ -205,18 +264,18 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {plans.map((plan) => (
+            {plans.map((plan, index) => (
               <div
                 key={plan.tier}
                 className={`rounded-lg border p-4 ${
-                  plan.tier === currentPlan.tier
+                  plan.tier === currentTier
                     ? "border-primary bg-primary/5"
                     : "border-border"
                 }`}
               >
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="font-semibold">{plan.name}</h3>
-                  {plan.tier === currentPlan.tier && (
+                  {plan.tier === currentTier && (
                     <Badge variant="default">Current</Badge>
                   )}
                 </div>
@@ -232,12 +291,19 @@ export default function SettingsPage() {
                     </li>
                   ))}
                 </ul>
-                {plan.tier !== currentPlan.tier && (
-                  <Button variant="outline" size="sm" className="mt-4 w-full">
-                    {plans.indexOf(plan) >
-                    plans.findIndex((p) => p.tier === currentPlan.tier)
-                      ? "Upgrade"
-                      : "Downgrade"}
+                {plan.tier !== currentTier && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 w-full"
+                    disabled={upgrading === plan.tier}
+                    onClick={() => handleUpgrade(plan.tier)}
+                  >
+                    {upgrading === plan.tier
+                      ? "Redirecting..."
+                      : index > currentTierIndex
+                        ? "Upgrade"
+                        : "Downgrade"}
                   </Button>
                 )}
               </div>

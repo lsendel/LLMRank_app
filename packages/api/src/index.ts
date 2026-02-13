@@ -11,6 +11,8 @@ import { pageRoutes } from "./routes/pages";
 import { billingRoutes } from "./routes/billing";
 import { ingestRoutes } from "./routes/ingest";
 import { visibilityRoutes } from "./routes/visibility";
+import { dashboardRoutes } from "./routes/dashboard";
+import { accountRoutes } from "./routes/account";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -77,6 +79,8 @@ app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
 app.route("/ingest", ingestRoutes);
 app.route("/api/visibility", visibilityRoutes);
+app.route("/api/dashboard", dashboardRoutes);
+app.route("/api/account", accountRoutes);
 
 // Fallback
 app.notFound((c) => {

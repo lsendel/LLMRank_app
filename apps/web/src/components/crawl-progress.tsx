@@ -99,16 +99,18 @@ export function CrawlProgress({
 
   const fetchProgress = useCallback(async () => {
     try {
-      const response = await fetch(`/api/crawls/${crawlId}/progress`);
+      const response = await fetch(`/api/crawls/${crawlId}`);
       if (!response.ok) return;
-      const data = await response.json();
+      const json = await response.json();
+      const data = json.data ?? json;
       setState((prev) => ({
         ...prev,
         status: data.status ?? prev.status,
-        pagesFound: data.pages_found ?? prev.pagesFound,
-        pagesCrawled: data.pages_crawled ?? prev.pagesCrawled,
-        pagesScored: data.pages_scored ?? prev.pagesScored,
-        startedAt: data.started_at ?? prev.startedAt,
+        pagesFound: data.pagesFound ?? data.pages_found ?? prev.pagesFound,
+        pagesCrawled:
+          data.pagesCrawled ?? data.pages_crawled ?? prev.pagesCrawled,
+        pagesScored: data.pagesScored ?? data.pages_scored ?? prev.pagesScored,
+        startedAt: data.startedAt ?? data.started_at ?? prev.startedAt,
       }));
       if (data.status === "complete" && onComplete) {
         onComplete();

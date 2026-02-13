@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -24,63 +25,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-// Placeholder data -- will be replaced with API calls
-const stats = {
-  totalProjects: 3,
-  totalCrawls: 12,
-  avgScore: 72,
-  creditsRemaining: 6,
-  creditsTotal: 10,
-};
-
-const recentActivity = [
-  {
-    id: "c1",
-    projectName: "acme.com",
-    projectId: "1",
-    status: "complete" as const,
-    overallScore: 72,
-    pagesScanned: 45,
-    completedAt: "2025-01-15T10:45:00Z",
-  },
-  {
-    id: "c2",
-    projectName: "widgets.io",
-    projectId: "2",
-    status: "complete" as const,
-    overallScore: 58,
-    pagesScanned: 22,
-    completedAt: "2025-01-14T08:30:00Z",
-  },
-  {
-    id: "c3",
-    projectName: "blog.example.com",
-    projectId: "3",
-    status: "complete" as const,
-    overallScore: 85,
-    pagesScanned: 12,
-    completedAt: "2025-01-14T12:15:00Z",
-  },
-  {
-    id: "c4",
-    projectName: "acme.com",
-    projectId: "1",
-    status: "complete" as const,
-    overallScore: 65,
-    pagesScanned: 42,
-    completedAt: "2025-01-08T10:12:00Z",
-  },
-  {
-    id: "c5",
-    projectName: "widgets.io",
-    projectId: "2",
-    status: "failed" as const,
-    overallScore: null,
-    pagesScanned: 5,
-    completedAt: "2025-01-07T09:00:00Z",
-  },
-];
+import { useApi } from "@/lib/use-api";
+import { api, type DashboardStats, type DashboardActivity } from "@/lib/api";
 
 function gradeColor(score: number): string {
   if (score >= 80) return "text-success";
@@ -102,9 +48,54 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
+function getStatusBadgeVariant(
+  status: string,
+): "success" | "destructive" | "warning" | "secondary" {
+  if (status === "complete") return "success";
+  if (status === "failed") return "destructive";
+  if (status === "crawling" || status === "scoring") return "warning";
+  return "secondary";
+}
+
 export default function DashboardPage() {
   const { user } = useUser();
+  const { withToken } = useApi();
   const firstName = user?.firstName ?? "there";
+
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activity, setActivity] = useState<DashboardActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    withToken(async (token) => {
+      const [s, a] = await Promise.all([
+        api.dashboard.getStats(token),
+        api.dashboard.getRecentActivity(token),
+      ]);
+      setStats(s);
+      setActivity(a);
+    })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [withToken]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-muted-foreground">
+          No data yet. Create your first project to get started.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -242,74 +233,80 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-0">
-            {recentActivity.map((activity, index) => (
-              <div key={activity.id}>
-                {index > 0 && <div className="border-t border-border" />}
-                <div className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full",
-                        activity.status === "complete"
-                          ? "bg-success/10"
-                          : "bg-destructive/10",
-                      )}
-                    >
-                      {activity.status === "complete" ? (
-                        <BarChart3 className="h-4 w-4 text-success" />
-                      ) : (
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/dashboard/projects/${activity.projectId}`}
-                          className="text-sm font-medium hover:text-primary"
-                        >
-                          {activity.projectName}
-                        </Link>
-                        <Badge
-                          variant={
-                            activity.status === "complete"
-                              ? "success"
-                              : "destructive"
-                          }
-                        >
-                          {activity.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          {activity.pagesScanned} pages
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatRelativeTime(activity.completedAt)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    {activity.overallScore !== null ? (
-                      <span
+          {activity.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              No recent activity. Start a crawl to see results here.
+            </p>
+          ) : (
+            <div className="space-y-0">
+              {activity.map((item, index) => (
+                <div key={item.id}>
+                  {index > 0 && <div className="border-t border-border" />}
+                  <div className="flex items-center justify-between py-3">
+                    <div className="flex items-center gap-3">
+                      <div
                         className={cn(
-                          "text-lg font-bold",
-                          gradeColor(activity.overallScore),
+                          "flex h-8 w-8 items-center justify-center rounded-full",
+                          item.status === "complete"
+                            ? "bg-success/10"
+                            : item.status === "failed"
+                              ? "bg-destructive/10"
+                              : "bg-warning/10",
                         )}
                       >
-                        {activity.overallScore}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">--</span>
-                    )}
+                        {item.status === "complete" ? (
+                          <BarChart3 className="h-4 w-4 text-success" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-destructive" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/dashboard/projects/${item.projectId}`}
+                            className="text-sm font-medium hover:text-primary"
+                          >
+                            {item.projectName}
+                          </Link>
+                          <Badge variant={getStatusBadgeVariant(item.status)}>
+                            {item.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            {item.pagesScored} pages
+                          </span>
+                          {item.completedAt && (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatRelativeTime(item.completedAt)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {item.overallScore !== null ? (
+                        <span
+                          className={cn(
+                            "text-lg font-bold",
+                            gradeColor(item.overallScore),
+                          )}
+                        >
+                          {item.overallScore}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          --
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

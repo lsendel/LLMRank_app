@@ -117,6 +117,24 @@ crawlRoutes.post("/", async (c) => {
     config: crawlConfig,
   });
 
+  // If no crawler URL configured, mark job as unavailable
+  if (!c.env.CRAWLER_URL) {
+    await crawlQueries(db).updateStatus(crawlJob.id, {
+      status: "failed",
+      errorMessage: "Crawler service is not yet available. Coming soon!",
+    });
+    return c.json(
+      {
+        data: {
+          ...crawlJob,
+          status: "failed",
+          errorMessage: "Crawler service is not yet available.",
+        },
+      },
+      201,
+    );
+  }
+
   // Build callback URL
   const callbackUrl = new URL("/ingest/batch", c.req.url).toString();
 
@@ -214,4 +232,28 @@ crawlRoutes.get("/:id", async (c) => {
   }
 
   return c.json({ data: crawlJob });
+});
+
+// ---------------------------------------------------------------------------
+// GET /project/:projectId — List crawls for a project
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/project/:projectId", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const crawls = await crawlQueries(db).listByProject(projectId);
+  return c.json({
+    data: crawls,
+    pagination: { page: 1, limit: 50, total: crawls.length, totalPages: 1 },
+  });
 });

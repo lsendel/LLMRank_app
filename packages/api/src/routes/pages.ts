@@ -9,6 +9,14 @@ import {
 } from "@llm-boost/db";
 import { ERROR_CODES } from "@llm-boost/shared";
 
+function letterGrade(score: number): string {
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  if (score >= 60) return "D";
+  return "F";
+}
+
 export const pageRoutes = new Hono<AppEnv>();
 
 // All page routes require authentication
@@ -54,5 +62,83 @@ pageRoutes.get("/:id", async (c) => {
       score: score ?? null,
       issues,
     },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /job/:jobId — List all pages for a crawl job
+// ---------------------------------------------------------------------------
+
+pageRoutes.get("/job/:jobId", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const jobId = c.req.param("jobId");
+
+  const crawl = await crawlQueries(db).getById(jobId);
+  if (!crawl) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(crawl.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  const pageList = await pageQueries(db).listByJob(jobId);
+  const pagesWithScores = await Promise.all(
+    pageList.map(async (page) => {
+      const [score, issueList] = await Promise.all([
+        scoreQueries(db).getByPage(page.id),
+        scoreQueries(db).getIssuesByPage(page.id),
+      ]);
+      return {
+        ...page,
+        overall_score: score?.overallScore ?? null,
+        technical_score: score?.technicalScore ?? null,
+        content_score: score?.contentScore ?? null,
+        ai_readiness_score: score?.aiReadinessScore ?? null,
+        letter_grade: score ? letterGrade(score.overallScore) : null,
+        issue_count: issueList.length,
+      };
+    }),
+  );
+
+  return c.json({
+    data: pagesWithScores,
+    pagination: {
+      page: 1,
+      limit: 100,
+      total: pagesWithScores.length,
+      totalPages: 1,
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /issues/job/:jobId — List all issues for a crawl job
+// ---------------------------------------------------------------------------
+
+pageRoutes.get("/issues/job/:jobId", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const jobId = c.req.param("jobId");
+
+  const crawl = await crawlQueries(db).getById(jobId);
+  if (!crawl) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  const project = await projectQueries(db).getById(crawl.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  const allIssues = await scoreQueries(db).getIssuesByJob(jobId);
+  return c.json({
+    data: allIssues,
+    pagination: { page: 1, limit: 500, total: allIssues.length, totalPages: 1 },
   });
 });

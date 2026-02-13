@@ -12,12 +12,19 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { useApi } from "@/lib/use-api";
+import { api, ApiError } from "@/lib/api";
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const { getToken } = useApi();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; domain?: string }>({});
+  const [errors, setErrors] = useState<{
+    name?: string;
+    domain?: string;
+    form?: string;
+  }>({});
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -53,12 +60,23 @@ export default function NewProjectPage() {
 
     setSubmitting(true);
 
-    // TODO: Call API to create project
-    // const response = await apiClient.post("/projects", { name, domain });
-    // router.push(`/dashboard/projects/${response.id}`);
-
-    // For now, redirect back to the projects list
-    router.push("/dashboard/projects");
+    try {
+      const token = await getToken();
+      if (!token) {
+        setErrors({ form: "Not authenticated. Please sign in again." });
+        setSubmitting(false);
+        return;
+      }
+      const result = await api.projects.create(token, { name, domain });
+      router.push(`/dashboard/projects/${result.id}`);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrors({ form: err.message });
+      } else {
+        setErrors({ form: "Something went wrong. Please try again." });
+      }
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -72,6 +90,13 @@ export default function NewProjectPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Form-level error */}
+            {errors.form && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {errors.form}
+              </div>
+            )}
+
             {/* Name field */}
             <div className="space-y-2">
               <Label htmlFor="name">Project Name</Label>

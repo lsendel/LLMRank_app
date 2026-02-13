@@ -1,36 +1,13 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-
-// Placeholder data -- will be replaced with API calls
-const placeholderProjects = [
-  {
-    id: "1",
-    name: "acme.com",
-    domain: "https://acme.com",
-    lastScore: 72,
-    lastCrawl: "2025-01-15T10:30:00Z",
-    pagesScanned: 45,
-  },
-  {
-    id: "2",
-    name: "widgets.io",
-    domain: "https://widgets.io",
-    lastScore: 58,
-    lastCrawl: "2025-01-14T08:15:00Z",
-    pagesScanned: 22,
-  },
-  {
-    id: "3",
-    name: "blog.example.com",
-    domain: "https://blog.example.com",
-    lastScore: 85,
-    lastCrawl: "2025-01-15T12:00:00Z",
-    pagesScanned: 12,
-  },
-];
+import { useApi } from "@/lib/use-api";
+import { api, type Project } from "@/lib/api";
 
 function gradeColor(score: number): string {
   if (score >= 80) return "text-success";
@@ -46,7 +23,34 @@ function gradeBadgeVariant(
   return "destructive";
 }
 
+function gradeLabel(score: number): string {
+  if (score >= 80) return "Good";
+  if (score >= 60) return "Needs Work";
+  return "Poor";
+}
+
 export default function ProjectsPage() {
+  const { withToken } = useApi();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    withToken(async (token) => {
+      const result = await api.projects.list(token);
+      setProjects(result.data);
+    })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [withToken]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-muted-foreground">Loading projects...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -66,50 +70,73 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {placeholderProjects.map((project) => (
-          <Link key={project.id} href={`/dashboard/projects/${project.id}`}>
-            <Card className="group transition-shadow hover:shadow-md">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold group-hover:text-primary">
-                      {project.name}
-                    </h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {project.domain}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span
-                      className={`text-2xl font-bold ${gradeColor(project.lastScore)}`}
-                    >
-                      {project.lastScore}
-                    </span>
-                    <Badge variant={gradeBadgeVariant(project.lastScore)}>
-                      {project.lastScore >= 80
-                        ? "Good"
-                        : project.lastScore >= 60
-                          ? "Needs Work"
-                          : "Poor"}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
-                  <span>{project.pagesScanned} pages scanned</span>
-                  <span>
-                    Last crawl:{" "}
-                    {new Date(project.lastCrawl).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {projects.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => {
+            const lastScore = project.latestCrawl?.overallScore ?? null;
+            const hasCrawl = project.latestCrawl != null;
+
+            return (
+              <Link key={project.id} href={`/dashboard/projects/${project.id}`}>
+                <Card className="group transition-shadow hover:shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold group-hover:text-primary">
+                          {project.name}
+                        </h3>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {project.domain}
+                        </p>
+                      </div>
+                      {lastScore !== null ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span
+                            className={`text-2xl font-bold ${gradeColor(lastScore)}`}
+                          >
+                            {lastScore}
+                          </span>
+                          <Badge variant={gradeBadgeVariant(lastScore)}>
+                            {gradeLabel(lastScore)}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <Badge variant="secondary">No crawls yet</Badge>
+                      )}
+                    </div>
+                    <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
+                      {hasCrawl && (
+                        <>
+                          <span>
+                            {project.latestCrawl!.pagesScored} pages scored
+                          </span>
+                          {project.latestCrawl!.completedAt && (
+                            <span>
+                              Last crawl:{" "}
+                              {new Date(
+                                project.latestCrawl!.completedAt,
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {!hasCrawl && (
+                        <span>
+                          Created{" "}
+                          {new Date(project.createdAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Empty state */}
-      {placeholderProjects.length === 0 && (
+      {projects.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <p className="text-muted-foreground">No projects yet.</p>

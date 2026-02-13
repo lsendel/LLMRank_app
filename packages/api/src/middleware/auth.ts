@@ -179,7 +179,17 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
 
   try {
     const payload = await verifyJWT(token, c.env.CLERK_SECRET_KEY);
-    c.set("userId", payload.sub);
+
+    // Resolve Clerk user to DB user (auto-provision on first call)
+    const db = c.get("db");
+    const { userQueries } = await import("@llm-boost/db");
+    let dbUser = await userQueries(db).getByClerkId(payload.sub);
+    if (!dbUser) {
+      const email = (payload.email as string) ?? `${payload.sub}@clerk.user`;
+      const name = (payload.first_name as string) ?? undefined;
+      dbUser = await userQueries(db).upsertFromClerk(payload.sub, email, name);
+    }
+    c.set("userId", dbUser.id);
     await next();
   } catch (error) {
     console.error("Auth error:", error);

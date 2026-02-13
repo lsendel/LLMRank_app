@@ -14,6 +14,22 @@ export function userQueries(db: Database) {
       return db.query.users.findFirst({ where: eq(users.email, email) });
     },
 
+    async getByClerkId(clerkId: string) {
+      return db.query.users.findFirst({ where: eq(users.clerkId, clerkId) });
+    },
+
+    async upsertFromClerk(clerkId: string, email: string, name?: string) {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.clerkId, clerkId),
+      });
+      if (existing) return existing;
+      const [user] = await db
+        .insert(users)
+        .values({ clerkId, email, name: name ?? null })
+        .returning();
+      return user;
+    },
+
     async create(data: { email: string; name?: string; avatarUrl?: string }) {
       const [user] = await db.insert(users).values(data).returning();
       return user;
