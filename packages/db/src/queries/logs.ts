@@ -1,0 +1,34 @@
+import { eq, desc } from "drizzle-orm";
+import type { Database } from "../client";
+import { logUploads } from "../schema";
+
+export function logQueries(db: Database) {
+  return {
+    async create(data: {
+      projectId: string;
+      userId: string;
+      filename: string;
+      totalRequests: number;
+      crawlerRequests: number;
+      uniqueIPs: number;
+      summary: unknown;
+    }) {
+      const [upload] = await db.insert(logUploads).values(data).returning();
+      return upload;
+    },
+
+    async listByProject(projectId: string, limit = 20) {
+      return db.query.logUploads.findMany({
+        where: eq(logUploads.projectId, projectId),
+        orderBy: desc(logUploads.createdAt),
+        limit,
+      });
+    },
+
+    async getById(id: string) {
+      return db.query.logUploads.findFirst({
+        where: eq(logUploads.id, id),
+      });
+    },
+  };
+}

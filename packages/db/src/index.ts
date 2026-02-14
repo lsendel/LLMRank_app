@@ -8,3 +8,4 @@ export { scoreQueries } from "./queries/scores";
 export { visibilityQueries } from "./queries/visibility";
 export { billingQueries } from "./queries/billing";
 export { adminQueries } from "./queries/admin";
+export { logQueries } from "./queries/logs";

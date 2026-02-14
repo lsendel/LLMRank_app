@@ -327,3 +327,27 @@ export const planPriceHistory = pgTable(
   },
   (t) => [index("idx_price_history_plan").on(t.planCode)],
 );
+
+// ---------------------------------------------------------------------------
+// Server Log Uploads
+// ---------------------------------------------------------------------------
+
+export const logUploads = pgTable(
+  "log_uploads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    totalRequests: integer("total_requests").notNull().default(0),
+    crawlerRequests: integer("crawler_requests").notNull().default(0),
+    uniqueIPs: integer("unique_ips").notNull().default(0),
+    summary: jsonb("summary"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_log_uploads_project").on(t.projectId)],
+);

@@ -7,3 +7,4 @@ export * from "./constants/plans";
 export * from "./constants/platform-requirements";
 export * from "./utils/env";
 export * from "./utils/quick-wins";
+export * from "./domain/log-analysis";
