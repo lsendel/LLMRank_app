@@ -17,6 +17,7 @@ export interface PlanLimits {
   visibilityChecks: number;
   historyDays: number;
   apiAccess: boolean;
+  integrations: string[];
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -30,6 +31,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     visibilityChecks: 3,
     historyDays: 30,
     apiAccess: false,
+    integrations: [],
   },
   starter: {
     pagesPerCrawl: 100,
@@ -41,6 +43,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     visibilityChecks: 25,
     historyDays: 90,
     apiAccess: false,
+    integrations: [],
   },
   pro: {
     pagesPerCrawl: 500,
@@ -52,6 +55,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     visibilityChecks: 100,
     historyDays: 365,
     apiAccess: true,
+    integrations: ["gsc", "psi"],
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -63,5 +67,6 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     visibilityChecks: 500,
     historyDays: 730,
     apiAccess: true,
+    integrations: ["gsc", "psi", "ga4", "clarity"],
   },
 };
