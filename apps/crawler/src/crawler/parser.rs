@@ -18,6 +18,11 @@ pub struct ParsedPage {
     pub robots_directives: Vec<String>,
     pub has_robots_meta: bool,
     pub word_count: u32,
+    pub flesch_score: Option<f64>,
+    pub flesch_classification: Option<String>,
+    pub text_html_ratio: Option<f64>,
+    pub text_length: Option<usize>,
+    pub html_length: Option<usize>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -48,6 +53,8 @@ impl Parser {
         let og_tags = Self::extract_og_tags(&document);
         let (has_robots_meta, robots_directives) = Self::extract_robots_meta(&document);
         let word_count = Self::compute_word_count(&document);
+        let flesch = super::readability::compute_flesch(&document);
+        let text_ratio = super::readability::compute_text_html_ratio(&document, html_content);
 
         ParsedPage {
             title,
@@ -63,6 +70,11 @@ impl Parser {
             robots_directives,
             has_robots_meta,
             word_count,
+            flesch_score: flesch.as_ref().map(|f| f.score),
+            flesch_classification: flesch.as_ref().map(|f| f.classification.clone()),
+            text_html_ratio: Some(text_ratio.ratio),
+            text_length: Some(text_ratio.text_length),
+            html_length: Some(text_ratio.html_length),
         }
     }
 

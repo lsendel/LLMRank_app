@@ -71,6 +71,16 @@ pub struct ExtractedData {
     pub og_tags: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structured_data: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flesch_score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flesch_classification: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_html_ratio: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_length: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html_length: Option<usize>,
 }
 
 // --- Lighthouse Result ---

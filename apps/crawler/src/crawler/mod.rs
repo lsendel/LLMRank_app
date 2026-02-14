@@ -1,6 +1,7 @@
 pub mod fetcher;
 pub mod frontier;
 pub mod parser;
+pub mod readability;
 pub mod robots;
 
 pub use fetcher::RateLimitedFetcher;
@@ -167,6 +168,11 @@ impl CrawlEngine {
                 robots_directives: parsed.robots_directives,
                 og_tags,
                 structured_data,
+                flesch_score: parsed.flesch_score,
+                flesch_classification: parsed.flesch_classification,
+                text_html_ratio: parsed.text_html_ratio,
+                text_length: parsed.text_length,
+                html_length: parsed.html_length,
             },
             lighthouse: lighthouse_result,
             timing_ms,
