@@ -11,3 +11,5 @@ target/
 .DS_Store
 .idea/
 .claude/
+.worktrees/
+.playwright-mcp/
