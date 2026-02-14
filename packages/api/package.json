@@ -11,6 +11,7 @@
   "dependencies": {
     "@llm-boost/billing": "workspace:*",
     "@llm-boost/db": "workspace:*",
+    "@llm-boost/integrations": "workspace:*",
     "@llm-boost/llm": "workspace:*",
     "@llm-boost/scoring": "workspace:*",
     "@llm-boost/shared": "workspace:*",

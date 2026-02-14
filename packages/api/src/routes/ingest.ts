@@ -6,6 +6,9 @@ import {
   crawlQueries,
   pageQueries,
   scoreQueries,
+  integrationQueries,
+  enrichmentQueries,
+  projectQueries,
 } from "@llm-boost/db";
 import {
   CrawlResultBatchSchema,
@@ -13,6 +16,9 @@ import {
 } from "@llm-boost/shared";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import { LLMScorer } from "@llm-boost/llm";
+import { runEnrichments } from "@llm-boost/integrations";
+import { decrypt } from "../lib/crypto";
+import { refreshAccessToken } from "../lib/google-oauth";
 
 export const ingestRoutes = new Hono<AppEnv>();
 
@@ -210,6 +216,116 @@ ingestRoutes.post("/batch", async (c) => {
     })();
 
     c.executionCtx.waitUntil(scoringPromise);
+  }
+
+  // Trigger integration enrichments on final batch only
+  if (batch.is_final && c.env.INTEGRATION_ENCRYPTION_KEY) {
+    const enrichmentPromise = (async () => {
+      const enrichDb = createDb(c.env.DATABASE_URL);
+
+      try {
+        // Get project domain
+        const project = await projectQueries(enrichDb).getById(
+          crawlJob.projectId,
+        );
+        if (!project) return;
+
+        // Get enabled integrations for this project
+        const integrations = await integrationQueries(enrichDb).listByProject(
+          crawlJob.projectId,
+        );
+        const enabled = integrations.filter(
+          (i) => i.enabled && i.encryptedCredentials,
+        );
+        if (enabled.length === 0) return;
+
+        // Collect all page URLs from this job
+        const allPageUrls = insertedPages.map((p) => p.url);
+
+        // Decrypt credentials and refresh OAuth tokens if needed
+        const prepared = await Promise.all(
+          enabled.map(async (integration) => {
+            const creds = JSON.parse(
+              await decrypt(
+                integration.encryptedCredentials!,
+                c.env.INTEGRATION_ENCRYPTION_KEY,
+              ),
+            );
+
+            // Refresh OAuth tokens if expired
+            if (
+              (integration.provider === "gsc" ||
+                integration.provider === "ga4") &&
+              creds.refreshToken &&
+              integration.tokenExpiresAt &&
+              integration.tokenExpiresAt < new Date()
+            ) {
+              const refreshed = await refreshAccessToken({
+                refreshToken: creds.refreshToken,
+                clientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
+                clientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
+              });
+              creds.accessToken = refreshed.accessToken;
+
+              // Store refreshed token
+              const { encrypt: enc } = await import("../lib/crypto");
+              const newEncrypted = await enc(
+                JSON.stringify(creds),
+                c.env.INTEGRATION_ENCRYPTION_KEY,
+              );
+              await integrationQueries(enrichDb).updateCredentials(
+                integration.id,
+                newEncrypted,
+                new Date(Date.now() + refreshed.expiresIn * 1000),
+              );
+            }
+
+            return {
+              provider: integration.provider,
+              integrationId: integration.id,
+              credentials: creds as Record<string, string>,
+              config: (integration.config ?? {}) as Record<string, unknown>,
+            };
+          }),
+        );
+
+        // Run all fetchers
+        const results = await runEnrichments(
+          prepared,
+          project.domain,
+          allPageUrls,
+        );
+
+        // Map page URLs to page IDs
+        const urlToPageId = new Map(insertedPages.map((p) => [p.url, p.id]));
+
+        // Batch insert enrichment results
+        const enrichmentRows = results
+          .filter((r) => urlToPageId.has(r.pageUrl))
+          .map((r) => ({
+            pageId: urlToPageId.get(r.pageUrl)!,
+            jobId: batch.job_id,
+            provider: r.provider as "gsc" | "psi" | "ga4" | "clarity",
+            data: r.data,
+          }));
+
+        if (enrichmentRows.length > 0) {
+          await enrichmentQueries(enrichDb).createBatch(enrichmentRows);
+        }
+
+        // Update lastSyncAt for each integration
+        for (const p of prepared) {
+          await integrationQueries(enrichDb).updateLastSync(
+            p.integrationId,
+            null,
+          );
+        }
+      } catch (err) {
+        console.error("Integration enrichment failed:", err);
+      }
+    })();
+
+    c.executionCtx.waitUntil(enrichmentPromise);
   }
 
   return c.json({
