@@ -31,6 +31,10 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
         "og:image": "/img.png",
       },
       structured_data: [{ "@type": "WebPage" }],
+      pdf_links: [],
+      cors_unsafe_blank_links: 0,
+      cors_mixed_content: 0,
+      cors_has_issues: false,
     },
     lighthouse: {
       performance: 0.9,

@@ -143,5 +143,14 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     }
   }
 
+  // PDF_ONLY_CONTENT: -5 if page is thin but links to PDFs
+  const pdfLinks = page.extracted.pdf_links ?? [];
+  if (pdfLinks.length > 0 && page.wordCount < 300) {
+    deduct("PDF_ONLY_CONTENT", -5, {
+      pdfCount: pdfLinks.length,
+      wordCount: page.wordCount,
+    });
+  }
+
   return { score: Math.max(0, score), issues };
 }

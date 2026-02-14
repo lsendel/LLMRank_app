@@ -38,6 +38,10 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
           url: "https://example.com",
         },
       ],
+      pdf_links: [],
+      cors_unsafe_blank_links: 0,
+      cors_mixed_content: 0,
+      cors_has_issues: false,
     },
     lighthouse: {
       performance: 0.95,

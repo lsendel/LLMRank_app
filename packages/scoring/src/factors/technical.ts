@@ -151,5 +151,33 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     }
   }
 
+  // REDIRECT_CHAIN: -8 if 3+ hops
+  if (page.redirectChain && page.redirectChain.length >= 3) {
+    deduct("REDIRECT_CHAIN", -8, {
+      hops: page.redirectChain.length,
+      chain: page.redirectChain.map((h) => `${h.status_code} ${h.url}`),
+    });
+  }
+
+  // CORS_MIXED_CONTENT: -5 if any mixed content
+  if (
+    page.extracted.cors_mixed_content &&
+    page.extracted.cors_mixed_content > 0
+  ) {
+    deduct("CORS_MIXED_CONTENT", -5, {
+      mixedContentCount: page.extracted.cors_mixed_content,
+    });
+  }
+
+  // CORS_UNSAFE_LINKS: -3 if unsafe blank links
+  if (
+    page.extracted.cors_unsafe_blank_links &&
+    page.extracted.cors_unsafe_blank_links > 0
+  ) {
+    deduct("CORS_UNSAFE_LINKS", -3, {
+      unsafeBlankLinks: page.extracted.cors_unsafe_blank_links,
+    });
+  }
+
   return { score: Math.max(0, score), issues };
 }

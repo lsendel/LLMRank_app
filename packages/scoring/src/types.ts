@@ -16,6 +16,8 @@ export interface PageData {
   extracted: ExtractedData;
   lighthouse: LighthouseResult | null;
   llmScores: LLMContentScores | null;
+  // Redirect chain from fetcher
+  redirectChain?: Array<{ url: string; status_code: number }>;
   // Site-level data passed in for cross-page checks
   siteContext?: {
     hasLlmsTxt: boolean;

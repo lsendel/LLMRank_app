@@ -113,5 +113,29 @@ export function scoreContentFactors(page: PageData): FactorResult {
     deduct("MISSING_FAQ_STRUCTURE", -5);
   }
 
+  // POOR_READABILITY: -10 if flesch < 50, -5 if flesch 50-59
+  const flesch = page.extracted.flesch_score;
+  if (flesch != null) {
+    if (flesch < 50) {
+      deduct("POOR_READABILITY", -10, {
+        fleschScore: flesch,
+        classification: page.extracted.flesch_classification,
+      });
+    } else if (flesch < 60) {
+      deduct("POOR_READABILITY", -5, {
+        fleschScore: flesch,
+        classification: page.extracted.flesch_classification,
+      });
+    }
+  }
+
+  // LOW_TEXT_HTML_RATIO: -8 if ratio < 15%
+  const textRatio = page.extracted.text_html_ratio;
+  if (textRatio != null && textRatio < 15) {
+    deduct("LOW_TEXT_HTML_RATIO", -8, {
+      textHtmlRatio: Math.round(textRatio * 100) / 100,
+    });
+  }
+
   return { score: Math.max(0, score), issues };
 }
