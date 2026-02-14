@@ -3,6 +3,7 @@ pub mod frontier;
 pub mod parser;
 pub mod readability;
 pub mod robots;
+pub mod security;
 
 pub use fetcher::RateLimitedFetcher;
 pub use parser::Parser;
@@ -173,9 +174,14 @@ impl CrawlEngine {
                 text_html_ratio: parsed.text_html_ratio,
                 text_length: parsed.text_length,
                 html_length: parsed.html_length,
+                pdf_links: parsed.pdf_links,
+                cors_unsafe_blank_links: parsed.cors_unsafe_blank_links,
+                cors_mixed_content: parsed.cors_mixed_content,
+                cors_has_issues: parsed.cors_has_issues,
             },
             lighthouse: lighthouse_result,
             timing_ms,
+            redirect_chain: fetch_result.redirect_chain,
         })
     }
 

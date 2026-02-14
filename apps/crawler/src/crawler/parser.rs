@@ -23,6 +23,10 @@ pub struct ParsedPage {
     pub text_html_ratio: Option<f64>,
     pub text_length: Option<usize>,
     pub html_length: Option<usize>,
+    pub pdf_links: Vec<String>,
+    pub cors_unsafe_blank_links: u32,
+    pub cors_mixed_content: u32,
+    pub cors_has_issues: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -55,6 +59,8 @@ impl Parser {
         let word_count = Self::compute_word_count(&document);
         let flesch = super::readability::compute_flesch(&document);
         let text_ratio = super::readability::compute_text_html_ratio(&document, html_content);
+        let cors = super::security::analyze_cors(&document, base_url);
+        let pdfs = super::security::extract_pdf_links(&document, base_url);
 
         ParsedPage {
             title,
@@ -75,6 +81,10 @@ impl Parser {
             text_html_ratio: Some(text_ratio.ratio),
             text_length: Some(text_ratio.text_length),
             html_length: Some(text_ratio.html_length),
+            pdf_links: pdfs.urls,
+            cors_unsafe_blank_links: cors.unsafe_blank_links,
+            cors_mixed_content: cors.mixed_content_count,
+            cors_has_issues: cors.has_issues,
         }
     }
 

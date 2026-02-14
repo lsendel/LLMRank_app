@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::crawler::fetcher::RedirectHop;
+
 // --- Crawl Configuration ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +83,14 @@ pub struct ExtractedData {
     pub text_length: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html_length: Option<usize>,
+    #[serde(default)]
+    pub pdf_links: Vec<String>,
+    #[serde(default)]
+    pub cors_unsafe_blank_links: u32,
+    #[serde(default)]
+    pub cors_mixed_content: u32,
+    #[serde(default)]
+    pub cors_has_issues: bool,
 }
 
 // --- Lighthouse Result ---
@@ -111,6 +121,8 @@ pub struct CrawlPageResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lighthouse: Option<LighthouseResult>,
     pub timing_ms: u64,
+    #[serde(default)]
+    pub redirect_chain: Vec<RedirectHop>,
 }
 
 // --- Crawl Stats ---

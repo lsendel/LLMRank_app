@@ -8,6 +8,13 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use url::Url;
 
+/// A single hop in a redirect chain — immutable value object.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RedirectHop {
+    pub url: String,
+    pub status_code: u16,
+}
+
 #[derive(Error, Debug)]
 pub enum FetchError {
     #[error("Request failed: {0}")]
@@ -23,6 +30,7 @@ pub struct FetchResult {
     pub body: String,
     pub headers: HashMap<String, String>,
     pub final_url: String,
+    pub redirect_chain: Vec<RedirectHop>,
 }
 
 type DomainLimiter = RateLimiter<
@@ -119,6 +127,7 @@ impl RateLimitedFetcher {
             body,
             headers,
             final_url,
+            redirect_chain: Vec::new(),
         })
     }
 }
