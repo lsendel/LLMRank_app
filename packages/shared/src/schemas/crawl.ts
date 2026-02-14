@@ -16,6 +16,17 @@ export const CrawlJobPayloadSchema = z.object({
     user_agent: z.string().default("AISEOBot/1.0"),
     rate_limit_ms: z.number().int().default(1000),
     timeout_s: z.number().int().default(30),
+    custom_extractors: z
+      .array(
+        z.object({
+          name: z.string(),
+          type: z.enum(["css_selector", "regex"]),
+          selector: z.string(),
+          attribute: z.string().nullable().optional(),
+        }),
+      )
+      .optional()
+      .default([]),
   }),
 });
 

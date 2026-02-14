@@ -115,6 +115,7 @@ crawlRoutes.post("/", async (c) => {
     user_agent: "AISEOBot/1.0",
     rate_limit_ms: 1000,
     timeout_s: 30,
+    custom_extractors: [],
   };
 
   // Create crawl_job record

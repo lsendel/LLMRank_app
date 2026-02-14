@@ -16,6 +16,8 @@ import { dashboardRoutes } from "./routes/dashboard";
 import { accountRoutes } from "./routes/account";
 import { publicRoutes } from "./routes/public";
 import { adminRoutes } from "./routes/admin";
+import { logRoutes } from "./routes/logs";
+import { extractorRoutes } from "./routes/extractors";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -91,6 +93,8 @@ app.route("/api/dashboard", dashboardRoutes);
 app.route("/api/account", accountRoutes);
 app.route("/api/public", publicRoutes);
 app.route("/api/admin", adminRoutes);
+app.route("/api/logs", logRoutes);
+app.route("/api/extractors", extractorRoutes);
 
 // Fallback
 app.notFound((c) => {

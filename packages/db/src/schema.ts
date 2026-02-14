@@ -329,6 +329,27 @@ export const planPriceHistory = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Custom Extractors
+// ---------------------------------------------------------------------------
+
+export const customExtractors = pgTable(
+  "custom_extractors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: text("type").notNull(), // "css_selector" | "regex"
+    selector: text("selector").notNull(), // CSS selector or regex pattern
+    attribute: text("attribute"), // e.g., "href", "src", or null for text content
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_extractors_project").on(t.projectId)],
+);
+
+// ---------------------------------------------------------------------------
 // Server Log Uploads
 // ---------------------------------------------------------------------------
 
