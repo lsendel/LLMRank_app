@@ -4,6 +4,7 @@ pub mod parser;
 pub mod readability;
 pub mod robots;
 pub mod security;
+pub mod extractor;
 
 pub use fetcher::RateLimitedFetcher;
 pub use parser::Parser;

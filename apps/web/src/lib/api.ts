@@ -316,6 +316,26 @@ export interface VisibilityTrend {
   totalChecks: number;
 }
 
+export interface LogUpload {
+  id: string;
+  projectId: string;
+  filename: string;
+  totalRequests: number;
+  crawlerRequests: number;
+  uniqueIPs: number;
+  summary: LogAnalysisSummary;
+  createdAt: string;
+}
+
+export interface LogAnalysisSummary {
+  totalRequests: number;
+  crawlerRequests: number;
+  uniqueIPs: number;
+  botBreakdown: Array<{ bot: string; count: number }>;
+  statusBreakdown: Array<{ status: number; count: number }>;
+  topPaths: Array<{ path: string; count: number }>;
+}
+
 export interface DashboardStats {
   totalProjects: number;
   totalCrawls: number;
@@ -766,6 +786,28 @@ export const api = {
     ): Promise<PlatformReadinessResult[]> {
       const res = await apiClient.get<ApiEnvelope<PlatformReadinessResult[]>>(
         `/api/crawls/${crawlId}/platform-readiness`,
+        { token },
+      );
+      return res.data;
+    },
+  },
+
+  // ── Logs ───────────────────────────────────────────────────────
+  logs: {
+    async upload(
+      token: string,
+      projectId: string,
+      data: { filename: string; content: string },
+    ): Promise<{ id: string; summary: LogAnalysisSummary }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ id: string; summary: LogAnalysisSummary }>
+      >(`/api/logs/${projectId}/upload`, data, { token });
+      return res.data;
+    },
+
+    async list(token: string, projectId: string): Promise<LogUpload[]> {
+      const res = await apiClient.get<ApiEnvelope<LogUpload[]>>(
+        `/api/logs/${projectId}`,
         { token },
       );
       return res.data;

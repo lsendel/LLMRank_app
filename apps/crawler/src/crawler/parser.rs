@@ -27,6 +27,7 @@ pub struct ParsedPage {
     pub cors_unsafe_blank_links: u32,
     pub cors_mixed_content: u32,
     pub cors_has_issues: bool,
+    pub custom_extractions: Vec<super::extractor::ExtractorResult>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -85,6 +86,7 @@ impl Parser {
             cors_unsafe_blank_links: cors.unsafe_blank_links,
             cors_mixed_content: cors.mixed_content_count,
             cors_has_issues: cors.has_issues,
+            custom_extractions: vec![],
         }
     }
 
