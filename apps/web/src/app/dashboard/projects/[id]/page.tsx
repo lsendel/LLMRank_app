@@ -12,6 +12,7 @@ import {
   Bug,
   History,
   Eye,
+  Plug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +30,17 @@ const VisibilityTab = dynamic(
     loading: () => (
       <div className="py-8 text-center text-muted-foreground">
         Loading visibility data...
+      </div>
+    ),
+  },
+);
+
+const IntegrationsTab = dynamic(
+  () => import("@/components/tabs/integrations-tab"),
+  {
+    loading: () => (
+      <div className="py-8 text-center text-muted-foreground">
+        Loading integrations...
       </div>
     ),
   },
@@ -165,6 +177,10 @@ export default function ProjectPage() {
             <Eye className="mr-1.5 h-4 w-4" />
             Visibility
           </TabsTrigger>
+          <TabsTrigger value="integrations">
+            <Plug className="mr-1.5 h-4 w-4" />
+            Integrations
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 pt-4">
@@ -193,6 +209,10 @@ export default function ProjectPage() {
             domain={project.domain}
             latestCrawlId={latestCrawlId}
           />
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-6 pt-4">
+          <IntegrationsTab projectId={project.id} />
         </TabsContent>
       </Tabs>
     </div>

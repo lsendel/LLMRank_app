@@ -120,6 +120,9 @@ importers:
       '@llm-boost/db':
         specifier: workspace:*
         version: link:../db
+      '@llm-boost/integrations':
+        specifier: workspace:*
+        version: link:../integrations
       '@llm-boost/llm':
         specifier: workspace:*
         version: link:../llm
@@ -174,6 +177,16 @@ importers:
       drizzle-kit:
         specifier: ^0.30
         version: 0.30.6
+      typescript:
+        specifier: ^5.7
+        version: 5.9.3
+
+  packages/integrations:
+    dependencies:
+      '@llm-boost/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
       typescript:
         specifier: ^5.7
         version: 5.9.3

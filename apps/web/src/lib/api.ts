@@ -336,6 +336,29 @@ export interface LogAnalysisSummary {
   topPaths: Array<{ path: string; count: number }>;
 }
 
+export interface ProjectIntegration {
+  id: string;
+  projectId: string;
+  provider: "gsc" | "psi" | "ga4" | "clarity";
+  enabled: boolean;
+  hasCredentials: boolean;
+  config: Record<string, unknown>;
+  tokenExpiresAt: string | null;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PageEnrichment {
+  id: string;
+  pageId: string;
+  jobId: string;
+  provider: "gsc" | "psi" | "ga4" | "clarity";
+  data: Record<string, unknown>;
+  fetchedAt: string;
+}
+
 export interface DashboardStats {
   totalProjects: number;
   totalCrawls: number;
@@ -570,6 +593,17 @@ export const api = {
     async get(token: string, pageId: string): Promise<PageDetail> {
       const res = await apiClient.get<ApiEnvelope<PageDetail>>(
         `/api/pages/${pageId}`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getEnrichments(
+      token: string,
+      pageId: string,
+    ): Promise<PageEnrichment[]> {
+      const res = await apiClient.get<ApiEnvelope<PageEnrichment[]>>(
+        `/api/pages/${pageId}/enrichments`,
         { token },
       );
       return res.data;
@@ -810,6 +844,100 @@ export const api = {
         `/api/logs/${projectId}`,
         { token },
       );
+      return res.data;
+    },
+  },
+
+  // ── Integrations ────────────────────────────────────────────────
+  integrations: {
+    async list(
+      token: string,
+      projectId: string,
+    ): Promise<ProjectIntegration[]> {
+      const res = await apiClient.get<ApiEnvelope<ProjectIntegration[]>>(
+        `/api/integrations/${projectId}`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async connect(
+      token: string,
+      projectId: string,
+      data: {
+        provider: string;
+        apiKey?: string;
+        clarityProjectId?: string;
+      },
+    ): Promise<ProjectIntegration> {
+      const res = await apiClient.post<ApiEnvelope<ProjectIntegration>>(
+        `/api/integrations/${projectId}/connect`,
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async update(
+      token: string,
+      projectId: string,
+      integrationId: string,
+      data: { enabled?: boolean; config?: Record<string, unknown> },
+    ): Promise<ProjectIntegration> {
+      const res = await apiClient.put<ApiEnvelope<ProjectIntegration>>(
+        `/api/integrations/${projectId}/${integrationId}`,
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async disconnect(
+      token: string,
+      projectId: string,
+      integrationId: string,
+    ): Promise<void> {
+      await apiClient.delete(
+        `/api/integrations/${projectId}/${integrationId}`,
+        { token },
+      );
+    },
+
+    async startGoogleOAuth(
+      token: string,
+      projectId: string,
+      provider: "gsc" | "ga4",
+    ): Promise<{ url: string }> {
+      const res = await apiClient.post<ApiEnvelope<{ url: string }>>(
+        `/api/integrations/${projectId}/oauth/google/start`,
+        { provider },
+        { token },
+      );
+      return res.data;
+    },
+
+    async oauthCallback(
+      token: string,
+      data: { code: string; state: string; redirectUri: string },
+    ): Promise<ProjectIntegration> {
+      const res = await apiClient.post<ApiEnvelope<ProjectIntegration>>(
+        `/api/integrations/oauth/google/callback`,
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async test(
+      token: string,
+      projectId: string,
+      integrationId: string,
+    ): Promise<{ ok: boolean; message: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ ok: boolean; message: string }>
+      >(`/api/integrations/${projectId}/${integrationId}/test`, undefined, {
+        token,
+      });
       return res.data;
     },
   },
