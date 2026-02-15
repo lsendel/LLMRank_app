@@ -15,4 +15,5 @@ export { integrationQueries } from "./queries/integrations";
 export { enrichmentQueries } from "./queries/enrichments";
 export { outboxQueries } from "./queries/outbox";
 export { reportQueries } from "./queries/reports";
+export { leadQueries } from "./queries/leads";
 export { eq, and, lte, desc, gte, sql } from "drizzle-orm";
