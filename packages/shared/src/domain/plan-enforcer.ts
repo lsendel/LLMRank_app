@@ -48,3 +48,14 @@ export function canRunVisibilityChecks(
 ): boolean {
   return usedThisMonth + newCheckCount <= PLAN_LIMITS[plan].visibilityChecks;
 }
+
+/** Check if generating a report would exceed plan limits. */
+export function canGenerateReport(
+  plan: PlanTier,
+  usedThisMonth: number,
+  reportType: "summary" | "detailed",
+): boolean {
+  const limits = PLAN_LIMITS[plan];
+  if (usedThisMonth >= limits.reportsPerMonth) return false;
+  return limits.reportTypes.includes(reportType);
+}

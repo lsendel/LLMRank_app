@@ -18,6 +18,12 @@ export interface PlanLimits {
   historyDays: number;
   apiAccess: boolean;
   integrations: string[];
+  reportsPerMonth: number;
+  reportTypes: ("summary" | "detailed")[];
+  reportBranding: "none" | "logo" | "full";
+  reportHistoryDepth: number;
+  reportCompetitorSection: boolean;
+  reportIntegrationData: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -32,6 +38,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     historyDays: 30,
     apiAccess: false,
     integrations: [],
+    reportsPerMonth: 1,
+    reportTypes: ["summary"],
+    reportBranding: "none",
+    reportHistoryDepth: 1,
+    reportCompetitorSection: false,
+    reportIntegrationData: false,
   },
   starter: {
     pagesPerCrawl: 100,
@@ -44,6 +56,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     historyDays: 90,
     apiAccess: false,
     integrations: [],
+    reportsPerMonth: 5,
+    reportTypes: ["summary", "detailed"],
+    reportBranding: "none",
+    reportHistoryDepth: 3,
+    reportCompetitorSection: true,
+    reportIntegrationData: false,
   },
   pro: {
     pagesPerCrawl: 500,
@@ -56,6 +74,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     historyDays: 365,
     apiAccess: true,
     integrations: ["gsc", "psi"],
+    reportsPerMonth: 20,
+    reportTypes: ["summary", "detailed"],
+    reportBranding: "logo",
+    reportHistoryDepth: 10,
+    reportCompetitorSection: true,
+    reportIntegrationData: true,
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -68,5 +92,11 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     historyDays: 730,
     apiAccess: true,
     integrations: ["gsc", "psi", "ga4", "clarity"],
+    reportsPerMonth: Infinity,
+    reportTypes: ["summary", "detailed"],
+    reportBranding: "full",
+    reportHistoryDepth: Infinity,
+    reportCompetitorSection: true,
+    reportIntegrationData: true,
   },
 };

@@ -570,6 +570,15 @@ export const factTypeEnum = pgEnum("fact_type", [
   "quote", // Highly citable sentences
 ]);
 
+export const reportTypeEnum = pgEnum("report_type", ["summary", "detailed"]);
+export const reportFormatEnum = pgEnum("report_format", ["pdf", "docx"]);
+export const reportStatusEnum = pgEnum("report_status", [
+  "queued",
+  "generating",
+  "complete",
+  "failed",
+]);
+
 export const pageFacts = pgTable(
   "page_facts",
   {
@@ -584,4 +593,38 @@ export const pageFacts = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_facts_page").on(t.pageId)],
+);
+
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    crawlJobId: uuid("crawl_job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: reportTypeEnum("type").notNull(),
+    format: reportFormatEnum("format").notNull(),
+    status: reportStatusEnum("status").notNull().default("queued"),
+    r2Key: text("r2_key"),
+    fileSize: integer("file_size"),
+    config: jsonb("config").default({}),
+    error: text("error"),
+    generatedAt: timestamp("generated_at"),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_reports_project").on(t.projectId),
+    index("idx_reports_user").on(t.userId),
+  ],
 );
