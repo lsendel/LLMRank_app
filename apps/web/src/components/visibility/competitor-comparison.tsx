@@ -33,7 +33,7 @@ export function CompetitorComparison({
   results,
   competitorDomains,
 }: CompetitorComparisonProps) {
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
   const [analyzing, setAnalyzing] = useState<string | null>(null);
   const [gapData, setGapData] = useState<Record<string, GapAnalysisResult>>({});
   const [semanticData, setSemanticData] = useState<SemanticAnalysis | null>(
@@ -55,8 +55,8 @@ export function CompetitorComparison({
     }
 
     try {
-      const res = await withToken((token) =>
-        api.strategy.semanticGap(token, {
+      const res = await withAuth(() =>
+        api.strategy.semanticGap({
           projectId,
           competitorDomain: competitor,
           pageId: targetPageId,
@@ -84,8 +84,8 @@ export function CompetitorComparison({
     const key = `${query}-${competitor}`;
     setAnalyzing(key);
     try {
-      const res = await withToken((token) =>
-        api.strategy.gapAnalysis(token, {
+      const res = await withAuth(() =>
+        api.strategy.gapAnalysis({
           projectId,
           competitorDomain: competitor,
           query,

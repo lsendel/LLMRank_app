@@ -12,12 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type StrategyPersona, type StrategyCompetitor } from "@/lib/api";
 import { TopicClusterGraph } from "../strategy/topic-cluster-graph";
 import { CrawlerTimelineChart } from "@/components/charts/crawler-timeline-chart";
 
 export function StrategyTab({ projectId }: { projectId: string }) {
+  const { withAuth } = useApi();
   const [generating, setGenerating] = useState(false);
   const [personas, setPersonas] = useState<StrategyPersona[]>([]);
   const [addingComp, setAddingComp] = useState(false);
@@ -38,8 +40,8 @@ export function StrategyTab({ projectId }: { projectId: string }) {
   async function handleGeneratePersonas() {
     setGenerating(true);
     try {
-      const data = await withToken((token) =>
-        api.strategy.generatePersonas(token, projectId, {
+      const data = await withAuth(() =>
+        api.strategy.generatePersonas(projectId, {
           niche: "AI SEO and Content Optimization",
         }),
       );
@@ -55,8 +57,8 @@ export function StrategyTab({ projectId }: { projectId: string }) {
     if (!newCompDomain) return;
     setAddingComp(true);
     try {
-      await withToken((token) =>
-        api.strategy.addCompetitor(token, projectId, newCompDomain),
+      await withAuth(() =>
+        api.strategy.addCompetitor(projectId, newCompDomain),
       );
       setNewCompDomain("");
       mutateComps();
@@ -69,7 +71,7 @@ export function StrategyTab({ projectId }: { projectId: string }) {
 
   async function handleRemoveCompetitor(id: string) {
     try {
-      await withToken((token) => api.strategy.removeCompetitor(token, id));
+      await withAuth(() => api.strategy.removeCompetitor(id));
       mutateComps();
     } catch (err) {
       console.error(err);

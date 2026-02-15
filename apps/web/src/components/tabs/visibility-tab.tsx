@@ -42,7 +42,7 @@ export default function VisibilityTab({
   domain: string;
   latestCrawlId?: string;
 }) {
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
   const [query, setQuery] = useState("");
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
@@ -55,35 +55,32 @@ export default function VisibilityTab({
 
   const { data: competitors } = useApiSWR<StrategyCompetitor[]>(
     `competitors-${projectId}`,
-    useCallback(
-      (token: string) => api.strategy.getCompetitors(token, projectId),
-      [projectId],
-    ),
+    useCallback(() => api.strategy.getCompetitors(projectId), [projectId]),
   );
 
   // Load history on mount
   useEffect(() => {
-    withToken(async (token) => {
-      const data = await api.visibility.list(token, projectId);
+    withAuth(async () => {
+      const data = await api.visibility.list(projectId);
       setHistory(data);
     })
       .catch(console.error)
       .finally(() => setHistoryLoaded(true));
-  }, [withToken, projectId]);
+  }, [withAuth, projectId]);
 
   async function handleRunCheck() {
     if (!query.trim() || selectedProviders.length === 0) return;
     setLoading(true);
     setError(null);
     try {
-      await withToken(async (token) => {
-        const data = await api.visibility.run(token, {
+      await withAuth(async () => {
+        const data = await api.visibility.run({
           projectId,
           query: query.trim(),
           providers: selectedProviders,
         });
         setResults(data);
-        const updated = await api.visibility.list(token, projectId);
+        const updated = await api.visibility.list(projectId);
         setHistory(updated);
       });
     } catch (err) {

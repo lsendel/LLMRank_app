@@ -61,21 +61,18 @@ function planAllows(userPlan: string, requiredPlan: string): boolean {
 }
 
 export default function IntegrationsTab({ projectId }: { projectId: string }) {
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
 
   const { data: billing } = useApiSWR<BillingInfo>(
     "billing-info",
-    useCallback((token: string) => api.billing.getInfo(token), []),
+    useCallback(() => api.billing.getInfo(), []),
   );
 
   const { data: integrations, mutate: refreshIntegrations } = useApiSWR<
     ProjectIntegration[]
   >(
     `integrations-${projectId}`,
-    useCallback(
-      (token: string) => api.integrations.list(token, projectId),
-      [projectId],
-    ),
+    useCallback(() => api.integrations.list(projectId), [projectId]),
   );
 
   const currentPlan = billing?.plan ?? "free";
@@ -111,8 +108,8 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
     setConnecting(true);
     setError(null);
     try {
-      await withToken(async (token) => {
-        await api.integrations.connect(token, projectId, {
+      await withAuth(async () => {
+        await api.integrations.connect(projectId, {
           provider: connectModal.provider,
           apiKey: apiKeyInput,
           clarityProjectId:
@@ -134,9 +131,8 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
   async function handleOAuthConnect(provider: "gsc" | "ga4") {
     setError(null);
     try {
-      await withToken(async (token) => {
+      await withAuth(async () => {
         const { url } = await api.integrations.startGoogleOAuth(
-          token,
           projectId,
           provider,
         );
@@ -150,8 +146,8 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
 
   async function handleToggle(integration: ProjectIntegration) {
     try {
-      await withToken(async (token) => {
-        await api.integrations.update(token, projectId, integration.id, {
+      await withAuth(async () => {
+        await api.integrations.update(projectId, integration.id, {
           enabled: !integration.enabled,
         });
       });
@@ -164,8 +160,8 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
   async function handleDisconnect(integrationId: string) {
     setDisconnecting(integrationId);
     try {
-      await withToken(async (token) => {
-        await api.integrations.disconnect(token, projectId, integrationId);
+      await withAuth(async () => {
+        await api.integrations.disconnect(projectId, integrationId);
       });
       await refreshIntegrations();
     } catch (err) {
@@ -179,12 +175,8 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
     setTesting(integrationId);
     setTestResult(null);
     try {
-      await withToken(async (token) => {
-        const result = await api.integrations.test(
-          token,
-          projectId,
-          integrationId,
-        );
+      await withAuth(async () => {
+        const result = await api.integrations.test(projectId, integrationId);
         setTestResult({ id: integrationId, ...result });
       });
     } catch (err) {

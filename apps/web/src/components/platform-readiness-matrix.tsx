@@ -30,10 +30,7 @@ function passRateColor(rate: number): string {
 export function PlatformReadinessMatrix({ crawlId }: { crawlId: string }) {
   const { data: matrix, isLoading: loading } = useApiSWR(
     `platform-readiness-${crawlId}`,
-    useCallback(
-      (token: string) => api.platformReadiness.get(token, crawlId),
-      [crawlId],
-    ),
+    useCallback(() => api.platformReadiness.get(crawlId), [crawlId]),
   );
 
   if (loading) {

@@ -27,7 +27,7 @@ export function BrandingSettingsForm({
   projectId,
   initialBranding,
 }: BrandingSettingsFormProps) {
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
   const [loading, setLoading] = useState(false);
   const [branding, setBranding] = useState(
     initialBranding ?? {
@@ -40,9 +40,7 @@ export function BrandingSettingsForm({
   async function handleSave() {
     setLoading(true);
     try {
-      await withToken((token) =>
-        api.projects.update(token, projectId, { branding }),
-      );
+      await withAuth(() => api.projects.update(projectId, { branding }));
     } catch (err) {
       console.error(err);
     } finally {

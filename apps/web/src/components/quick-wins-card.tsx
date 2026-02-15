@@ -17,10 +17,7 @@ const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
 export function QuickWinsCard({ crawlId }: { crawlId: string }) {
   const { data: wins, isLoading: loading } = useApiSWR(
     `quick-wins-${crawlId}`,
-    useCallback(
-      (token: string) => api.quickWins.get(token, crawlId),
-      [crawlId],
-    ),
+    useCallback(() => api.quickWins.get(crawlId), [crawlId]),
   );
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
 
