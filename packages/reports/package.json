@@ -13,11 +13,12 @@
     "@llm-boost/db": "workspace:*",
     "@llm-boost/shared": "workspace:*",
     "@react-pdf/renderer": "^4.3.2",
-    "docx": "^9.2.0"
+    "docx": "^9.2.0",
+    "react": "^19"
   },
   "devDependencies": {
+    "@types/react": "^19",
     "typescript": "^5.7",
-    "vitest": "^3",
-    "@types/react": "^19"
+    "vitest": "^3"
   }
 }

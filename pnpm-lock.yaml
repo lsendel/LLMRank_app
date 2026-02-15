@@ -320,6 +320,9 @@ importers:
       docx:
         specifier: ^9.2.0
         version: 9.5.2
+      react:
+        specifier: ^19
+        version: 19.2.4
     devDependencies:
       '@types/react':
         specifier: ^19
