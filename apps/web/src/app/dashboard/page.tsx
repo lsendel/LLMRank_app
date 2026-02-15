@@ -53,7 +53,7 @@ function getStatusBadgeVariant(
 
 export default function DashboardPage() {
   const { user } = useUser();
-  const firstName = user?.firstName ?? "there";
+  const firstName = user?.name?.split(" ")[0] ?? "there";
 
   const { data: stats, isLoading: statsLoading } = useApiSWR(
     "dashboard-stats",
