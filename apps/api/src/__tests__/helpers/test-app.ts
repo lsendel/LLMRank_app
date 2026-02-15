@@ -92,6 +92,7 @@ export function createTestApp(options: TestAppOptions = {}) {
     KV: kv as any,
     SEEN_URLS: createKVStub() as any,
     CRAWL_QUEUE: { send: async () => {} } as any,
+    REPORT_QUEUE: { send: async () => {} } as any,
     BROWSER: null as any,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "mock-secret",
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "http://localhost:8787",

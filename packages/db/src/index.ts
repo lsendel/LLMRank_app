@@ -14,4 +14,5 @@ export { extractorQueries } from "./queries/extractors";
 export { integrationQueries } from "./queries/integrations";
 export { enrichmentQueries } from "./queries/enrichments";
 export { outboxQueries } from "./queries/outbox";
-export { eq, and, lte, sql } from "drizzle-orm";
+export { reportQueries } from "./queries/reports";
+export { eq, and, lte, desc, gte, sql } from "drizzle-orm";

@@ -25,6 +25,7 @@ import { integrationRoutes } from "./routes/integrations";
 import { strategyRoutes } from "./routes/strategy";
 import { browserRoutes } from "./routes/browser";
 import { insightsRoutes } from "./routes/insights";
+import { reportRoutes } from "./routes/reports";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -35,6 +36,7 @@ export type Bindings = {
   KV: KVNamespace;
   SEEN_URLS: KVNamespace;
   CRAWL_QUEUE: Queue<any>;
+  REPORT_QUEUE: Queue<any>;
   BROWSER: any;
   DATABASE_URL: string;
   SHARED_SECRET: string;
@@ -142,6 +144,7 @@ app.route("/api/integrations", integrationRoutes);
 app.route("/api/strategy", strategyRoutes);
 app.route("/api/browser", browserRoutes);
 app.route("/api/crawls", insightsRoutes);
+app.route("/api/reports", reportRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {

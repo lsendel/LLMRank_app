@@ -19,6 +19,7 @@
     "@llm-boost/db": "workspace:*",
     "@llm-boost/integrations": "workspace:*",
     "@llm-boost/llm": "workspace:*",
+    "@llm-boost/reports": "workspace:*",
     "@llm-boost/scoring": "workspace:*",
     "@llm-boost/shared": "workspace:*",
     "@sentry/cloudflare": "^10.38.0",
