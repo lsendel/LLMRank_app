@@ -82,6 +82,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
+      "https://llmrank.app",
+      "https://www.llmrank.app",
       "https://llmboost.com",
       "https://www.llmboost.com",
     ],

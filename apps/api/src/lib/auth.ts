@@ -38,6 +38,10 @@ export function createAuth(env: Bindings) {
     advanced: {
       // @ts-expect-error - generateId is supported at runtime
       generateId: () => crypto.randomUUID(),
+      crossSubDomainCookies: {
+        enabled: true,
+        domain: ".llmrank.app",
+      },
     },
   });
 }
