@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +27,7 @@ import {
   ApiError,
   type ProjectIntegration,
   type BillingInfo,
+  type IntegrationInsights,
 } from "@/lib/api";
 
 const INTEGRATIONS = [
@@ -73,6 +80,11 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
   >(
     `integrations-${projectId}`,
     useCallback(() => api.integrations.list(projectId), [projectId]),
+  );
+
+  const { data: integrationInsights } = useApiSWR<IntegrationInsights>(
+    `integrations-insights-${projectId}`,
+    useCallback(() => api.integrations.insights(projectId), [projectId]),
   );
 
   const currentPlan = billing?.plan ?? "free";
@@ -355,6 +367,126 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
           );
         })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Integration Insights</CardTitle>
+          <CardDescription>
+            {integrationInsights?.crawlId
+              ? `Latest crawl: ${integrationInsights.crawlId}`
+              : "Connect an integration and run a crawl to unlock insights."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {integrationInsights === undefined ? (
+            <p className="text-sm text-muted-foreground">Loading insights…</p>
+          ) : !integrationInsights.integrations ? (
+            <p className="text-sm text-muted-foreground">
+              We’ll surface GSC queries, GA4 engagement, and Clarity UX alerts
+              here as soon as you connect an integration and a crawl finishes.
+            </p>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {integrationInsights.integrations.gsc && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                  <p className="text-sm font-medium">Top Queries (GSC)</p>
+                  <ul className="mt-3 space-y-3">
+                    {integrationInsights.integrations.gsc.topQueries
+                      .slice(0, 5)
+                      .map((query) => (
+                        <li key={query.query} className="text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">
+                              {query.query}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              Pos {query.position.toFixed(1)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {query.impressions.toLocaleString()} impressions · {" "}
+                            {query.clicks.toLocaleString()} clicks
+                          </p>
+                        </li>
+                      ))}
+                    {integrationInsights.integrations.gsc.topQueries.length ===
+                      0 && (
+                      <li className="text-xs text-muted-foreground">
+                        No query data synced yet.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {integrationInsights.integrations.ga4 && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                  <p className="text-sm font-medium">GA4 Engagement</p>
+                  <div className="mt-3 space-y-1 text-sm">
+                    <p>
+                      Avg engagement:{" "}
+                      <span className="font-semibold">
+                        {integrationInsights.integrations.ga4.avgEngagement.toFixed(1)}s
+                      </span>
+                    </p>
+                    <p>
+                      Bounce rate:{" "}
+                      <span className="font-semibold">
+                        {integrationInsights.integrations.ga4.bounceRate.toFixed(1)}%
+                      </span>
+                    </p>
+                  </div>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {integrationInsights.integrations.ga4.topPages
+                      .slice(0, 5)
+                      .map((page) => (
+                        <li key={page.url} className="flex items-center justify-between">
+                          <span className="truncate pr-2" title={page.url}>
+                            {page.url}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {page.sessions.toLocaleString()} sessions
+                          </span>
+                        </li>
+                      ))}
+                    {integrationInsights.integrations.ga4.topPages.length === 0 && (
+                      <li className="text-xs text-muted-foreground">
+                        No engagement data yet.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {integrationInsights.integrations.clarity && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                  <p className="text-sm font-medium">Clarity UX Alerts</p>
+                  <p className="mt-3 text-sm">
+                    Avg UX score:{" "}
+                    <span className="font-semibold">
+                      {integrationInsights.integrations.clarity.avgUxScore.toFixed(1)} / 100
+                    </span>
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <p className="text-muted-foreground">Rage click pages</p>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                      {integrationInsights.integrations.clarity.rageClickPages
+                        .slice(0, 5)
+                        .map((page) => (
+                          <li key={page} className="truncate" title={page}>
+                            {page}
+                          </li>
+                        ))}
+                      {integrationInsights.integrations.clarity.rageClickPages
+                        .length === 0 && <li>No rage clicks detected.</li>}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* API Key Connect Modal */}
       <Dialog

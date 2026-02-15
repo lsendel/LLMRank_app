@@ -21,6 +21,8 @@ interface ScoreCreateData {
   lighthousePerf?: number | null;
   lighthouseSeo?: number | null;
   detail?: unknown;
+  platformScores?: unknown;
+  recommendations?: unknown;
 }
 
 interface IssueCreateData {

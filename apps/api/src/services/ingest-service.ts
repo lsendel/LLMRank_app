@@ -3,7 +3,12 @@ import {
   type CrawlPageResult,
   type CrawlResultBatch,
 } from "@llm-boost/shared";
-import { scorePage, type PageData } from "@llm-boost/scoring";
+import {
+  scorePage,
+  detectContentType,
+  generateRecommendations,
+  type PageData,
+} from "@llm-boost/scoring";
 import type {
   CrawlRepository,
   PageRepository,
@@ -84,20 +89,29 @@ export function createIngestService(deps: IngestServiceDeps) {
         });
       }
 
-      const pageRows = batch.pages.map((p: CrawlPageResult) => ({
-        jobId: batch.job_id,
-        projectId: crawlJob.projectId,
-        url: p.url,
-        canonicalUrl: p.canonical_url,
-        statusCode: p.status_code,
-        title: p.title,
-        metaDesc: p.meta_description,
-        contentHash: p.content_hash,
-        wordCount: p.word_count,
-        r2RawKey: p.html_r2_key,
-        r2LhKey: p.lighthouse?.lh_r2_key ?? null,
-        crawledAt: new Date(),
-      }));
+      const pageRows = batch.pages.map((p: CrawlPageResult) => {
+        const contentTypeResult = detectContentType(
+          p.url,
+          p.extracted?.schema_types ?? [],
+        );
+        return {
+          jobId: batch.job_id,
+          projectId: crawlJob.projectId,
+          url: p.url,
+          canonicalUrl: p.canonical_url,
+          statusCode: p.status_code,
+          title: p.title,
+          metaDesc: p.meta_description,
+          contentHash: p.content_hash,
+          wordCount: p.word_count,
+          contentType: contentTypeResult.type,
+          textLength: p.extracted?.text_length ?? null,
+          htmlLength: p.extracted?.html_length ?? null,
+          r2RawKey: p.html_r2_key,
+          r2LhKey: p.lighthouse?.lh_r2_key ?? null,
+          crawledAt: new Date(),
+        };
+      });
 
       const insertedPages = await deps.pages.createBatch(pageRows);
       await deps.crawls.updateStatus(crawlJob.id, { status: "scoring" });
@@ -139,6 +153,11 @@ export function createIngestService(deps: IngestServiceDeps) {
             extracted: crawlPageResult.extracted,
             lighthouse: crawlPageResult.lighthouse ?? null,
           },
+          platformScores: result.platformScores,
+          recommendations: generateRecommendations(
+            result.issues,
+            result.overallScore,
+          ),
         });
 
         for (const issue of result.issues) {
@@ -261,6 +280,8 @@ export function createIngestService(deps: IngestServiceDeps) {
           databaseUrl: env.databaseUrl,
           projectId,
           jobId: crawlJobId,
+          resendApiKey: env.resendApiKey,
+          appBaseUrl: env.appBaseUrl,
         }),
       );
     }

@@ -14,12 +14,18 @@ interface Props {
   avgWordCount: number;
   pagesAboveThreshold: number;
   totalPages: number;
+  avgHtmlToTextRatio?: number;
+  totalTextLength?: number;
+  totalHtmlLength?: number;
 }
 
 export function ContentRatioGauge({
   avgWordCount,
   pagesAboveThreshold,
   totalPages,
+  avgHtmlToTextRatio,
+  totalTextLength,
+  totalHtmlLength,
 }: Props) {
   const percentage =
     totalPages > 0 ? Math.round((pagesAboveThreshold / totalPages) * 100) : 0;
@@ -81,8 +87,17 @@ export function ContentRatioGauge({
           </p>
         </div>
       </CardContent>
-      <CardFooter className="text-xs text-muted-foreground justify-center">
-        Avg. {Math.round(avgWordCount).toLocaleString()} words per page
+      <CardFooter className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+        <div>Avg. {Math.round(avgWordCount).toLocaleString()} words per page</div>
+        {avgHtmlToTextRatio != null && (
+          <div>Text-to-HTML ratio {avgHtmlToTextRatio.toFixed(1)}%</div>
+        )}
+        {totalTextLength != null && totalHtmlLength != null && (
+          <div>
+            Text {totalTextLength.toLocaleString()} chars · HTML{' '}
+            {totalHtmlLength.toLocaleString()} chars
+          </div>
+        )}
       </CardFooter>
     </Card>
   );

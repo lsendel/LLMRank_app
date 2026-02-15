@@ -21,6 +21,7 @@ export {
   type RawDbResults,
   type AggregateOptions,
 } from "./data-aggregator";
+export { fetchReportData } from "./data-fetcher";
 export { estimateIssueROI } from "./roi";
 export { aggregateCompetitors, type CompetitorAnalysis } from "./competitors";
 export { aggregateIntegrations, type RawEnrichment } from "./integrations";

@@ -12,6 +12,8 @@ const mockCrawlUpdateSummaryData = vi.fn().mockResolvedValue(undefined);
 const mockGenerateExecutiveSummary = vi
   .fn()
   .mockResolvedValue("Executive summary text");
+const mockGetProjectProgress = vi.fn().mockResolvedValue(null);
+const mockSendScoreDrop = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
   createDb: vi.fn().mockReturnValue({}),
@@ -25,12 +27,29 @@ vi.mock("@llm-boost/db", () => ({
   crawlQueries: vi.fn(() => ({
     updateSummary: mockCrawlUpdateSummary,
     updateSummaryData: mockCrawlUpdateSummaryData,
+    listByProject: vi.fn().mockResolvedValue([]),
+    getById: vi.fn().mockResolvedValue(null),
+  })),
+  pageQueries: vi.fn(() => ({
+    listByJob: vi.fn().mockResolvedValue([]),
   })),
 }));
 
 vi.mock("@llm-boost/llm", () => ({
   SummaryGenerator: vi.fn().mockImplementation(() => ({
     generateExecutiveSummary: mockGenerateExecutiveSummary,
+  })),
+}));
+
+vi.mock("../../services/progress-service", () => ({
+  createProgressService: vi.fn(() => ({
+    getProjectProgress: mockGetProjectProgress,
+  })),
+}));
+
+vi.mock("../../services/notification-service", () => ({
+  createNotificationService: vi.fn(() => ({
+    sendScoreDrop: mockSendScoreDrop,
   })),
 }));
 
@@ -75,6 +94,7 @@ describe("crawl summaries", () => {
     vi.clearAllMocks();
     mockProjectGetById.mockResolvedValue({
       id: "proj-1",
+      userId: "user-1",
       name: "My Site",
       domain: "https://example.com",
     });
@@ -91,6 +111,7 @@ describe("crawl summaries", () => {
     mockScoreGetIssuesByJob.mockResolvedValue([
       { code: "MISSING_TITLE", severity: "warning" },
     ]);
+    mockGetProjectProgress.mockResolvedValue(null);
   });
 
   describe("persistCrawlSummaryData", () => {
@@ -126,6 +147,44 @@ describe("crawl summaries", () => {
 
       expect(mockCrawlUpdateSummaryData).toHaveBeenCalledWith("job-1", null);
       expect(result).toBeNull();
+    });
+
+    it("queues score drop notification when regression exceeds threshold", async () => {
+      mockGetProjectProgress.mockResolvedValue({
+        currentCrawlId: "crawl-2",
+        previousCrawlId: "crawl-1",
+        scoreDelta: -10,
+        currentScore: 70,
+        previousScore: 80,
+        categoryDeltas: {
+          technical: { current: 0, previous: 0, delta: 0 },
+          content: { current: 0, previous: 0, delta: 0 },
+          aiReadiness: { current: 0, previous: 0, delta: 0 },
+          performance: { current: 0, previous: 0, delta: 0 },
+        },
+        issuesFixed: 0,
+        issuesNew: 0,
+        issuesPersisting: 0,
+        gradeChanges: { improved: 0, regressed: 1, unchanged: 0 },
+        velocity: -10,
+        topImprovedPages: [],
+        topRegressedPages: [],
+      });
+
+      await persistCrawlSummaryData({
+        databaseUrl: "postgresql://test",
+        projectId: "proj-1",
+        jobId: "job-1",
+        resendApiKey: "sk-resend",
+      });
+
+      expect(mockSendScoreDrop).toHaveBeenCalledWith(
+        expect.objectContaining({
+          previousScore: 80,
+          currentScore: 70,
+          projectId: "proj-1",
+        }),
+      );
     });
   });
 

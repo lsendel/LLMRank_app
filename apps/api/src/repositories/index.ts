@@ -292,12 +292,16 @@ export interface EnrichmentRepository {
   listByPage(
     pageId: string,
   ): ReturnType<ReturnType<typeof enrichmentQueries>["listByPage"]>;
+  listByJob(
+    jobId: string,
+  ): ReturnType<ReturnType<typeof enrichmentQueries>["listByJob"]>;
 }
 
 export function createEnrichmentRepository(db: Database): EnrichmentRepository {
   const queries = enrichmentQueries(db);
   return {
     listByPage: (pageId) => queries.listByPage(pageId),
+    listByJob: (jobId) => queries.listByJob(jobId),
   };
 }
 

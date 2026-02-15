@@ -252,6 +252,9 @@ export const pages = pgTable(
     metaDesc: text("meta_desc"),
     contentHash: text("content_hash"),
     wordCount: integer("word_count"),
+    contentType: text("content_type").default("unknown"),
+    textLength: integer("text_length"),
+    htmlLength: integer("html_length"),
     r2RawKey: text("r2_raw_key"),
     r2LhKey: text("r2_lh_key"),
     crawledAt: timestamp("crawled_at"),
@@ -284,6 +287,8 @@ export const pageScores = pgTable(
     lighthousePerf: real("lighthouse_perf"),
     lighthouseSeo: real("lighthouse_seo"),
     detail: jsonb("detail"),
+    platformScores: jsonb("platform_scores"),
+    recommendations: jsonb("recommendations"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

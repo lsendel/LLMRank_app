@@ -15,6 +15,9 @@ export function pageQueries(db: Database) {
         metaDesc?: string | null;
         contentHash?: string | null;
         wordCount?: number | null;
+        contentType?: string | null;
+        textLength?: number | null;
+        htmlLength?: number | null;
         r2RawKey?: string | null;
         r2LhKey?: string | null;
         crawledAt?: Date | null;

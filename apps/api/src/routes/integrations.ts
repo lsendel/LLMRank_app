@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { projectQueries, userQueries, integrationQueries } from "@llm-boost/db";
+import {
+  projectQueries,
+  userQueries,
+  integrationQueries,
+  crawlQueries,
+  enrichmentQueries,
+} from "@llm-boost/db";
 import {
   canAccessIntegration,
   ConnectIntegrationSchema,
@@ -16,6 +22,8 @@ import {
   exchangeCodeForTokens,
   GOOGLE_SCOPES,
 } from "../lib/google-oauth";
+import { createIntegrationInsightsService } from "../services/integration-insights-service";
+import { handleServiceError } from "../services/errors";
 
 export const integrationRoutes = new Hono<AppEnv>();
 
@@ -66,6 +74,30 @@ integrationRoutes.get("/:projectId", async (c) => {
   }));
 
   return c.json({ data: safe });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:projectId/insights — Aggregated integration insights for latest crawl
+// ---------------------------------------------------------------------------
+
+integrationRoutes.get("/:projectId/insights", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const crawlId = c.req.query("crawlId");
+
+  const service = createIntegrationInsightsService({
+    projects: projectQueries(db),
+    crawls: crawlQueries(db),
+    enrichments: enrichmentQueries(db),
+  });
+
+  try {
+    const data = await service.getInsights(userId, projectId, crawlId);
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
 });
 
 // ---------------------------------------------------------------------------

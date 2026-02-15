@@ -29,9 +29,42 @@ export const LLMContentScoresSchema = z.object({
   citation_worthiness: z.number().min(0).max(100),
 });
 
+export const PlatformScoreSchema = z.object({
+  score: z.number().min(0).max(100),
+  grade: LetterGrade,
+  tips: z.array(z.string()),
+});
+
+export const RecommendationSchema = z.object({
+  issueCode: z.string(),
+  title: z.string(),
+  description: z.string(),
+  priority: z.enum(["high", "medium", "low"]),
+  effort: z.enum(["quick", "moderate", "significant"]),
+  impact: z.enum(["high", "medium", "low"]),
+  estimatedImprovement: z.number(),
+  affectedPlatforms: z.array(z.string()),
+  steps: z.array(z.string()).optional(),
+  example: z
+    .object({
+      before: z.string(),
+      after: z.string(),
+    })
+    .optional(),
+});
+
+export const StrengthSchema = z.object({
+  category: z.enum(["technical", "content", "ai_readiness", "performance"]),
+  title: z.string(),
+  description: z.string(),
+});
+
 export type PageScore = z.infer<typeof PageScoreSchema>;
 export type Issue = z.infer<typeof IssueSchema>;
 export type LLMContentScores = z.infer<typeof LLMContentScoresSchema>;
+export type PlatformScoreDetail = z.infer<typeof PlatformScoreSchema>;
+export type RecommendationDetail = z.infer<typeof RecommendationSchema>;
+export type StrengthDetail = z.infer<typeof StrengthSchema>;
 
 // --- Progress tracking schemas ---
 

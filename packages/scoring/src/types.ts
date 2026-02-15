@@ -3,7 +3,9 @@ import type {
   LighthouseResult,
   LLMContentScores,
   Issue,
+  LLMPlatformId,
 } from "@llm-boost/shared";
+import type { PlatformScoreResult } from "./platforms";
 
 export interface PageData {
   url: string;
@@ -47,5 +49,6 @@ export interface ScoringResult {
   aiReadinessScore: number;
   performanceScore: number;
   letterGrade: "A" | "B" | "C" | "D" | "F";
+  platformScores: Record<LLMPlatformId, PlatformScoreResult>;
   issues: Issue[];
 }

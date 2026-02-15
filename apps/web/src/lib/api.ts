@@ -237,6 +237,9 @@ export interface PageScoreDetail {
   title: string | null;
   metaDesc: string | null;
   wordCount: number | null;
+  contentType?: string | null;
+  textLength?: number | null;
+  htmlLength?: number | null;
   contentHash: string | null;
   crawledAt: string | null;
   score: {
@@ -248,6 +251,26 @@ export interface PageScoreDetail {
     lighthouseSeo: number | null;
     letterGrade: string;
     detail: Record<string, unknown>;
+    platformScores: Record<
+      string,
+      {
+        score: number;
+        grade: string;
+        tips: string[];
+      }
+    > | null;
+    recommendations: Array<{
+      issueCode: string;
+      title: string;
+      description: string;
+      priority: string;
+      effort: string;
+      impact: string;
+      estimatedImprovement: number;
+      affectedPlatforms: string[];
+      steps?: string[];
+      example?: { before: string; after: string };
+    }> | null;
   } | null;
   issues: PageIssue[];
 }
@@ -470,6 +493,8 @@ export interface CrawlInsights {
     avgHtmlToTextRatio: number;
     pagesAboveThreshold: number;
     totalPages: number;
+    totalTextLength: number;
+    totalHtmlLength: number;
   };
   crawlProgress: {
     found: number;
@@ -527,6 +552,31 @@ export interface ProjectIntegration {
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface IntegrationInsights {
+  crawlId: string | null;
+  integrations:
+    | {
+        gsc: {
+          topQueries: {
+            query: string;
+            impressions: number;
+            clicks: number;
+            position: number;
+          }[];
+        } | null;
+        ga4: {
+          bounceRate: number;
+          avgEngagement: number;
+          topPages: { url: string; sessions: number }[];
+        } | null;
+        clarity: {
+          avgUxScore: number;
+          rageClickPages: string[];
+        } | null;
+      }
+    | null;
 }
 
 export interface PageEnrichment {
@@ -1306,6 +1356,17 @@ export const api = {
 
     async disconnect(projectId: string, integrationId: string): Promise<void> {
       await apiClient.delete(`/api/integrations/${projectId}/${integrationId}`);
+    },
+
+    async insights(
+      projectId: string,
+      crawlId?: string,
+    ): Promise<IntegrationInsights> {
+      const query = crawlId ? `?crawlId=${encodeURIComponent(crawlId)}` : "";
+      const res = await apiClient.get<ApiEnvelope<IntegrationInsights>>(
+        `/api/integrations/${projectId}/insights${query}`,
+      );
+      return res.data;
     },
 
     async startGoogleOAuth(

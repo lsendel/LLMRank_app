@@ -19,14 +19,52 @@ import {
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock("@llm-boost/scoring", () => ({
-  scorePage: vi.fn().mockReturnValue({
+const {
+  mockPlatformScores,
+  mockRecommendations,
+  mockDetectContentType,
+  mockGenerateRecommendations,
+  mockScorePage,
+} = vi.hoisted(() => {
+  const platformScores = {
+    chatgpt: { score: 82, grade: "B", tips: ["tip"] },
+    perplexity: { score: 80, grade: "B", tips: ["tip"] },
+    claude: { score: 78, grade: "C", tips: ["tip"] },
+    gemini: { score: 85, grade: "B", tips: ["tip"] },
+    grok: { score: 76, grade: "C", tips: ["tip"] },
+  };
+
+  const recommendations = [
+    {
+      issueCode: "MISSING_CANONICAL",
+      title: "Add canonical",
+      description: "Desc",
+      priority: "high",
+      effort: "quick",
+      impact: "high",
+      estimatedImprovement: 5,
+      affectedPlatforms: ["chatgpt"],
+    },
+  ];
+
+  const detectContentType = vi.fn().mockReturnValue({
+    type: "blog_post",
+    confidence: 0.8,
+    signals: [],
+  });
+
+  const generateRecommendations = vi
+    .fn()
+    .mockReturnValue(recommendations);
+
+  const scorePage = vi.fn().mockReturnValue({
     overallScore: 85,
     technicalScore: 90,
     contentScore: 80,
     aiReadinessScore: 85,
     performanceScore: 70,
     letterGrade: "B",
+    platformScores,
     issues: [
       {
         category: "technical",
@@ -37,7 +75,21 @@ vi.mock("@llm-boost/scoring", () => ({
         data: null,
       },
     ],
-  }),
+  });
+
+  return {
+    mockPlatformScores: platformScores,
+    mockRecommendations: recommendations,
+    mockDetectContentType: detectContentType,
+    mockGenerateRecommendations: generateRecommendations,
+    mockScorePage: scorePage,
+  };
+});
+
+vi.mock("@llm-boost/scoring", () => ({
+  scorePage: mockScorePage,
+  detectContentType: mockDetectContentType,
+  generateRecommendations: mockGenerateRecommendations,
 }));
 
 vi.mock("../../services/llm-scoring", () => ({
@@ -109,6 +161,8 @@ function validBatchPayload(overrides: Record<string, unknown> = {}) {
           images_without_alt: 0,
           has_robots_meta: false,
           robots_directives: [],
+          text_length: 6000,
+          html_length: 15000,
         },
         lighthouse: null,
       },
@@ -244,6 +298,25 @@ describe("IngestService", () => {
       "crawl-1",
       expect.objectContaining({ status: "crawling" }),
     );
+  });
+
+  it("stores platform scores, recommendations, and detected content type", async () => {
+    const service = createIngestService({ crawls, pages, scores, outbox });
+    await service.processBatch({
+      rawBody: validBatchPayload(),
+      env: makeMockEnv(),
+      executionCtx: makeMockCtx(),
+    });
+
+    const pageRow = pages.createBatch.mock.calls[0][0][0];
+    expect(pageRow.contentType).toBe("blog_post");
+    expect(pageRow.textLength).toBe(6000);
+    expect(pageRow.htmlLength).toBe(15000);
+
+    const scoreRow = scores.createBatch.mock.calls[0][0][0];
+    expect(scoreRow.platformScores).toEqual(mockPlatformScores);
+    expect(scoreRow.recommendations).toEqual(mockRecommendations);
+    expect(mockGenerateRecommendations).toHaveBeenCalled();
   });
 
   it("does not re-transition already crawling job", async () => {

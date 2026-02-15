@@ -22,6 +22,12 @@ export function enrichmentQueries(db: Database) {
       });
     },
 
+    async listByJob(jobId: string) {
+      return db.query.pageEnrichments.findMany({
+        where: eq(pageEnrichments.jobId, jobId),
+      });
+    },
+
     async listByJobAndProvider(
       jobId: string,
       provider: "gsc" | "psi" | "ga4" | "clarity",

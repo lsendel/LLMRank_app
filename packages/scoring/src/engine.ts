@@ -4,6 +4,7 @@ import { scoreContentFactors } from "./factors/content";
 import { scoreAiReadinessFactors } from "./factors/ai-readiness";
 import { scorePerformanceFactors } from "./factors/performance";
 import type { Issue } from "@llm-boost/shared";
+import { calculatePlatformScores } from "./platforms";
 
 const WEIGHTS = {
   technical: 0.25,
@@ -47,6 +48,12 @@ export function scorePage(page: PageData): ScoringResult {
   const content = scoreContentFactors(page);
   const aiReadiness = scoreAiReadinessFactors(page);
   const performance = scorePerformanceFactors(page);
+  const platformScores = calculatePlatformScores({
+    technicalScore: technical.score,
+    contentScore: content.score,
+    aiReadinessScore: aiReadiness.score,
+    performanceScore: performance.score,
+  });
 
   const overallScore = Math.round(
     technical.score * WEIGHTS.technical +
@@ -75,6 +82,7 @@ export function scorePage(page: PageData): ScoringResult {
     aiReadinessScore: aiReadiness.score,
     performanceScore: performance.score,
     letterGrade: getLetterGrade(overallScore),
+    platformScores,
     issues: allIssues,
   };
 }

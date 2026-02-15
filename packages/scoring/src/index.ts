@@ -10,3 +10,23 @@ export {
   type TopicCluster,
 } from "./domain/topic-cluster";
 export { computeCitationReadiness } from "./citation-readiness";
+export {
+  calculatePlatformScores,
+  type PlatformScores,
+  type PlatformScoreResult,
+} from "./platforms";
+export {
+  detectContentType,
+  type ContentTypeId,
+  type ContentTypeResult,
+} from "./domain/content-type";
+export {
+  generateRecommendations,
+  generateStrengths,
+  RECOMMENDATION_TEMPLATES,
+  type Recommendation,
+  type Strength,
+  type RecommendationPriority,
+  type RecommendationEffort,
+  type RecommendationImpact,
+} from "./recommendations";

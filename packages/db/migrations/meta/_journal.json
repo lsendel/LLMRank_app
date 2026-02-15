@@ -36,6 +36,13 @@
       "when": 17711198963,
       "tag": "0007_add_crawl_summary_data",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771178741184,
+      "tag": "0005_late_meltdown",
+      "breakpoints": true
     }
   ]
 }

@@ -51,6 +51,21 @@ export function createInsightsService(deps: InsightsServiceDeps) {
       const avgWordCount = wordCounts.length
         ? wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length
         : 0;
+      const textLengths = allPages.map((p) => p.textLength ?? 0);
+      const htmlLengths = allPages.map((p) => p.htmlLength ?? 0);
+      const totalTextLength = textLengths.reduce((a, b) => a + b, 0);
+      const totalHtmlLength = htmlLengths.reduce((a, b) => a + b, 0);
+      const ratioSamples = allPages
+        .map((p) => {
+          if (!p.textLength || !p.htmlLength || p.htmlLength === 0) {
+            return null;
+          }
+          return (p.textLength / p.htmlLength) * 100;
+        })
+        .filter((value): value is number => value != null && isFinite(value));
+      const avgRatio = ratioSamples.length
+        ? ratioSamples.reduce((a, b) => a + b, 0) / ratioSamples.length
+        : 0;
       const GOOD_WORD_COUNT = 300;
 
       return {
@@ -90,10 +105,12 @@ export function createInsightsService(deps: InsightsServiceDeps) {
         },
         contentRatio: {
           avgWordCount: Math.round(avgWordCount * 10) / 10,
-          avgHtmlToTextRatio: 0,
+          avgHtmlToTextRatio: Math.round(avgRatio * 10) / 10,
           pagesAboveThreshold: wordCounts.filter((w) => w >= GOOD_WORD_COUNT)
             .length,
           totalPages: allPages.length,
+          totalTextLength,
+          totalHtmlLength,
         },
         crawlProgress: {
           found: crawl.pagesFound,

@@ -3,6 +3,7 @@ import {
   projectQueries,
   scoreQueries,
   crawlQueries,
+  pageQueries,
   type Database,
 } from "@llm-boost/db";
 import { SummaryGenerator } from "@llm-boost/llm";
@@ -12,11 +13,15 @@ import {
   type QuickWin,
 } from "@llm-boost/shared";
 import { toAggregateInput } from "./score-helpers";
+import { createNotificationService } from "./notification-service";
+import { createProgressService } from "./progress-service";
 
 export interface SummaryDataInput {
   databaseUrl: string;
   projectId: string;
   jobId: string;
+  resendApiKey?: string;
+  appBaseUrl?: string;
 }
 
 export interface SummaryInput extends SummaryDataInput {
@@ -47,7 +52,16 @@ export async function persistCrawlSummaryData(
   input: SummaryDataInput,
 ): Promise<CrawlSummaryData | null> {
   const db = createDb(input.databaseUrl);
-  return persistSummaryWithDb(db, input);
+  const summaryData = await persistSummaryWithDb(db, input);
+  if (summaryData) {
+    await detectScoreRegression(db, {
+      projectId: input.projectId,
+      resendApiKey: input.resendApiKey,
+      appBaseUrl: input.appBaseUrl,
+    });
+  }
+
+  return summaryData;
 }
 
 /**
@@ -110,4 +124,45 @@ async function persistSummaryWithDb(
 
   await crawlQuery.updateSummaryData(input.jobId, summaryData);
   return summaryData;
+}
+
+async function detectScoreRegression(
+  db: Database,
+  args: {
+    projectId: string;
+    resendApiKey?: string;
+    appBaseUrl?: string;
+  },
+) {
+  if (!args.resendApiKey) return;
+  const project = await projectQueries(db).getById(args.projectId);
+  if (!project) return;
+
+  const progressService = createProgressService({
+    crawls: crawlQueries(db),
+    projects: projectQueries(db),
+    scores: scoreQueries(db),
+    pages: pageQueries(db),
+  });
+
+  const progress = await progressService.getProjectProgress(
+    project.userId,
+    args.projectId,
+  );
+  if (!progress) return;
+
+  const drop = progress.currentScore - progress.previousScore;
+  const threshold = -5; // notify when score drops by 5+ points
+  if (drop > threshold) return;
+
+  const notifier = createNotificationService(db, args.resendApiKey, {
+    appBaseUrl: args.appBaseUrl,
+  });
+  await notifier.sendScoreDrop({
+    userId: project.userId,
+    projectId: args.projectId,
+    projectName: project.name,
+    previousScore: Math.round(progress.previousScore),
+    currentScore: Math.round(progress.currentScore),
+  });
 }

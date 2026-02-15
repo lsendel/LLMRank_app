@@ -23,6 +23,12 @@ export function PageContentSection({
 }: PageContentSectionProps) {
   const detail = page.score?.detail ?? {};
   const extracted = (detail.extracted ?? {}) as Record<string, unknown>;
+  const textLength = page.textLength ?? null;
+  const htmlLength = page.htmlLength ?? null;
+  const ratio =
+    textLength && htmlLength && htmlLength > 0
+      ? (textLength / htmlLength) * 100
+      : undefined;
 
   function getTopicButtonLabel(): string {
     if (topicsLoading) return "Analyzing...";
@@ -39,6 +45,9 @@ export function PageContentSection({
             page.wordCount != null && page.wordCount >= 300 ? 1 : 0
           }
           totalPages={1}
+          avgHtmlToTextRatio={ratio}
+          totalTextLength={textLength ?? undefined}
+          totalHtmlLength={htmlLength ?? undefined}
         />
       </div>
       <Card>

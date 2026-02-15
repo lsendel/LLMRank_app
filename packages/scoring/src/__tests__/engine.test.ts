@@ -79,6 +79,7 @@ describe("Scoring Engine (scorePage)", () => {
     expect(result.contentScore).toBe(100);
     expect(result.aiReadinessScore).toBe(100);
     expect(result.performanceScore).toBe(100);
+    expect(result.platformScores.chatgpt.score).toBeGreaterThan(0);
     expect(result.issues).toHaveLength(0);
   });
 

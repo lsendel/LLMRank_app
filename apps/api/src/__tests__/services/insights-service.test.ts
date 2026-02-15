@@ -101,6 +101,8 @@ describe("InsightsService", () => {
           r2LhKey: null,
           crawledAt: null,
           createdAt: new Date("2024-01-01"),
+          textLength: 9000,
+          htmlLength: 18000,
         },
         {
           id: "p2",
@@ -117,6 +119,8 @@ describe("InsightsService", () => {
           r2LhKey: null,
           crawledAt: null,
           createdAt: new Date("2024-01-01"),
+          textLength: 1500,
+          htmlLength: 6000,
         },
         {
           id: "p3",
@@ -133,6 +137,8 @@ describe("InsightsService", () => {
           r2LhKey: null,
           crawledAt: null,
           createdAt: new Date("2024-01-01"),
+          textLength: 4500,
+          htmlLength: 12000,
         },
       ]),
     });
@@ -210,6 +216,9 @@ describe("InsightsService", () => {
       // avg: (1200+300+800)/3 ≈ 766.7
       expect(result.contentRatio.avgWordCount).toBeCloseTo(766.7, 0);
       expect(result.contentRatio.totalPages).toBe(3);
+      expect(result.contentRatio.avgHtmlToTextRatio).toBeCloseTo(37.5, 1);
+      expect(result.contentRatio.totalTextLength).toBe(15000);
+      expect(result.contentRatio.totalHtmlLength).toBe(36000);
     });
 
     it("returns crawl progress from job data", async () => {

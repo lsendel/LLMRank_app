@@ -27,6 +27,9 @@ const mockIntegrationUpsert = vi.fn().mockResolvedValue({
 });
 const mockIntegrationUpdateEnabled = vi.fn().mockResolvedValue(null);
 const mockIntegrationRemove = vi.fn().mockResolvedValue(undefined);
+const mockCrawlGetLatestByProject = vi.fn().mockResolvedValue(null);
+const mockCrawlGetById = vi.fn().mockResolvedValue(null);
+const mockEnrichmentListByJob = vi.fn().mockResolvedValue([]);
 
 vi.mock("@llm-boost/db", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@llm-boost/db")>();
@@ -45,6 +48,14 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       upsert: mockIntegrationUpsert,
       updateEnabled: mockIntegrationUpdateEnabled,
       remove: mockIntegrationRemove,
+    }),
+    crawlQueries: () => ({
+      getLatestByProject: mockCrawlGetLatestByProject,
+      getById: mockCrawlGetById,
+    }),
+    enrichmentQueries: () => ({
+      listByJob: mockEnrichmentListByJob,
+      listByPage: vi.fn().mockResolvedValue([]),
     }),
     createDb: orig.createDb,
   };
@@ -94,6 +105,9 @@ describe("Integration Routes", () => {
     vi.clearAllMocks();
     mockProjectGetById.mockResolvedValue(project);
     mockUserGetById.mockResolvedValue(user);
+    mockCrawlGetLatestByProject.mockResolvedValue(null);
+    mockCrawlGetById.mockResolvedValue(null);
+    mockEnrichmentListByJob.mockResolvedValue([]);
   });
 
   // -----------------------------------------------------------------------
@@ -156,6 +170,61 @@ describe("Integration Routes", () => {
 
       const res = await request("/api/integrations/proj-1");
       expect(res.status).toBe(404);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /api/integrations/:projectId/insights
+  // -----------------------------------------------------------------------
+
+  describe("GET /api/integrations/:projectId/insights", () => {
+    it("returns aggregated insights for the latest crawl", async () => {
+      mockCrawlGetLatestByProject.mockResolvedValue({
+        id: "crawl-1",
+        projectId: "proj-1",
+      });
+      mockEnrichmentListByJob.mockResolvedValue([
+        {
+          id: "enr-1",
+          jobId: "crawl-1",
+          pageId: "page-1",
+          provider: "gsc",
+          data: { query: "ai seo", impressions: 42, clicks: 4, position: 3 },
+          createdAt: new Date("2024-01-01"),
+        },
+      ]);
+
+      const res = await request("/api/integrations/proj-1/insights");
+      expect(res.status).toBe(200);
+      const body: any = await res.json();
+      expect(body.data.crawlId).toBe("crawl-1");
+      expect(body.data.integrations.gsc.topQueries[0].query).toBe("ai seo");
+    });
+
+    it("returns null integrations when no enrichments exist", async () => {
+      mockCrawlGetLatestByProject.mockResolvedValue({
+        id: "crawl-1",
+        projectId: "proj-1",
+      });
+      mockEnrichmentListByJob.mockResolvedValue([]);
+
+      const res = await request("/api/integrations/proj-1/insights");
+      expect(res.status).toBe(200);
+      const body: any = await res.json();
+      expect(body.data.integrations).toBeNull();
+    });
+
+    it("supports selecting a crawl via query parameter", async () => {
+      mockCrawlGetById.mockResolvedValue({
+        id: "crawl-9",
+        projectId: "proj-1",
+      });
+      const res = await request(
+        "/api/integrations/proj-1/insights?crawlId=crawl-9",
+      );
+      expect(res.status).toBe(200);
+      const body: any = await res.json();
+      expect(body.data.crawlId).toBe("crawl-9");
     });
   });
 
