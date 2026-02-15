@@ -18,6 +18,14 @@ vi.mock("../../middleware/auth", () => ({
   }),
 }));
 
+// Mock global fetch for report service HTTP dispatch
+const mockFetch = vi
+  .fn()
+  .mockResolvedValue(
+    new Response(JSON.stringify({ accepted: true }), { status: 202 }),
+  );
+vi.stubGlobal("fetch", mockFetch);
+
 // ---------------------------------------------------------------------------
 // Mock the repository factory functions so routes never hit a real DB
 // ---------------------------------------------------------------------------

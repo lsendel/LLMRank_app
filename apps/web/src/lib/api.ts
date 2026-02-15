@@ -252,6 +252,11 @@ export interface PageScoreDetail {
   issues: PageIssue[];
 }
 
+export interface NotificationPreferences {
+  notifyOnCrawlComplete: boolean;
+  notifyOnScoreDrop: boolean;
+}
+
 export interface BillingInfo {
   plan: "free" | "starter" | "pro" | "agency";
   crawlCreditsRemaining: number;
@@ -1097,6 +1102,23 @@ export const api = {
   account: {
     async deleteAccount(): Promise<void> {
       await apiClient.delete<void>("/api/account");
+    },
+
+    async getNotifications(): Promise<NotificationPreferences> {
+      const res = await apiClient.get<ApiEnvelope<NotificationPreferences>>(
+        "/api/account/notifications",
+      );
+      return res.data;
+    },
+
+    async updateNotifications(
+      data: Partial<NotificationPreferences>,
+    ): Promise<NotificationPreferences> {
+      const res = await apiClient.put<ApiEnvelope<NotificationPreferences>>(
+        "/api/account/notifications",
+        data,
+      );
+      return res.data;
     },
   },
 

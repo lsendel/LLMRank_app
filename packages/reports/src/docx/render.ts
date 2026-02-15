@@ -9,9 +9,7 @@ export async function renderDocx(
 ): Promise<Uint8Array> {
   const doc =
     type === "summary" ? buildSummaryDocx(data) : buildDetailedDocx(data);
-  // Use toBlob() which works in both Node.js and edge/Worker environments
-  // (toBuffer() is Node-only and may fail in Cloudflare Workers)
-  const blob = await Packer.toBlob(doc);
-  const arrayBuffer = await blob.arrayBuffer();
-  return new Uint8Array(arrayBuffer);
+  // toBuffer() requires Node.js (runs on Fly.io, not CF Workers)
+  const buffer = await Packer.toBuffer(doc);
+  return new Uint8Array(buffer);
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { pdf } from "@react-pdf/renderer";
+import { renderToBuffer } from "@react-pdf/renderer";
 import type { ReportData } from "../types";
 import { SummaryReportPdf } from "./templates/summary";
 import { DetailedReportPdf } from "./templates/detailed";
@@ -13,10 +13,8 @@ export async function renderPdf(
       ? React.createElement(SummaryReportPdf, { data })
       : React.createElement(DetailedReportPdf, { data });
 
-  // Use pdf().toBlob() which works in both Node.js and edge/Worker environments
-  // (renderToBuffer is Node-only and fails in Cloudflare Workers)
+  // renderToBuffer requires Node.js (runs on Fly.io, not CF Workers)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const blob = await pdf(element as any).toBlob();
-  const arrayBuffer = await blob.arrayBuffer();
-  return new Uint8Array(arrayBuffer);
+  const buffer = await renderToBuffer(element as any);
+  return new Uint8Array(buffer);
 }

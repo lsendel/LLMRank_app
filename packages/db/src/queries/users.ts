@@ -71,6 +71,24 @@ export function userQueries(db: Database) {
       return !!updated;
     },
 
+    async updateNotifications(
+      id: string,
+      data: {
+        notifyOnCrawlComplete?: boolean;
+        notifyOnScoreDrop?: boolean;
+      },
+    ) {
+      const [updated] = await db
+        .update(users)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning({
+          notifyOnCrawlComplete: users.notifyOnCrawlComplete,
+          notifyOnScoreDrop: users.notifyOnScoreDrop,
+        });
+      return updated;
+    },
+
     async resetCrawlCreditsForPlan(plan: Plan, credits: number) {
       await db
         .update(users)

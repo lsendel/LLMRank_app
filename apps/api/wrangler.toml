@@ -33,6 +33,7 @@ binding = "BROWSER"
 
 [vars]
 CRAWLER_URL = "https://llmrank-crawler.fly.dev"
+REPORT_SERVICE_URL = "https://llm-boost-reports.fly.dev"
 APP_BASE_URL = "https://llmrank.app"
 BETTER_AUTH_URL = "https://api.llmrank.app"
 

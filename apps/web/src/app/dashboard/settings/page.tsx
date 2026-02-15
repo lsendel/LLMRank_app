@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-hooks";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,10 @@ import {
   Zap,
   AlertTriangle,
   Check,
+  CheckCircle2,
+  Star,
+  ArrowDown,
+  X,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
@@ -39,6 +44,7 @@ import {
   type BillingInfo,
   type SubscriptionInfo,
   type PaymentRecord,
+  type NotificationPreferences,
 } from "@/lib/api";
 
 const plans = [
@@ -46,6 +52,8 @@ const plans = [
     tier: "free",
     name: "Free",
     price: "$0",
+    priceNote: "",
+    popular: false,
     features: [
       "1 project",
       "10 pages per crawl",
@@ -56,7 +64,9 @@ const plans = [
   {
     tier: "starter",
     name: "Starter",
-    price: "$79/mo",
+    price: "$79",
+    priceNote: "/mo",
+    popular: false,
     features: [
       "5 projects",
       "100 pages per crawl",
@@ -68,7 +78,9 @@ const plans = [
   {
     tier: "pro",
     name: "Pro",
-    price: "$149/mo",
+    price: "$149",
+    priceNote: "/mo",
+    popular: true,
     features: [
       "20 projects",
       "500 pages per crawl",
@@ -81,7 +93,9 @@ const plans = [
   {
     tier: "agency",
     name: "Agency",
-    price: "$299/mo",
+    price: "$299",
+    priceNote: "/mo",
+    popular: false,
     features: [
       "50 projects",
       "2000 pages per crawl",
@@ -104,31 +118,48 @@ const planNameMap: Record<string, string> = {
 export default function SettingsPage() {
   const { withAuth } = useApi();
   const { signOut } = useAuth();
+  const searchParams = useSearchParams();
 
   const { data: billing, isLoading: loading } = useApiSWR<BillingInfo>(
     "billing-info",
     useCallback(() => api.billing.getInfo(), []),
   );
-  const { data: subscription } = useApiSWR<SubscriptionInfo | null>(
-    "billing-subscription",
-    useCallback(() => api.billing.getSubscription(), []),
-  );
+  const { data: subscription, mutate: mutateSubscription } =
+    useApiSWR<SubscriptionInfo | null>(
+      "billing-subscription",
+      useCallback(() => api.billing.getSubscription(), []),
+    );
   const { data: payments } = useApiSWR<PaymentRecord[]>(
     "billing-payments",
     useCallback(() => api.billing.getPayments(), []),
   );
+  const { data: notifications, mutate: mutateNotifications } =
+    useApiSWR<NotificationPreferences>(
+      "account-notifications",
+      useCallback(() => api.account.getNotifications(), []),
+    );
 
-  const [emailNotifications, setEmailNotifications] = useState({
-    crawlComplete: true,
-    weeklyReport: true,
-    scoreDrops: true,
-    newIssues: false,
-  });
+  const [savingNotification, setSavingNotification] = useState<string | null>(
+    null,
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [downgradeDialogOpen, setDowngradeDialogOpen] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // Show success banner after Stripe checkout redirect
+  useEffect(() => {
+    if (searchParams.get("upgraded") === "true") {
+      setSuccessBanner(
+        "Your plan has been upgraded successfully! Your new features are now active.",
+      );
+      // Clean URL without triggering navigation
+      window.history.replaceState({}, "", "/dashboard/settings");
+    }
+  }, [searchParams]);
 
   async function handleCancelSubscription() {
     setCanceling(true);
@@ -137,6 +168,8 @@ export default function SettingsPage() {
         await api.billing.cancelSubscription();
       });
       setCancelDialogOpen(false);
+      setDowngradeDialogOpen(false);
+      await mutateSubscription();
     } catch (err) {
       console.error(err);
     } finally {
@@ -144,14 +177,36 @@ export default function SettingsPage() {
     }
   }
 
-  function handleToggle(key: keyof typeof emailNotifications) {
-    setEmailNotifications((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  async function handleToggleNotification(
+    key: "notifyOnCrawlComplete" | "notifyOnScoreDrop",
+  ) {
+    if (!notifications) return;
+    const newValue = !notifications[key];
+    setSavingNotification(key);
+    // Optimistic update
+    await mutateNotifications({ ...notifications, [key]: newValue }, false);
+    try {
+      await api.account.updateNotifications({ [key]: newValue });
+      await mutateNotifications();
+    } catch (err) {
+      // Revert on failure
+      await mutateNotifications({ ...notifications, [key]: !newValue }, false);
+      console.error("Failed to save notification preference:", err);
+    } finally {
+      setSavingNotification(null);
+    }
   }
 
-  async function handleUpgrade(planTier: string) {
+  async function handlePlanAction(planTier: string) {
+    const isDowngradeToFree = planTier === "free";
+
+    // Downgrading to Free = cancel subscription
+    if (isDowngradeToFree && subscription) {
+      setDowngradeDialogOpen(true);
+      return;
+    }
+
+    // All other cases: Stripe checkout
     setUpgrading(planTier);
     try {
       await withAuth(async () => {
@@ -192,18 +247,36 @@ export default function SettingsPage() {
 
   const currentTier = billing?.plan ?? "free";
   const currentPlanName = planNameMap[currentTier] ?? "Free";
-  const crawlsUsed =
-    billing != null
-      ? billing.crawlCreditsTotal - billing.crawlCreditsRemaining
-      : 0;
   const crawlsTotal = billing?.crawlCreditsTotal ?? 0;
-  const creditsRemaining = billing?.crawlCreditsRemaining ?? 0;
+  const creditsRemaining = Math.min(
+    billing?.crawlCreditsRemaining ?? 0,
+    crawlsTotal,
+  );
+  const crawlsUsed = Math.max(0, crawlsTotal - creditsRemaining);
   const creditsPercentUsed =
-    crawlsTotal > 0 ? (crawlsUsed / crawlsTotal) * 100 : 0;
+    crawlsTotal > 0
+      ? Math.min(100, Math.max(0, (crawlsUsed / crawlsTotal) * 100))
+      : 0;
   const currentTierIndex = plans.findIndex((p) => p.tier === currentTier);
 
   return (
     <div className="space-y-8">
+      {/* Success banner after upgrade */}
+      {successBanner && (
+        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800 dark:border-green-800 dark:bg-green-950/50 dark:text-green-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+            <p className="text-sm font-medium">{successBanner}</p>
+          </div>
+          <button
+            onClick={() => setSuccessBanner(null)}
+            className="text-green-600 hover:text-green-800 dark:text-green-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="mt-1 text-muted-foreground">
@@ -235,62 +308,87 @@ export default function SettingsPage() {
             <CardContent className="space-y-0">
               {[
                 {
-                  key: "crawlComplete" as const,
+                  key: "notifyOnCrawlComplete" as const,
                   label: "Crawl Complete",
                   description: "Get notified when a crawl finishes.",
+                  persisted: true,
+                },
+                {
+                  key: "notifyOnScoreDrop" as const,
+                  label: "Score Drops",
+                  description:
+                    "Get alerted when a project score drops by 10+ points.",
+                  persisted: true,
                 },
                 {
                   key: "weeklyReport" as const,
                   label: "Weekly Report",
                   description:
                     "Receive a weekly summary of your project scores.",
-                },
-                {
-                  key: "scoreDrops" as const,
-                  label: "Score Drops",
-                  description:
-                    "Get alerted when a project score drops by 10+ points.",
+                  persisted: false,
                 },
                 {
                   key: "newIssues" as const,
                   label: "New Critical Issues",
                   description:
                     "Get notified when new critical issues are detected.",
+                  persisted: false,
                 },
-              ].map((notification, index) => (
-                <div key={notification.key}>
-                  {index > 0 && <Separator className="my-0" />}
-                  <div className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {notification.label}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {notification.description}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={emailNotifications[notification.key]}
-                      onClick={() => handleToggle(notification.key)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        emailNotifications[notification.key]
-                          ? "bg-primary"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          emailNotifications[notification.key]
-                            ? "translate-x-6"
-                            : "translate-x-1"
+              ].map((notification, index) => {
+                const isOn = notification.persisted
+                  ? (notifications?.[
+                      notification.key as keyof NotificationPreferences
+                    ] ?? true)
+                  : false;
+                return (
+                  <div key={notification.key}>
+                    {index > 0 && <Separator className="my-0" />}
+                    <div className="flex items-center justify-between py-4">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {notification.label}
+                          {!notification.persisted && (
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              Coming soon
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {notification.description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isOn}
+                        disabled={
+                          !notification.persisted ||
+                          savingNotification === notification.key
+                        }
+                        onClick={() =>
+                          notification.persisted &&
+                          handleToggleNotification(
+                            notification.key as keyof NotificationPreferences,
+                          )
+                        }
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          !notification.persisted
+                            ? "cursor-not-allowed opacity-50 bg-muted"
+                            : isOn
+                              ? "bg-primary"
+                              : "bg-muted"
                         }`}
-                      />
-                    </button>
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            isOn ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -425,7 +523,7 @@ export default function SettingsPage() {
               {currentTier !== "agency" && (
                 <Button
                   onClick={() =>
-                    handleUpgrade(
+                    handlePlanAction(
                       plans[currentTierIndex + 1]?.tier ?? "starter",
                     )
                   }
@@ -552,67 +650,136 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {plans.map((plan, index) => (
-                  <div
-                    key={plan.tier}
-                    className={`rounded-lg border p-4 ${
-                      plan.tier === currentTier
-                        ? "border-primary bg-primary/5"
-                        : "border-border"
-                    }`}
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="font-semibold">{plan.name}</h3>
-                      {plan.tier === currentTier && (
-                        <Badge variant="default">Current</Badge>
+                {plans.map((plan, index) => {
+                  const isCurrent = plan.tier === currentTier;
+                  const isUpgrade = index > currentTierIndex;
+                  return (
+                    <div
+                      key={plan.tier}
+                      className={`relative rounded-lg border p-4 ${
+                        isCurrent
+                          ? "border-primary bg-primary/5"
+                          : plan.popular
+                            ? "border-primary/60 shadow-sm"
+                            : "border-border"
+                      }`}
+                    >
+                      {plan.popular && !isCurrent && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                          <Badge className="bg-primary text-primary-foreground shadow-sm">
+                            <Star className="mr-1 h-3 w-3" />
+                            Most Popular
+                          </Badge>
+                        </div>
+                      )}
+                      <div className="mb-3 flex items-center justify-between">
+                        <h3 className="font-semibold">{plan.name}</h3>
+                        {isCurrent && <Badge variant="default">Current</Badge>}
+                      </div>
+                      <p className="mb-3">
+                        <span className="text-2xl font-bold">{plan.price}</span>
+                        {plan.priceNote && (
+                          <span className="text-sm text-muted-foreground">
+                            {plan.priceNote}
+                          </span>
+                        )}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {plan.features.map((feature) => (
+                          <li
+                            key={feature}
+                            className="flex items-start gap-2 text-sm text-muted-foreground"
+                          >
+                            <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-success" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      {!isCurrent && (
+                        <Button
+                          variant={
+                            isUpgrade && plan.popular ? "default" : "outline"
+                          }
+                          size="sm"
+                          className="mt-4 w-full"
+                          disabled={upgrading === plan.tier}
+                          onClick={() => handlePlanAction(plan.tier)}
+                        >
+                          {upgrading === plan.tier ? (
+                            "Redirecting..."
+                          ) : isUpgrade ? (
+                            <>
+                              <Zap className="h-3.5 w-3.5" />
+                              Upgrade
+                            </>
+                          ) : (
+                            <>
+                              <ArrowDown className="h-3.5 w-3.5" />
+                              Downgrade
+                            </>
+                          )}
+                        </Button>
                       )}
                     </div>
-                    <p className="mb-3 text-2xl font-bold">{plan.price}</p>
-                    <ul className="space-y-1.5">
-                      {plan.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex items-start gap-2 text-sm text-muted-foreground"
-                        >
-                          <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-success" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    {plan.tier !== currentTier && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-4 w-full"
-                        disabled={upgrading === plan.tier}
-                        onClick={() => handleUpgrade(plan.tier)}
-                      >
-                        {upgrading === plan.tier
-                          ? "Redirecting..."
-                          : index > currentTierIndex
-                            ? "Upgrade"
-                            : "Downgrade"}
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
 
+          {/* Downgrade to Free confirmation dialog */}
+          <Dialog
+            open={downgradeDialogOpen}
+            onOpenChange={setDowngradeDialogOpen}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Downgrade to Free?</DialogTitle>
+                <DialogDescription>
+                  Your current subscription will be canceled at the end of the
+                  billing period. You&apos;ll keep access to your paid features
+                  until then, after which your account will revert to the Free
+                  plan limits.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/50">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Projects and data exceeding Free plan limits may become
+                  read-only.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDowngradeDialogOpen(false)}
+                >
+                  Keep Current Plan
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleCancelSubscription}
+                  disabled={canceling}
+                >
+                  {canceling ? "Processing..." : "Yes, downgrade to Free"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {/* Payment History */}
-          {payments && payments.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Payment History</CardTitle>
-                </div>
-                <CardDescription>
-                  Your recent payments and invoices.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Payment History</CardTitle>
+              </div>
+              <CardDescription>
+                Your recent payments and invoices.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {payments && payments.length > 0 ? (
                 <div className="divide-y">
                   {payments.map((payment: PaymentRecord) => (
                     <div
@@ -642,9 +809,14 @@ export default function SettingsPage() {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No payments yet. Your payment history will appear here when
+                  you subscribe to a paid plan.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="branding" className="pt-4">

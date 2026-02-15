@@ -36,7 +36,8 @@ export type Bindings = {
   KV: KVNamespace;
   SEEN_URLS: KVNamespace;
   CRAWL_QUEUE: Queue<any>;
-  REPORT_QUEUE: Queue<any>;
+  REPORT_QUEUE: Queue<any>; // deprecated — kept for backward compat
+  REPORT_SERVICE_URL: string;
   BROWSER: any;
   DATABASE_URL: string;
   SHARED_SECRET: string;

@@ -43,11 +43,10 @@ reportRoutes.post("/generate", async (c) => {
   });
 
   try {
-    const report = await service.generate(
-      userId,
-      parsed.data,
-      c.env.REPORT_QUEUE,
-    );
+    const report = await service.generate(userId, parsed.data, {
+      reportServiceUrl: c.env.REPORT_SERVICE_URL,
+      sharedSecret: c.env.SHARED_SECRET,
+    });
     return c.json({ data: report }, 201);
   } catch (error) {
     return handleServiceError(c, error);

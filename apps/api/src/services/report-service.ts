@@ -2,6 +2,7 @@ import { ServiceError } from "./errors";
 import { canGenerateReport } from "@llm-boost/shared";
 import type { GenerateReportInput, ReportConfig } from "@llm-boost/shared";
 import type { GenerateReportJob } from "@llm-boost/reports";
+import { signPayload } from "../middleware/hmac";
 import type {
   ReportRepository,
   ProjectRepository,
@@ -16,12 +17,17 @@ interface Deps {
   crawls: CrawlRepository;
 }
 
+interface DispatchEnv {
+  reportServiceUrl: string;
+  sharedSecret: string;
+}
+
 export function createReportService(deps: Deps) {
   return {
     async generate(
       userId: string,
       input: GenerateReportInput,
-      queue: Queue<GenerateReportJob>,
+      env: DispatchEnv,
     ) {
       // 1. Verify project ownership
       const project = await deps.projects.getById(input.projectId);
@@ -69,8 +75,8 @@ export function createReportService(deps: Deps) {
         config: input.config ?? {},
       });
 
-      // 5. Enqueue job
-      await queue.send({
+      // 5. Dispatch to report service via HTTP (HMAC-authenticated)
+      const job: GenerateReportJob = {
         reportId: report.id,
         projectId: input.projectId,
         crawlJobId: input.crawlJobId,
@@ -78,8 +84,33 @@ export function createReportService(deps: Deps) {
         type: input.type,
         format: input.format,
         config: (input.config ?? {}) as ReportConfig,
-        databaseUrl: "", // Worker gets this from its own env
+        databaseUrl: "",
+      };
+
+      const body = JSON.stringify(job);
+      const { signature, timestamp } = await signPayload(
+        env.sharedSecret,
+        body,
+      );
+
+      const res = await fetch(`${env.reportServiceUrl}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Signature": signature,
+          "X-Timestamp": timestamp,
+        },
+        body,
       });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Unknown error");
+        throw new ServiceError(
+          "INTERNAL_ERROR",
+          500,
+          `Report service dispatch failed: ${text}`,
+        );
+      }
 
       return report;
     },
