@@ -1,0 +1,43 @@
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createDb } from "@llm-boost/db";
+import * as schema from "@llm-boost/db";
+import type { Bindings } from "../index";
+
+export function createAuth(env: Bindings) {
+  const db = createDb(env.DATABASE_URL);
+
+  return betterAuth({
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      schema: {
+        user: schema.users,
+        session: schema.session,
+        account: schema.account,
+        verification: schema.verification,
+      },
+    }),
+    emailAndPassword: {
+      enabled: true,
+    },
+    socialProviders: {
+      google: {
+        clientId: env.GOOGLE_OAUTH_CLIENT_ID,
+        clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+      },
+    },
+    secret: env.BETTER_AUTH_SECRET,
+    baseURL: env.BETTER_AUTH_URL, // e.g. http://localhost:8787 (NOT including basePath)
+    basePath: "/api/auth",
+    trustedOrigins: [
+      env.APP_BASE_URL,
+      "http://localhost:3000",
+      "https://llmrank.app",
+      "https://www.llmrank.app",
+    ].filter(Boolean),
+    advanced: {
+      // @ts-expect-error - generateId is supported at runtime
+      generateId: () => crypto.randomUUID(),
+    },
+  });
+}
