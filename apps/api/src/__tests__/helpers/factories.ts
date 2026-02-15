@@ -5,6 +5,7 @@ import type {
   UserRepository,
   VisibilityRepository,
   PageRepository,
+  ReportRepository,
 } from "../../repositories";
 
 export type ProjectEntity = NonNullable<
@@ -33,6 +34,9 @@ export type VisibilityTrendEntity =
   VisibilityTrendRows extends Array<infer Item> ? Item : never;
 export type PageEntity = NonNullable<
   Awaited<ReturnType<PageRepository["getById"]>>
+>;
+export type ReportEntity = NonNullable<
+  Awaited<ReturnType<ReportRepository["getById"]>>
 >;
 
 const STATIC_DATE = new Date("2024-01-01T00:00:00.000Z");
@@ -173,4 +177,26 @@ export function buildPage(overrides: Partial<PageEntity> = {}): PageEntity {
     updatedAt: STATIC_DATE,
     ...overrides,
   } as PageEntity;
+}
+
+export function buildReport(
+  overrides: Partial<ReportEntity> = {},
+): ReportEntity {
+  return {
+    id: "report-1",
+    projectId: "proj-1",
+    crawlJobId: "crawl-1",
+    userId: "test-user-id",
+    type: "summary",
+    format: "pdf",
+    status: "queued",
+    r2Key: null,
+    fileSize: null,
+    config: {},
+    error: null,
+    generatedAt: null,
+    expiresAt: null,
+    createdAt: STATIC_DATE,
+    ...overrides,
+  } as ReportEntity;
 }

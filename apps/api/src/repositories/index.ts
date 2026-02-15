@@ -13,6 +13,7 @@ import {
   enrichmentQueries,
   adminQueries,
   outboxQueries,
+  reportQueries,
   and,
   sql,
 } from "@llm-boost/db";
@@ -389,5 +390,43 @@ export function createAdminRepository(db: Database): AdminRepository {
     cancelCrawlJob: (jobId, reason, adminId) =>
       queries.cancelCrawlJob(jobId, reason, adminId),
     recordAction: (args) => queries.recordAdminAction(args),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Report Repository
+// ---------------------------------------------------------------------------
+
+export interface ReportRepository {
+  create(
+    data: Parameters<ReturnType<typeof reportQueries>["create"]>[0],
+  ): ReturnType<ReturnType<typeof reportQueries>["create"]>;
+  getById(id: string): ReturnType<ReturnType<typeof reportQueries>["getById"]>;
+  listByProject(
+    projectId: string,
+    limit?: number,
+  ): ReturnType<ReturnType<typeof reportQueries>["listByProject"]>;
+  countThisMonth(
+    userId: string,
+  ): ReturnType<ReturnType<typeof reportQueries>["countThisMonth"]>;
+  updateStatus(
+    id: string,
+    status: string,
+    extra?: Record<string, unknown>,
+  ): ReturnType<ReturnType<typeof reportQueries>["updateStatus"]>;
+  delete(id: string): ReturnType<ReturnType<typeof reportQueries>["delete"]>;
+}
+
+export function createReportRepository(db: Database): ReportRepository {
+  const queries = reportQueries(db);
+  return {
+    create: (data) => queries.create(data),
+    getById: (id) => queries.getById(id),
+    listByProject: (projectId, limit) =>
+      queries.listByProject(projectId, limit),
+    countThisMonth: (userId) => queries.countThisMonth(userId),
+    updateStatus: (id, status, extra) =>
+      queries.updateStatus(id, status, extra),
+    delete: (id) => queries.delete(id),
   };
 }

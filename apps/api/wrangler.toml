@@ -24,20 +24,27 @@ id = "890e3a5ce54f4c3883556dce292ceb20"
 binding = "CRAWL_QUEUE"
 queue = "llm-boost-crawls"
 
+[[queues.producers]]
+binding = "REPORT_QUEUE"
+queue = "llm-boost-reports"
+
 [browser]
 binding = "BROWSER"
 
 [vars]
 CRAWLER_URL = "https://llmrank-crawler.fly.dev"
 APP_BASE_URL = "https://llmrank.app"
+BETTER_AUTH_URL = "https://api.llmrank.app"
 
 [env.preview]
 [env.preview.vars]
 APP_BASE_URL = "https://staging.llmrank.app"
+BETTER_AUTH_URL = "https://api-staging.llmrank.app"
 
 [env.production]
 [env.production.vars]
 APP_BASE_URL = "https://llmrank.app"
+BETTER_AUTH_URL = "https://api.llmrank.app"
 
 [triggers]
 crons = ["0 0 1 * *", "*/5 * * * *"] # Reset monthly + Run scheduled crawls every 5 min
