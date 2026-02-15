@@ -22,6 +22,7 @@ import { extractorRoutes } from "../../routes/extractors";
 import { integrationRoutes } from "../../routes/integrations";
 import { strategyRoutes } from "../../routes/strategy";
 import { browserRoutes } from "../../routes/browser";
+import { reportRoutes } from "../../routes/reports";
 
 interface TestAppOptions {
   db?: Database;
@@ -82,6 +83,7 @@ export function createTestApp(options: TestAppOptions = {}) {
   app.route("/api/integrations", integrationRoutes);
   app.route("/api/strategy", strategyRoutes);
   app.route("/api/browser", browserRoutes);
+  app.route("/api/reports", reportRoutes);
 
   app.notFound((c) =>
     c.json({ error: { code: "NOT_FOUND", message: "Route not found" } }, 404),
