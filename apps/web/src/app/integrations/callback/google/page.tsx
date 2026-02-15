@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 function GoogleOAuthCallback() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
   const code = searchParams.get("code");
   const stateParam = searchParams.get("state");
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +27,8 @@ function GoogleOAuthCallback() {
     if (!code || !stateParam || !stateData) return;
     let cancelled = false;
 
-    withToken(async (token) => {
-      await api.integrations.oauthCallback(token, {
+    withAuth(async () => {
+      await api.integrations.oauthCallback({
         code,
         state: stateParam,
         redirectUri: window.location.origin + "/integrations/callback/google",
@@ -47,7 +47,7 @@ function GoogleOAuthCallback() {
     return () => {
       cancelled = true;
     };
-  }, [code, stateParam, stateData, router, withToken]);
+  }, [code, stateParam, stateData, router, withAuth]);
 
   if (!code || !stateParam) {
     return (
