@@ -27,6 +27,7 @@ import {
   Timer,
   AlertTriangle,
   Inbox,
+  ShieldCheck,
 } from "lucide-react";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -66,7 +67,7 @@ export default function AdminPage() {
   const [cancelReason, setCancelReason] = useState("Cancelled by admin");
   const { withAuth } = useApi();
 
-  const { data: stats } = useApiSWR<AdminStats>(
+  const { data: stats, error: statsError } = useApiSWR<AdminStats>(
     "admin-stats",
     useCallback(() => api.admin.getStats(), []),
     { refreshInterval: 10_000 },
@@ -246,6 +247,23 @@ export default function AdminPage() {
     pro: "default",
     agency: "default",
   };
+
+  if (statsError?.status === 403) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <ShieldCheck className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <h1 className="mt-4 text-2xl font-bold tracking-tight">
+            Admin access required
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            You do not have permission to view this page. Contact an
+            administrator if you believe this is an error.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

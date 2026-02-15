@@ -1,3 +1,6 @@
+"use client";
+
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { UserButton } from "@/lib/auth-hooks";
 import {
@@ -6,13 +9,20 @@ import {
   Settings,
   ShieldCheck,
 } from "lucide-react";
+import { useApiSWR } from "@/lib/use-api-swr";
+import { api } from "@/lib/api";
 
-const sidebarLinks = [
+const baseSidebarLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
 ];
+
+const adminLink = {
+  href: "/dashboard/admin",
+  label: "Admin",
+  icon: ShieldCheck,
+};
 
 export default function DashboardLayout({
   children,
@@ -20,6 +30,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   // Auth is enforced by middleware.ts — if we reach here, user has a session cookie
+  const { data: me } = useApiSWR(
+    "account-me",
+    useCallback(() => api.account.getMe(), []),
+  );
+
+  const sidebarLinks = useMemo(
+    () => (me?.isAdmin ? [...baseSidebarLinks, adminLink] : baseSidebarLinks),
+    [me?.isAdmin],
+  );
 
   return (
     <div className="flex min-h-screen">

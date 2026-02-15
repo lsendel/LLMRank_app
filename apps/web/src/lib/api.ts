@@ -1096,10 +1096,30 @@ export const api = {
       );
       return res.data;
     },
+
+    async optimizeDimension(data: {
+      pageId: string;
+      content: string;
+      dimension: string;
+      tone?: string;
+    }): Promise<{ optimized: string; explanation: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ optimized: string; explanation: string }>
+      >("/api/strategy/optimize-dimension", data);
+      return res.data;
+    },
   },
 
   // ── Account ─────────────────────────────────────────────────────
   account: {
+    async getMe(): Promise<{ isAdmin: boolean; plan: string; email: string }> {
+      const res =
+        await apiClient.get<
+          ApiEnvelope<{ isAdmin: boolean; plan: string; email: string }>
+        >("/api/account");
+      return res.data;
+    },
+
     async deleteAccount(): Promise<void> {
       await apiClient.delete<void>("/api/account");
     },
