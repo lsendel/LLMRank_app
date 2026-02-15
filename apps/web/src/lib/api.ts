@@ -494,6 +494,22 @@ export interface CrawlerTimelinePoint {
   other: number;
 }
 
+export interface Report {
+  id: string;
+  projectId: string;
+  crawlJobId: string;
+  type: "summary" | "detailed";
+  format: "pdf" | "docx";
+  status: "queued" | "generating" | "complete" | "failed";
+  r2Key: string | null;
+  fileSize: number | null;
+  config: Record<string, unknown>;
+  error: string | null;
+  generatedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface ProjectIntegration {
   id: string;
   projectId: string;
@@ -1099,6 +1115,65 @@ export const api = {
         `/api/public/reports/${token}`,
       );
       return res.data;
+    },
+  },
+
+  // ── Reports ─────────────────────────────────────────────────────
+  reports: {
+    async generate(input: {
+      projectId: string;
+      crawlJobId: string;
+      type: "summary" | "detailed";
+      format: "pdf" | "docx";
+      config?: {
+        compareCrawlIds?: string[];
+        brandingColor?: string;
+        preparedFor?: string;
+      };
+    }): Promise<Report> {
+      const res = await apiClient.post<ApiEnvelope<Report>>(
+        "/api/reports/generate",
+        input,
+      );
+      return res.data;
+    },
+
+    async list(projectId: string): Promise<Report[]> {
+      const res = await apiClient.get<ApiEnvelope<Report[]>>(
+        `/api/reports?projectId=${projectId}`,
+      );
+      return res.data;
+    },
+
+    async getStatus(reportId: string): Promise<Report> {
+      const res = await apiClient.get<ApiEnvelope<Report>>(
+        `/api/reports/${reportId}`,
+      );
+      return res.data;
+    },
+
+    async download(reportId: string): Promise<Blob> {
+      const res = await fetch(
+        `${API_BASE_URL}/api/reports/${reportId}/download`,
+        {
+          credentials: "include",
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({
+          error: { code: "DOWNLOAD_ERROR", message: "Download failed" },
+        }));
+        throw new ApiError(
+          res.status,
+          err.error?.code ?? "DOWNLOAD_ERROR",
+          err.error?.message ?? "Download failed",
+        );
+      }
+      return res.blob();
+    },
+
+    async delete(reportId: string): Promise<void> {
+      await apiClient.delete(`/api/reports/${reportId}`);
     },
   },
 
