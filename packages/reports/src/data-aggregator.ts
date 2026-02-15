@@ -5,11 +5,11 @@ import type {
   ReportPageScore,
   ReportHistoryPoint,
   ReportVisibility,
-  ReportCompetitor,
   ReportContentHealth,
 } from "./types";
 import type { ReportConfig } from "@llm-boost/shared";
 import { estimateIssueROI } from "./roi";
+import { aggregateCompetitors } from "./competitors";
 
 // ---------------------------------------------------------------------------
 // Input types (raw DB results)
@@ -289,37 +289,10 @@ export function aggregateReportData(
     };
   }
 
-  // Competitors
-  let competitors: ReportCompetitor[] | null = null;
-  if (visibilityChecks.some((c) => c.competitorMentions?.length)) {
-    const compMap = new Map<
-      string,
-      { count: number; platforms: Set<string>; queries: Set<string> }
-    >();
-    for (const check of visibilityChecks) {
-      if (!check.competitorMentions) continue;
-      for (const comp of check.competitorMentions) {
-        if (!comp.mentioned) continue;
-        const existing = compMap.get(comp.domain) ?? {
-          count: 0,
-          platforms: new Set(),
-          queries: new Set(),
-        };
-        existing.count++;
-        existing.platforms.add(check.llmProvider);
-        existing.queries.add(check.query);
-        compMap.set(comp.domain, existing);
-      }
-    }
-    competitors = Array.from(compMap.entries())
-      .map(([domain, data]) => ({
-        domain,
-        mentionCount: data.count,
-        platforms: Array.from(data.platforms),
-        queries: Array.from(data.queries),
-      }))
-      .sort((a, b) => b.mentionCount - a.mentionCount);
-  }
+  // Competitors + gap queries
+  const competitorAnalysis = aggregateCompetitors(visibilityChecks);
+  const competitors = competitorAnalysis?.competitors ?? null;
+  const gapQueries = competitorAnalysis?.gapQueries ?? null;
 
   // Content health (from LLM scores in page detail)
   let contentHealth: ReportContentHealth | null = null;
@@ -394,6 +367,7 @@ export function aggregateReportData(
     history,
     visibility,
     competitors,
+    gapQueries,
     contentHealth,
     platformOpportunities: null, // Computed from visibility data in a later step
     integrations: null, // Computed from enrichments in a later step

@@ -41,6 +41,7 @@ export interface ReportData {
   history: ReportHistoryPoint[];
   visibility: ReportVisibility | null;
   competitors: ReportCompetitor[] | null;
+  gapQueries: GapQuery[] | null;
   contentHealth: ReportContentHealth | null;
   platformOpportunities: ReportPlatformOpportunity[] | null;
   integrations: ReportIntegrationData | null;
@@ -131,6 +132,12 @@ export interface ReportContentHealth {
   avgCitationWorthiness: number | null;
   pagesAboveThreshold: number;
   totalPages: number;
+}
+
+export interface GapQuery {
+  query: string;
+  platform: string;
+  competitorsCited: string[];
 }
 
 export interface ReportIntegrationData {

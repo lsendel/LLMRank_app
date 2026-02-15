@@ -13,6 +13,7 @@ export type {
   GenerateReportJob,
   ReportType,
   ReportFormat,
+  GapQuery,
 } from "./types";
 
 export {
@@ -21,5 +22,6 @@ export {
   type AggregateOptions,
 } from "./data-aggregator";
 export { estimateIssueROI } from "./roi";
+export { aggregateCompetitors, type CompetitorAnalysis } from "./competitors";
 export { renderPdf } from "./pdf/render";
 export { renderDocx } from "./docx/render";
