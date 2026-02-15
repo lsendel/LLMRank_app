@@ -1,0 +1,43 @@
+import { eq } from "drizzle-orm";
+import type { Database } from "../client";
+import { leads } from "../schema";
+
+export function leadQueries(db: Database) {
+  return {
+    async create(data: {
+      email: string;
+      reportToken?: string;
+      source?: string;
+      scanResultId?: string;
+    }) {
+      const [lead] = await db
+        .insert(leads)
+        .values({
+          email: data.email,
+          reportToken: data.reportToken ?? null,
+          source: data.source ?? "shared_report",
+          scanResultId: data.scanResultId ?? null,
+        })
+        .returning();
+      return lead;
+    },
+
+    async findByEmail(email: string) {
+      const [lead] = await db
+        .select()
+        .from(leads)
+        .where(eq(leads.email, email))
+        .orderBy(leads.createdAt);
+      return lead ?? null;
+    },
+
+    async markConverted(id: string, projectId: string) {
+      const [updated] = await db
+        .update(leads)
+        .set({ convertedAt: new Date(), projectId })
+        .where(eq(leads.id, id))
+        .returning();
+      return updated ?? null;
+    },
+  };
+}

@@ -16,6 +16,8 @@ export { enrichmentQueries } from "./queries/enrichments";
 export { outboxQueries } from "./queries/outbox";
 export { reportQueries } from "./queries/reports";
 export { leadQueries } from "./queries/leads";
+export { scanResultQueries } from "./queries/scan-results";
+export { apiTokenQueries } from "./queries/api-tokens";
 export { notificationChannelQueries } from "./queries/notification-channels";
 export { scheduledVisibilityQueryQueries } from "./queries/scheduled-visibility";
 export { eq, and, lte, desc, gte, sql } from "drizzle-orm";
