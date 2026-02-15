@@ -25,7 +25,9 @@ adminRoutes.get("/stats", async (c) => {
 
 adminRoutes.get("/metrics", async (c) => {
   const db = c.get("db");
-  const notifications = createNotificationService(db, c.env.RESEND_API_KEY);
+  const notifications = createNotificationService(db, c.env.RESEND_API_KEY, {
+    appBaseUrl: c.env.APP_BASE_URL,
+  });
   const monitor = createMonitoringService(db, notifications);
 
   try {

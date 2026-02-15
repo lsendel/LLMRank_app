@@ -13,6 +13,7 @@ import type {
   ScoreRepository,
 } from "../repositories";
 import { ServiceError } from "./errors";
+import { assertProjectOwnership } from "./shared/assert-ownership";
 import { signPayload } from "../middleware/hmac";
 import { toAggregateInput } from "./score-helpers";
 
@@ -39,7 +40,11 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       requestUrl: string;
       env: CrawlerDispatchEnv;
     }) {
-      const project = await assertProjectOwnership(args.userId, args.projectId);
+      const project = await assertProjectOwnership(
+        deps.projects,
+        args.userId,
+        args.projectId,
+      );
       const user = await deps.users.getById(args.userId);
       if (!user) {
         const err = ERROR_CODES.NOT_FOUND;
@@ -144,17 +149,22 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
 
-      const project = await assertProjectOwnership(userId, crawlJob.projectId);
+      const project = await assertProjectOwnership(
+        deps.projects,
+        userId,
+        crawlJob.projectId,
+      );
       const enriched = await enrichCrawlScores(crawlJob, deps.scores);
       return {
         ...enriched,
         projectName: project.name,
         summary: crawlJob.summary,
+        summaryData: crawlJob.summaryData ?? null,
       };
     },
 
     async listProjectCrawls(userId: string, projectId: string) {
-      await assertProjectOwnership(userId, projectId);
+      await assertProjectOwnership(deps.projects, userId, projectId);
       return deps.crawls.listByProject(projectId);
     },
 
@@ -164,7 +174,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
-      await assertProjectOwnership(userId, crawlJob.projectId);
+      await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
       const issues = await deps.scores.getIssuesByJob(crawlId);
       return getQuickWins(issues);
     },
@@ -175,7 +185,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
-      await assertProjectOwnership(userId, crawlJob.projectId);
+      await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
       const issues = await deps.scores.getIssuesByJob(crawlId);
       const issueCodes = new Set(issues.map((i) => i.code));
 
@@ -198,7 +208,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
-      await assertProjectOwnership(userId, crawlJob.projectId);
+      await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
       if (crawlJob.shareToken && crawlJob.shareEnabled) {
         return {
           shareToken: crawlJob.shareToken,
@@ -218,7 +228,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
-      await assertProjectOwnership(userId, crawlJob.projectId);
+      await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
       await deps.crawls.disableSharing(crawlId);
       return { disabled: true };
     },
@@ -311,20 +321,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       }
     },
   };
-
-  async function assertProjectOwnership(userId: string, projectId: string) {
-    const project = await deps.projects.getById(projectId);
-    if (!project || project.userId !== userId) {
-      const err = ERROR_CODES.NOT_FOUND;
-      throw new ServiceError("NOT_FOUND", err.status, err.message);
-    }
-    return project;
-  }
 }
-
-type ProjectEntity = NonNullable<
-  Awaited<ReturnType<ProjectRepository["getById"]>>
->;
 
 export function buildCrawlConfig(
   project: { domain: string; settings: unknown },

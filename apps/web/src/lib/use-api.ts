@@ -1,22 +1,24 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 
-export function useApi(): {
-  withToken: <T>(fn: (token: string) => Promise<T>) => Promise<T>;
-  getToken: () => Promise<string | null>;
-} {
-  const { getToken } = useAuth();
+export function useApi() {
+  const router = useRouter();
 
-  const withToken = useCallback(
-    async <T>(fn: (token: string) => Promise<T>): Promise<T> => {
-      const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
-      return fn(token);
+  const withAuth = useCallback(
+    async <T>(fn: () => Promise<T>): Promise<T> => {
+      try {
+        return await fn();
+      } catch (error: any) {
+        if (error?.status === 401) {
+          router.push("/sign-in");
+        }
+        throw error;
+      }
     },
-    [getToken],
+    [router],
   );
 
-  return { withToken, getToken };
+  return { withAuth };
 }

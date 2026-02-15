@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth-hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,19 +44,12 @@ export default function OnboardingPage() {
 
     setSubmitting(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        setError("Authentication session expired. Please sign in again.");
-        return;
-      }
       const apiBase =
         process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
       const res = await fetch(`${apiBase}/api/account`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ name: name.trim(), phone: phone.trim() }),
       });
 

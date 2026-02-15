@@ -8,6 +8,7 @@ const mockProjectGetById = vi.fn();
 const mockScoreListByJob = vi.fn().mockResolvedValue([]);
 const mockScoreGetIssuesByJob = vi.fn().mockResolvedValue([]);
 const mockCrawlUpdateSummary = vi.fn().mockResolvedValue(undefined);
+const mockCrawlUpdateSummaryData = vi.fn().mockResolvedValue(undefined);
 const mockGenerateExecutiveSummary = vi
   .fn()
   .mockResolvedValue("Executive summary text");
@@ -23,6 +24,7 @@ vi.mock("@llm-boost/db", () => ({
   })),
   crawlQueries: vi.fn(() => ({
     updateSummary: mockCrawlUpdateSummary,
+    updateSummaryData: mockCrawlUpdateSummaryData,
   })),
 }));
 
@@ -44,6 +46,7 @@ vi.mock("@llm-boost/shared", async () => {
       .mockReturnValue([{ code: "MISSING_TITLE", impact: "high" }]),
     aggregatePageScores: vi.fn().mockReturnValue({
       overallScore: 82,
+      letterGrade: "B",
       scores: {
         technical: 85,
         content: 80,
@@ -58,13 +61,16 @@ vi.mock("../../services/score-helpers", () => ({
   toAggregateInput: vi.fn().mockImplementation((rows: unknown[]) => rows),
 }));
 
-import { generateCrawlSummary } from "../../services/summary";
+import {
+  generateCrawlSummary,
+  persistCrawlSummaryData,
+} from "../../services/summary";
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("generateCrawlSummary", () => {
+describe("crawl summaries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockProjectGetById.mockResolvedValue({
@@ -87,88 +93,129 @@ describe("generateCrawlSummary", () => {
     ]);
   });
 
-  it("generates and stores a summary for a completed crawl", async () => {
-    await generateCrawlSummary({
-      databaseUrl: "postgresql://test",
-      anthropicApiKey: "sk-test",
-      projectId: "proj-1",
-      jobId: "job-1",
+  describe("persistCrawlSummaryData", () => {
+    it("persists aggregate metrics and quick wins", async () => {
+      const result = await persistCrawlSummaryData({
+        databaseUrl: "postgresql://test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
+
+      expect(mockCrawlUpdateSummaryData).toHaveBeenCalledWith(
+        "job-1",
+        expect.objectContaining({
+          overallScore: 82,
+          letterGrade: expect.any(String),
+          pagesScored: 1,
+          quickWins: [{ code: "MISSING_TITLE", impact: "high" }],
+          project: expect.objectContaining({ name: "My Site" }),
+          issueCount: 1,
+        }),
+      );
+      expect(result?.generatedAt).toBeDefined();
     });
 
-    expect(mockGenerateExecutiveSummary).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectName: "My Site",
-        domain: "https://example.com",
-        overallScore: 82,
-        pagesScored: 1,
-      }),
-    );
-    expect(mockCrawlUpdateSummary).toHaveBeenCalledWith(
-      "job-1",
-      "Executive summary text",
-    );
+    it("clears summary data when project not found", async () => {
+      mockProjectGetById.mockResolvedValueOnce(null);
+
+      const result = await persistCrawlSummaryData({
+        databaseUrl: "postgresql://test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
+
+      expect(mockCrawlUpdateSummaryData).toHaveBeenCalledWith("job-1", null);
+      expect(result).toBeNull();
+    });
   });
 
-  it("returns early when project not found", async () => {
-    mockProjectGetById.mockResolvedValue(null);
+  describe("generateCrawlSummary", () => {
+    it("generates and stores a summary for a completed crawl", async () => {
+      await generateCrawlSummary({
+        databaseUrl: "postgresql://test",
+        anthropicApiKey: "sk-test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
 
-    await generateCrawlSummary({
-      databaseUrl: "postgresql://test",
-      anthropicApiKey: "sk-test",
-      projectId: "proj-1",
-      jobId: "job-1",
+      expect(mockCrawlUpdateSummaryData).toHaveBeenCalled();
+      expect(mockGenerateExecutiveSummary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectName: "My Site",
+          domain: "https://example.com",
+          overallScore: 82,
+          pagesScored: 1,
+        }),
+      );
+      expect(mockCrawlUpdateSummary).toHaveBeenCalledWith(
+        "job-1",
+        "Executive summary text",
+      );
     });
 
-    expect(mockGenerateExecutiveSummary).not.toHaveBeenCalled();
-    expect(mockCrawlUpdateSummary).not.toHaveBeenCalled();
-  });
+    it("returns early when project not found", async () => {
+      mockProjectGetById.mockResolvedValue(null);
 
-  it("returns early when no page scores exist", async () => {
-    mockScoreListByJob.mockResolvedValue([]);
+      await generateCrawlSummary({
+        databaseUrl: "postgresql://test",
+        anthropicApiKey: "sk-test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
 
-    await generateCrawlSummary({
-      databaseUrl: "postgresql://test",
-      anthropicApiKey: "sk-test",
-      projectId: "proj-1",
-      jobId: "job-1",
+      expect(mockGenerateExecutiveSummary).not.toHaveBeenCalled();
+      expect(mockCrawlUpdateSummary).not.toHaveBeenCalled();
+      expect(mockCrawlUpdateSummaryData).toHaveBeenCalledWith("job-1", null);
     });
 
-    expect(mockGenerateExecutiveSummary).not.toHaveBeenCalled();
-    expect(mockCrawlUpdateSummary).not.toHaveBeenCalled();
-  });
+    it("returns early when no page scores exist", async () => {
+      mockScoreListByJob.mockResolvedValue([]);
 
-  it("passes quick wins to the summary generator", async () => {
-    await generateCrawlSummary({
-      databaseUrl: "postgresql://test",
-      anthropicApiKey: "sk-test",
-      projectId: "proj-1",
-      jobId: "job-1",
+      await generateCrawlSummary({
+        databaseUrl: "postgresql://test",
+        anthropicApiKey: "sk-test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
+
+      expect(mockGenerateExecutiveSummary).not.toHaveBeenCalled();
+      expect(mockCrawlUpdateSummary).not.toHaveBeenCalled();
+      expect(mockCrawlUpdateSummaryData).toHaveBeenCalledWith("job-1", null);
     });
 
-    expect(mockGenerateExecutiveSummary).toHaveBeenCalledWith(
-      expect.objectContaining({
-        quickWins: [{ code: "MISSING_TITLE", impact: "high" }],
-      }),
-    );
-  });
+    it("passes quick wins to the summary generator", async () => {
+      await generateCrawlSummary({
+        databaseUrl: "postgresql://test",
+        anthropicApiKey: "sk-test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
 
-  it("passes category scores to the summary generator", async () => {
-    await generateCrawlSummary({
-      databaseUrl: "postgresql://test",
-      anthropicApiKey: "sk-test",
-      projectId: "proj-1",
-      jobId: "job-1",
+      expect(mockGenerateExecutiveSummary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quickWins: [{ code: "MISSING_TITLE", impact: "high" }],
+        }),
+      );
     });
 
-    expect(mockGenerateExecutiveSummary).toHaveBeenCalledWith(
-      expect.objectContaining({
-        categoryScores: {
-          technical: 85,
-          content: 80,
-          aiReadiness: 78,
-          performance: 90,
-        },
-      }),
-    );
+    it("passes category scores to the summary generator", async () => {
+      await generateCrawlSummary({
+        databaseUrl: "postgresql://test",
+        anthropicApiKey: "sk-test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
+
+      expect(mockGenerateExecutiveSummary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          categoryScores: {
+            technical: 85,
+            content: 80,
+            aiReadiness: 78,
+            performance: 90,
+          },
+        }),
+      );
+    });
   });
 });

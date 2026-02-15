@@ -90,12 +90,14 @@ export const eventStatusEnum = pgEnum("event_status", [
 // ---------------------------------------------------------------------------
 
 export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").notNull().default(false),
   clerkId: text("clerk_id").unique(),
   name: text("name"),
   phone: text("phone"),
   avatarUrl: text("avatar_url"),
+  image: text("image"), // Better Auth expects 'image'
   plan: planEnum("plan").notNull().default("free"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubId: text("stripe_sub_id"),
@@ -107,6 +109,61 @@ export const users = pgTable("users", {
     .default(true),
   notifyOnScoreDrop: boolean("notify_on_score_drop").notNull().default(true),
   isAdmin: boolean("is_admin").notNull().default(false),
+  lastSignedIn: timestamp("last_signed_in"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Better Auth: Sessions
+// ---------------------------------------------------------------------------
+
+export const session = pgTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: timestamp("expires_at").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [index("idx_session_user_id").on(t.userId)], // Removed t.token index as it's already unique
+);
+
+// ---------------------------------------------------------------------------
+// Better Auth: Accounts
+// ---------------------------------------------------------------------------
+
+export const account = pgTable("account", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: text("user_id").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Better Auth: Verification
+// ---------------------------------------------------------------------------
+
+export const verification = pgTable("verification", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -119,7 +176,7 @@ export const projects = pgTable(
   "projects",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
@@ -156,13 +213,14 @@ export const crawlJobs = pgTable(
     errorMessage: text("error_message"),
     r2Prefix: text("r2_prefix"),
     summary: text("summary"),
+    summaryData: jsonb("summary_data"),
     shareToken: text("share_token").unique(),
     shareEnabled: boolean("share_enabled").default(false),
     sharedAt: timestamp("shared_at"),
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
     cancelledAt: timestamp("cancelled_at"),
-    cancelledBy: uuid("cancelled_by").references(() => users.id),
+    cancelledBy: text("cancelled_by").references(() => users.id),
     cancelReason: text("cancel_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
@@ -294,7 +352,7 @@ export const subscriptions = pgTable(
   "subscriptions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     planCode: text("plan_code").notNull(),
@@ -321,7 +379,7 @@ export const payments = pgTable(
   "payments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     subscriptionId: uuid("subscription_id").references(() => subscriptions.id),
@@ -348,7 +406,7 @@ export const planPriceHistory = pgTable(
     planCode: text("plan_code").notNull(),
     oldPriceCents: integer("old_price_cents").notNull(),
     newPriceCents: integer("new_price_cents").notNull(),
-    changedBy: uuid("changed_by").references(() => users.id),
+    changedBy: text("changed_by").references(() => users.id),
     reason: text("reason"),
     changedAt: timestamp("changed_at").notNull().defaultNow(),
   },
@@ -387,7 +445,7 @@ export const logUploads = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     filename: text("filename").notNull(),
@@ -491,7 +549,7 @@ export const adminAuditLogs = pgTable(
   "admin_audit_logs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    actorId: uuid("actor_id").references(() => users.id),
+    actorId: text("actor_id").references(() => users.id),
     action: text("action").notNull(),
     targetType: text("target_type").notNull(),
     targetId: text("target_id").notNull(),

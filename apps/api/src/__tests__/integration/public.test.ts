@@ -147,6 +147,7 @@ describe("Public Routes", () => {
       expect(body.data).toHaveProperty("scores");
       expect(body.data.scores).toHaveProperty("overall");
       expect(body.data.scores).toHaveProperty("letterGrade");
+      expect(body.data).toHaveProperty("summaryData");
       expect(body.data).toHaveProperty("pages");
       expect(body.data.pages).toBeInstanceOf(Array);
       expect(body.data).toHaveProperty("quickWins");

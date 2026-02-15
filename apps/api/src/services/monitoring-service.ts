@@ -1,5 +1,5 @@
 import { type Database, crawlJobs } from "@llm-boost/db";
-import { eq, and, lt, sql } from "drizzle-orm";
+import { and, count, eq, inArray, lt, sql } from "drizzle-orm";
 import { createLogger } from "../lib/logger";
 import { NotificationService } from "./notification-service";
 
@@ -10,7 +10,7 @@ export interface MonitoringService {
 
 export function createMonitoringService(
   db: Database,
-  notifier: NotificationService,
+  _notifier: NotificationService,
 ): MonitoringService {
   const log = createLogger({ context: "monitoring-service" });
 
@@ -27,9 +27,9 @@ export function createMonitoringService(
         .from(crawlJobs)
         .where(
           and(
-            sql`${crawlJobs.status} IN ('crawling', 'scoring')`,
-            sql`${crawlJobs.createdAt} < ${oneHourAgo.toISOString()}`,
-          ) as any,
+            inArray(crawlJobs.status, ["crawling", "scoring"]),
+            lt(crawlJobs.createdAt, oneHourAgo),
+          ),
         );
 
       if (stalledJobs.length > 0) {
@@ -42,8 +42,8 @@ export function createMonitoringService(
             .set({
               status: "failed",
               errorMessage: "Crawl stalled: No activity for > 1 hour",
-            } as any)
-            .where(sql`${crawlJobs.id} = ${job.id}` as any);
+            })
+            .where(eq(crawlJobs.id, job.id));
 
           // In a real app, notify admin via Slack/PagerDuty here
           log.error("CRITICAL: Crawl Stalled", { jobId: job.id });
@@ -53,23 +53,18 @@ export function createMonitoringService(
 
     async getSystemMetrics() {
       const activeCount = await db
-        .select({ count: sql<number>`count(*)` as any })
+        .select({ count: count() })
         .from(crawlJobs)
-        .where(
-          and(
-            sql`${crawlJobs.status} = 'crawling'`,
-            sql`${crawlJobs.status} = 'scoring'`,
-          ) as any,
-        );
+        .where(inArray(crawlJobs.status, ["crawling", "scoring"]));
 
       const error24h = await db
-        .select({ count: sql<number>`count(*)` as any })
+        .select({ count: count() })
         .from(crawlJobs)
         .where(
           and(
-            sql`${crawlJobs.status} = 'failed'`,
+            eq(crawlJobs.status, "failed"),
             sql`${crawlJobs.createdAt} >= now() - interval '24 hours'`,
-          ) as any,
+          ),
         );
 
       return {

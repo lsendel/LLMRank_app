@@ -119,9 +119,30 @@ export interface CrawlJob {
   } | null;
   errorMessage: string | null;
   summary: string | null;
+  summaryData?: CrawlSummaryData | null;
   createdAt: string;
   projectName?: string;
   projectId2?: string;
+}
+
+export interface CrawlSummaryData {
+  project: {
+    id: string;
+    name: string;
+    domain: string;
+  };
+  overallScore: number;
+  letterGrade: string;
+  categoryScores: {
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+  };
+  quickWins: QuickWin[];
+  pagesScored: number;
+  generatedAt: string;
+  issueCount: number;
 }
 
 export interface CrawledPage {
@@ -509,29 +530,80 @@ export interface DashboardActivity extends CrawlJob {
   projectId: string;
 }
 
+// Progress tracking
+export interface CategoryDelta {
+  current: number;
+  previous: number;
+  delta: number;
+}
+
+export interface ProjectProgress {
+  currentCrawlId: string;
+  previousCrawlId: string;
+  scoreDelta: number;
+  currentScore: number;
+  previousScore: number;
+  categoryDeltas: {
+    technical: CategoryDelta;
+    content: CategoryDelta;
+    aiReadiness: CategoryDelta;
+    performance: CategoryDelta;
+  };
+  issuesFixed: number;
+  issuesNew: number;
+  issuesPersisting: number;
+  gradeChanges: { improved: number; regressed: number; unchanged: number };
+  velocity: number;
+  topImprovedPages: { url: string; delta: number; current: number }[];
+  topRegressedPages: { url: string; delta: number; current: number }[];
+}
+
+// Intelligence fusion
+export interface PlatformOpportunity {
+  platform: string;
+  currentScore: number;
+  opportunityScore: number;
+  topTips: string[];
+  visibilityRate: number | null;
+}
+
+export interface FusedInsights {
+  aiVisibilityReadiness: number;
+  platformOpportunities: PlatformOpportunity[];
+  contentHealthMatrix: {
+    scoring: number;
+    llmQuality: number | null;
+    engagement: number | null;
+    uxQuality: number | null;
+  };
+  roiQuickWins: {
+    issueCode: string;
+    scoreImpact: number;
+    estimatedTrafficImpact: number | null;
+    effort: "low" | "medium" | "high";
+    affectedPages: number;
+  }[];
+}
+
 // ─── Request helpers ────────────────────────────────────────────────
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
-  token?: string;
 }
 
 async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, token, headers: extraHeaders, ...init } = options;
+  const { body, headers: extraHeaders, ...init } = options;
 
   const headers = new Headers(extraHeaders);
   headers.set("Content-Type", "application/json");
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
+    credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -600,17 +672,15 @@ function buildQueryString(
 export const api = {
   // ── Dashboard ───────────────────────────────────────────────────
   dashboard: {
-    async getStats(token: string): Promise<DashboardStats> {
+    async getStats(): Promise<DashboardStats> {
       const res = await apiClient.get<ApiEnvelope<DashboardStats>>(
         "/api/dashboard/stats",
-        { token },
       );
       return res.data;
     },
-    async getRecentActivity(token: string): Promise<DashboardActivity[]> {
+    async getRecentActivity(): Promise<DashboardActivity[]> {
       const res = await apiClient.get<ApiEnvelope<DashboardActivity[]>>(
         "/api/dashboard/activity",
-        { token },
       );
       return res.data;
     },
@@ -618,100 +688,97 @@ export const api = {
 
   // ── Projects ────────────────────────────────────────────────────
   projects: {
-    async list(
-      token: string,
-      params?: { page?: number; limit?: number },
-    ): Promise<PaginatedResponse<Project>> {
+    async list(params?: {
+      page?: number;
+      limit?: number;
+    }): Promise<PaginatedResponse<Project>> {
       const qs = buildQueryString(params);
-      return apiClient.get<PaginatedResponse<Project>>(`/api/projects${qs}`, {
-        token,
-      });
+      return apiClient.get<PaginatedResponse<Project>>(`/api/projects${qs}`);
     },
 
-    async get(token: string, projectId: string): Promise<Project> {
+    async get(projectId: string): Promise<Project> {
       const res = await apiClient.get<ApiEnvelope<Project>>(
         `/api/projects/${projectId}`,
-        { token },
       );
       return res.data;
     },
 
-    async create(token: string, data: CreateProjectInput): Promise<Project> {
+    async create(data: CreateProjectInput): Promise<Project> {
       const res = await apiClient.post<ApiEnvelope<Project>>(
         "/api/projects",
         data,
-        { token },
       );
       return res.data;
     },
 
     async update(
-      token: string,
       projectId: string,
       data: UpdateProjectInput,
     ): Promise<Project> {
       const res = await apiClient.put<ApiEnvelope<Project>>(
         `/api/projects/${projectId}`,
         data,
-        { token },
       );
       return res.data;
     },
 
-    async delete(token: string, projectId: string): Promise<void> {
+    async delete(projectId: string): Promise<void> {
       await apiClient.delete<ApiEnvelope<{ id: string; deleted: boolean }>>(
         `/api/projects/${projectId}`,
-        { token },
       );
+    },
+
+    async progress(projectId: string): Promise<ProjectProgress | null> {
+      const res = await apiClient.get<ApiEnvelope<ProjectProgress | null>>(
+        `/api/projects/${projectId}/progress`,
+      );
+      return res.data;
     },
   },
 
   // ── Crawls ──────────────────────────────────────────────────────
   crawls: {
-    async start(token: string, projectId: string): Promise<CrawlJob> {
-      const res = await apiClient.post<ApiEnvelope<CrawlJob>>(
-        "/api/crawls",
-        { projectId },
-        { token },
-      );
+    async start(projectId: string): Promise<CrawlJob> {
+      const res = await apiClient.post<ApiEnvelope<CrawlJob>>("/api/crawls", {
+        projectId,
+      });
       return res.data;
     },
 
     async list(
-      token: string,
       projectId: string,
       params?: { page?: number; limit?: number },
     ): Promise<PaginatedResponse<CrawlJob>> {
       const qs = buildQueryString(params);
       return apiClient.get<PaginatedResponse<CrawlJob>>(
         `/api/crawls/project/${projectId}${qs}`,
-        { token },
       );
     },
 
-    async get(token: string, crawlId: string): Promise<CrawlJob> {
+    async get(crawlId: string): Promise<CrawlJob> {
       const res = await apiClient.get<ApiEnvelope<CrawlJob>>(
         `/api/crawls/${crawlId}`,
-        { token },
       );
       return res.data;
     },
 
-    async getInsights(token: string, crawlId: string): Promise<CrawlInsights> {
+    async getInsights(crawlId: string): Promise<CrawlInsights> {
       const res = await apiClient.get<ApiEnvelope<CrawlInsights>>(
         `/api/crawls/${crawlId}/insights`,
-        { token },
       );
       return res.data;
     },
 
-    async getIssueHeatmap(
-      token: string,
-      crawlId: string,
-    ): Promise<IssueHeatmapData> {
+    async getIssueHeatmap(crawlId: string): Promise<IssueHeatmapData> {
       const res = await apiClient.get<ApiEnvelope<IssueHeatmapData>>(
         `/api/crawls/${crawlId}/issue-heatmap`,
-        { token },
+      );
+      return res.data;
+    },
+
+    async fusedInsights(crawlId: string): Promise<FusedInsights> {
+      const res = await apiClient.get<ApiEnvelope<FusedInsights>>(
+        `/api/crawls/${crawlId}/fused-insights`,
       );
       return res.data;
     },
@@ -720,7 +787,6 @@ export const api = {
   // ── Pages ───────────────────────────────────────────────────────
   pages: {
     async list(
-      token: string,
       crawlId: string,
       params?: {
         page?: number;
@@ -732,25 +798,19 @@ export const api = {
       const qs = buildQueryString(params);
       return apiClient.get<PaginatedResponse<CrawledPage>>(
         `/api/pages/job/${crawlId}${qs}`,
-        { token },
       );
     },
 
-    async get(token: string, pageId: string): Promise<PageDetail> {
+    async get(pageId: string): Promise<PageDetail> {
       const res = await apiClient.get<ApiEnvelope<PageDetail>>(
         `/api/pages/${pageId}`,
-        { token },
       );
       return res.data;
     },
 
-    async getEnrichments(
-      token: string,
-      pageId: string,
-    ): Promise<PageEnrichment[]> {
+    async getEnrichments(pageId: string): Promise<PageEnrichment[]> {
       const res = await apiClient.get<ApiEnvelope<PageEnrichment[]>>(
         `/api/pages/${pageId}/enrichments`,
-        { token },
       );
       return res.data;
     },
@@ -759,7 +819,6 @@ export const api = {
   // ── Issues ──────────────────────────────────────────────────────
   issues: {
     async listForCrawl(
-      token: string,
       crawlId: string,
       params?: {
         page?: number;
@@ -771,154 +830,127 @@ export const api = {
       const qs = buildQueryString(params);
       return apiClient.get<PaginatedResponse<PageIssue>>(
         `/api/pages/issues/job/${crawlId}${qs}`,
-        { token },
       );
     },
   },
 
   // ── Billing ─────────────────────────────────────────────────────
   billing: {
-    async getInfo(token: string): Promise<BillingInfo> {
-      const res = await apiClient.get<ApiEnvelope<BillingInfo>>(
-        "/api/billing/usage",
-        { token },
-      );
+    async getInfo(): Promise<BillingInfo> {
+      const res =
+        await apiClient.get<ApiEnvelope<BillingInfo>>("/api/billing/usage");
       return res.data;
     },
 
     async createCheckoutSession(
-      token: string,
       plan: string,
       successUrl: string,
       cancelUrl: string,
     ): Promise<{ sessionId: string; url: string }> {
       const res = await apiClient.post<
         ApiEnvelope<{ sessionId: string; url: string }>
-      >("/api/billing/checkout", { plan, successUrl, cancelUrl }, { token });
+      >("/api/billing/checkout", { plan, successUrl, cancelUrl });
       return res.data;
     },
 
-    async createPortalSession(
-      token: string,
-      returnUrl: string,
-    ): Promise<{ url: string }> {
+    async createPortalSession(returnUrl: string): Promise<{ url: string }> {
       const res = await apiClient.post<ApiEnvelope<{ url: string }>>(
         "/api/billing/portal",
         { returnUrl },
-        { token },
       );
       return res.data;
     },
 
-    async getSubscription(token: string): Promise<SubscriptionInfo | null> {
+    async getSubscription(): Promise<SubscriptionInfo | null> {
       const res = await apiClient.get<ApiEnvelope<SubscriptionInfo | null>>(
         "/api/billing/subscription",
-        { token },
       );
       return res.data;
     },
 
-    async getPayments(token: string): Promise<PaymentRecord[]> {
+    async getPayments(): Promise<PaymentRecord[]> {
       const res = await apiClient.get<ApiEnvelope<PaymentRecord[]>>(
         "/api/billing/payments",
-        { token },
       );
       return res.data;
     },
 
-    async cancelSubscription(token: string): Promise<void> {
-      await apiClient.post("/api/billing/cancel", undefined, { token });
+    async cancelSubscription(): Promise<void> {
+      await apiClient.post("/api/billing/cancel");
     },
   },
 
   // ── Admin ───────────────────────────────────────────────────────
   admin: {
-    async getStats(token: string): Promise<AdminStats> {
-      const res = await apiClient.get<ApiEnvelope<AdminStats>>(
-        "/api/admin/stats",
-        { token },
-      );
+    async getStats(): Promise<AdminStats> {
+      const res =
+        await apiClient.get<ApiEnvelope<AdminStats>>("/api/admin/stats");
       return res.data;
     },
 
-    async getMetrics(token: string): Promise<{
+    async getMetrics(): Promise<{
       activeCrawls: number;
       errorsLast24h: number;
       systemTime: string;
     }> {
-      const res = await apiClient.get<ApiEnvelope<any>>("/api/admin/metrics", {
-        token,
-      });
+      const res = await apiClient.get<ApiEnvelope<any>>("/api/admin/metrics");
       return res.data;
     },
 
-    async getCustomers(
-      token: string,
-      params?: { page?: number; limit?: number; search?: string },
-    ): Promise<PaginatedResponse<AdminCustomer>> {
+    async getCustomers(params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    }): Promise<PaginatedResponse<AdminCustomer>> {
       const qs = buildQueryString(params);
       return apiClient.get<PaginatedResponse<AdminCustomer>>(
         `/api/admin/customers${qs}`,
-        { token },
       );
     },
 
-    async getCustomerDetail(
-      token: string,
-      userId: string,
-    ): Promise<AdminCustomerDetail> {
+    async getCustomerDetail(userId: string): Promise<AdminCustomerDetail> {
       const res = await apiClient.get<ApiEnvelope<AdminCustomerDetail>>(
         `/api/admin/customers/${userId}`,
-        { token },
       );
       return res.data;
     },
 
-    async getIngestDetails(token: string): Promise<AdminIngestDetails> {
-      const res = await apiClient.get<ApiEnvelope<AdminIngestDetails>>(
-        "/api/admin/ingest",
-        { token },
-      );
+    async getIngestDetails(): Promise<AdminIngestDetails> {
+      const res =
+        await apiClient.get<ApiEnvelope<AdminIngestDetails>>(
+          "/api/admin/ingest",
+        );
       return res.data;
     },
 
-    async retryCrawlJob(token: string, jobId: string): Promise<void> {
-      await apiClient.post(`/api/admin/ingest/jobs/${jobId}/retry`, undefined, {
-        token,
-      });
+    async retryCrawlJob(jobId: string): Promise<void> {
+      await apiClient.post(`/api/admin/ingest/jobs/${jobId}/retry`);
     },
 
-    async replayOutboxEvent(token: string, eventId: string): Promise<void> {
-      await apiClient.post(
-        `/api/admin/ingest/outbox/${eventId}/replay`,
-        undefined,
-        { token },
-      );
+    async replayOutboxEvent(eventId: string): Promise<void> {
+      await apiClient.post(`/api/admin/ingest/outbox/${eventId}/replay`);
     },
 
-    async cancelCrawlJob(token: string, jobId: string, reason?: string) {
+    async cancelCrawlJob(jobId: string, reason?: string) {
       await apiClient.post(
         `/api/admin/ingest/jobs/${jobId}/cancel`,
         reason ? { reason } : undefined,
-        { token },
       );
     },
   },
 
   // ── Scores ──────────────────────────────────────────────────────
   scores: {
-    async listByJob(token: string, jobId: string): Promise<PageScoreEntry[]> {
+    async listByJob(jobId: string): Promise<PageScoreEntry[]> {
       const res = await apiClient.get<ApiEnvelope<PageScoreEntry[]>>(
         `/api/scores/job/${jobId}/pages`,
-        { token },
       );
       return res.data;
     },
 
-    async getPage(token: string, pageId: string): Promise<PageScoreDetail> {
+    async getPage(pageId: string): Promise<PageScoreDetail> {
       const res = await apiClient.get<ApiEnvelope<PageScoreDetail>>(
         `/api/scores/page/${pageId}`,
-        { token },
       );
       return res.data;
     },
@@ -926,38 +958,29 @@ export const api = {
 
   // ── Visibility ─────────────────────────────────────────────────
   visibility: {
-    async run(
-      token: string,
-      data: {
-        projectId: string;
-        query: string;
-        providers: string[];
-        competitors?: string[];
-      },
-    ): Promise<VisibilityCheck[]> {
+    async run(data: {
+      projectId: string;
+      query: string;
+      providers: string[];
+      competitors?: string[];
+    }): Promise<VisibilityCheck[]> {
       const res = await apiClient.post<ApiEnvelope<VisibilityCheck[]>>(
         "/api/visibility/check",
         data,
-        { token },
       );
       return res.data;
     },
 
-    async list(token: string, projectId: string): Promise<VisibilityCheck[]> {
+    async list(projectId: string): Promise<VisibilityCheck[]> {
       const res = await apiClient.get<ApiEnvelope<VisibilityCheck[]>>(
         `/api/visibility/${projectId}`,
-        { token },
       );
       return res.data;
     },
 
-    async getTrends(
-      token: string,
-      projectId: string,
-    ): Promise<VisibilityTrend[]> {
+    async getTrends(projectId: string): Promise<VisibilityTrend[]> {
       const res = await apiClient.get<ApiEnvelope<VisibilityTrend[]>>(
         `/api/visibility/${projectId}/trends`,
-        { token },
       );
       return res.data;
     },
@@ -966,87 +989,68 @@ export const api = {
   // ── Strategy ────────────────────────────────────────────────────
   strategy: {
     async generatePersonas(
-      token: string,
       projectId: string,
       data: { description?: string; niche?: string },
     ): Promise<StrategyPersona[]> {
       const res = await apiClient.post<ApiEnvelope<StrategyPersona[]>>(
         `/api/strategy/${projectId}/personas`,
         data,
-        { token },
       );
       return res.data;
     },
 
-    async getCompetitors(
-      token: string,
-      projectId: string,
-    ): Promise<StrategyCompetitor[]> {
+    async getCompetitors(projectId: string): Promise<StrategyCompetitor[]> {
       const res = await apiClient.get<ApiEnvelope<StrategyCompetitor[]>>(
         `/api/strategy/${projectId}/competitors`,
-        { token },
       );
       return res.data;
     },
 
     async addCompetitor(
-      token: string,
       projectId: string,
       domain: string,
     ): Promise<StrategyCompetitor> {
       const res = await apiClient.post<ApiEnvelope<StrategyCompetitor>>(
         `/api/strategy/${projectId}/competitors`,
         { domain },
-        { token },
       );
       return res.data;
     },
 
-    async removeCompetitor(token: string, id: string): Promise<void> {
-      await apiClient.delete(`/api/strategy/competitors/${id}`, { token });
+    async removeCompetitor(id: string): Promise<void> {
+      await apiClient.delete(`/api/strategy/competitors/${id}`);
     },
 
-    async gapAnalysis(
-      token: string,
-      data: {
-        projectId: string;
-        competitorDomain: string;
-        query: string;
-        pageId?: string;
-      },
-    ): Promise<GapAnalysisResult> {
+    async gapAnalysis(data: {
+      projectId: string;
+      competitorDomain: string;
+      query: string;
+      pageId?: string;
+    }): Promise<GapAnalysisResult> {
       const res = await apiClient.post<ApiEnvelope<GapAnalysisResult>>(
         "/api/strategy/gap-analysis",
         data,
-        { token },
       );
       return res.data;
     },
 
-    async semanticGap(
-      token: string,
-      data: {
-        projectId: string;
-        pageId: string;
-        competitorDomain: string;
-      },
-    ): Promise<SemanticGapResponse> {
+    async semanticGap(data: {
+      projectId: string;
+      pageId: string;
+      competitorDomain: string;
+    }): Promise<SemanticGapResponse> {
       const res = await apiClient.post<ApiEnvelope<SemanticGapResponse>>(
         "/api/strategy/semantic-gap",
         data,
-        { token },
       );
       return res.data;
     },
 
-    async applyFix(
-      token: string,
-      data: {
-        pageId: string;
-        missingFact: string;
-        factType: string;
-      },
-    ): Promise<{
+    async applyFix(data: {
+      pageId: string;
+      missingFact: string;
+      factType: string;
+    }): Promise<{
       suggestedSnippet: string;
       placementAdvice: string;
       citabilityBoost: number;
@@ -1057,21 +1061,17 @@ export const api = {
           placementAdvice: string;
           citabilityBoost: number;
         }>
-      >("/api/strategy/apply-fix", data, { token });
+      >("/api/strategy/apply-fix", data);
       return res.data;
     },
 
-    async getTopicMap(
-      token: string,
-      projectId: string,
-    ): Promise<{
+    async getTopicMap(projectId: string): Promise<{
       nodes: any[];
       edges: any[];
       clusters: any[];
     }> {
       const res = await apiClient.get<ApiEnvelope<any>>(
         `/api/strategy/${projectId}/topic-map`,
-        { token },
       );
       return res.data;
     },
@@ -1079,8 +1079,8 @@ export const api = {
 
   // ── Account ─────────────────────────────────────────────────────
   account: {
-    async deleteAccount(token: string): Promise<void> {
-      await apiClient.delete<void>("/api/account", { token });
+    async deleteAccount(): Promise<void> {
+      await apiClient.delete<void>("/api/account");
     },
   },
 
@@ -1104,10 +1104,9 @@ export const api = {
 
   // ── Quick Wins ─────────────────────────────────────────────────
   quickWins: {
-    async get(token: string, crawlId: string): Promise<QuickWin[]> {
+    async get(crawlId: string): Promise<QuickWin[]> {
       const res = await apiClient.get<ApiEnvelope<QuickWin[]>>(
         `/api/crawls/${crawlId}/quick-wins`,
-        { token },
       );
       return res.data;
     },
@@ -1115,13 +1114,9 @@ export const api = {
 
   // ── Platform Readiness ─────────────────────────────────────────
   platformReadiness: {
-    async get(
-      token: string,
-      crawlId: string,
-    ): Promise<PlatformReadinessResult[]> {
+    async get(crawlId: string): Promise<PlatformReadinessResult[]> {
       const res = await apiClient.get<ApiEnvelope<PlatformReadinessResult[]>>(
         `/api/crawls/${crawlId}/platform-readiness`,
-        { token },
       );
       return res.data;
     },
@@ -1130,31 +1125,27 @@ export const api = {
   // ── Logs ───────────────────────────────────────────────────────
   logs: {
     async upload(
-      token: string,
       projectId: string,
       data: { filename: string; content: string },
     ): Promise<{ id: string; summary: LogAnalysisSummary }> {
       const res = await apiClient.post<
         ApiEnvelope<{ id: string; summary: LogAnalysisSummary }>
-      >(`/api/logs/${projectId}/upload`, data, { token });
+      >(`/api/logs/${projectId}/upload`, data);
       return res.data;
     },
 
-    async list(token: string, projectId: string): Promise<LogUpload[]> {
+    async list(projectId: string): Promise<LogUpload[]> {
       const res = await apiClient.get<ApiEnvelope<LogUpload[]>>(
         `/api/logs/${projectId}`,
-        { token },
       );
       return res.data;
     },
 
     async getCrawlerTimeline(
-      token: string,
       projectId: string,
     ): Promise<CrawlerTimelinePoint[]> {
       const res = await apiClient.get<ApiEnvelope<CrawlerTimelinePoint[]>>(
         `/api/logs/${projectId}/crawler-timeline`,
-        { token },
       );
       return res.data;
     },
@@ -1162,19 +1153,14 @@ export const api = {
 
   // ── Integrations ────────────────────────────────────────────────
   integrations: {
-    async list(
-      token: string,
-      projectId: string,
-    ): Promise<ProjectIntegration[]> {
+    async list(projectId: string): Promise<ProjectIntegration[]> {
       const res = await apiClient.get<ApiEnvelope<ProjectIntegration[]>>(
         `/api/integrations/${projectId}`,
-        { token },
       );
       return res.data;
     },
 
     async connect(
-      token: string,
       projectId: string,
       data: {
         provider: string;
@@ -1185,13 +1171,11 @@ export const api = {
       const res = await apiClient.post<ApiEnvelope<ProjectIntegration>>(
         `/api/integrations/${projectId}/connect`,
         data,
-        { token },
       );
       return res.data;
     },
 
     async update(
-      token: string,
       projectId: string,
       integrationId: string,
       data: { enabled?: boolean; config?: Record<string, unknown> },
@@ -1199,57 +1183,44 @@ export const api = {
       const res = await apiClient.put<ApiEnvelope<ProjectIntegration>>(
         `/api/integrations/${projectId}/${integrationId}`,
         data,
-        { token },
       );
       return res.data;
     },
 
-    async disconnect(
-      token: string,
-      projectId: string,
-      integrationId: string,
-    ): Promise<void> {
-      await apiClient.delete(
-        `/api/integrations/${projectId}/${integrationId}`,
-        { token },
-      );
+    async disconnect(projectId: string, integrationId: string): Promise<void> {
+      await apiClient.delete(`/api/integrations/${projectId}/${integrationId}`);
     },
 
     async startGoogleOAuth(
-      token: string,
       projectId: string,
       provider: "gsc" | "ga4",
     ): Promise<{ url: string }> {
       const res = await apiClient.post<ApiEnvelope<{ url: string }>>(
         `/api/integrations/${projectId}/oauth/google/start`,
         { provider },
-        { token },
       );
       return res.data;
     },
 
-    async oauthCallback(
-      token: string,
-      data: { code: string; state: string; redirectUri: string },
-    ): Promise<ProjectIntegration> {
+    async oauthCallback(data: {
+      code: string;
+      state: string;
+      redirectUri: string;
+    }): Promise<ProjectIntegration> {
       const res = await apiClient.post<ApiEnvelope<ProjectIntegration>>(
         `/api/integrations/oauth/google/callback`,
         data,
-        { token },
       );
       return res.data;
     },
 
     async test(
-      token: string,
       projectId: string,
       integrationId: string,
     ): Promise<{ ok: boolean; message: string }> {
       const res = await apiClient.post<
         ApiEnvelope<{ ok: boolean; message: string }>
-      >(`/api/integrations/${projectId}/${integrationId}/test`, undefined, {
-        token,
-      });
+      >(`/api/integrations/${projectId}/${integrationId}/test`);
       return res.data;
     },
   },
@@ -1257,17 +1228,16 @@ export const api = {
   // ── Share ──────────────────────────────────────────────────────
   share: {
     async enable(
-      token: string,
       crawlId: string,
     ): Promise<{ shareToken: string; shareUrl: string }> {
       const res = await apiClient.post<
         ApiEnvelope<{ shareToken: string; shareUrl: string }>
-      >(`/api/crawls/${crawlId}/share`, undefined, { token });
+      >(`/api/crawls/${crawlId}/share`);
       return res.data;
     },
 
-    async disable(token: string, crawlId: string): Promise<void> {
-      await apiClient.delete(`/api/crawls/${crawlId}/share`, { token });
+    async disable(crawlId: string): Promise<void> {
+      await apiClient.delete(`/api/crawls/${crawlId}/share`);
     },
   },
 };

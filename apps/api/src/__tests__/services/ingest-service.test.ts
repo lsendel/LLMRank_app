@@ -49,8 +49,13 @@ vi.mock("../../services/enrichments", () => ({
   runIntegrationEnrichments: vi.fn().mockResolvedValue(undefined),
 }));
 
+const persistSummaryMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined),
+);
+
 vi.mock("../../services/summary", () => ({
   generateCrawlSummary: vi.fn().mockResolvedValue(undefined),
+  persistCrawlSummaryData: persistSummaryMock,
 }));
 
 vi.mock("../../services/notification-service", () => ({

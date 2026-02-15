@@ -12,12 +12,10 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const { getToken } = useApi();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [errors, setErrors] = useState<{
@@ -61,13 +59,7 @@ export default function NewProjectPage() {
     setSubmitting(true);
 
     try {
-      const token = await getToken();
-      if (!token) {
-        setErrors({ form: "Not authenticated. Please sign in again." });
-        setSubmitting(false);
-        return;
-      }
-      const result = await api.projects.create(token, { name, domain });
+      const result = await api.projects.create({ name, domain });
       router.push(`/dashboard/projects/${result.id}`);
     } catch (err) {
       if (err instanceof ApiError) {

@@ -43,6 +43,7 @@ ingestRoutes.post("/batch", async (c) => {
         integrationKey: c.env.INTEGRATION_ENCRYPTION_KEY,
         googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
         googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
+        appBaseUrl: c.env.APP_BASE_URL,
       },
       executionCtx: c.executionCtx,
     });

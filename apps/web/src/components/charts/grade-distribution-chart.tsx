@@ -50,11 +50,10 @@ export function GradeDistributionChart({ grades }: Props) {
               className="fill-foreground"
             />
             <Tooltip
-              formatter={(
-                value: number,
-                _name: string,
-                props: { payload: { percentage: number } },
-              ) => [`${value} pages (${props.payload.percentage}%)`, "Count"]}
+              formatter={(value: number, _name: string, props: any) => [
+                `${value} pages (${props.payload.percentage}%)`,
+                "Count",
+              ]}
               contentStyle={{
                 backgroundColor: "hsl(var(--card))",
                 border: "1px solid hsl(var(--border))",

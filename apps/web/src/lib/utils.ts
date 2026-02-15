@@ -18,10 +18,10 @@ export function scoreBarColor(score: number): string {
   return "bg-destructive";
 }
 
-export function letterGrade(score: number): string {
-  if (score >= 90) return "A";
-  if (score >= 80) return "B";
-  if (score >= 70) return "C";
-  if (score >= 60) return "D";
-  return "F";
+export function scoreColor(score: number): string {
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  return "text-destructive";
 }
+
+export { letterGrade } from "@llm-boost/shared";

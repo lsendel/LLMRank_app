@@ -11,8 +11,10 @@ import {
   createProjectRepository,
   createScoreRepository,
   createUserRepository,
+  createPageRepository,
 } from "../repositories";
 import { createProjectService } from "../services/project-service";
+import { createProgressService } from "../services/progress-service";
 import { handleServiceError } from "../services/errors";
 
 export const projectRoutes = new Hono<AppEnv>();
@@ -181,6 +183,37 @@ projectRoutes.delete("/:id", async (c) => {
   try {
     const result = await service.deleteProject(userId, projectId);
     return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/progress — Cross-crawl improvement progress
+// ---------------------------------------------------------------------------
+
+projectRoutes.get("/:id/progress", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+
+  const service = createProgressService({
+    crawls: createCrawlRepository(db),
+    projects: createProjectRepository(db),
+    scores: createScoreRepository(db),
+    pages: createPageRepository(db),
+  });
+
+  try {
+    const data = await service.getProjectProgress(userId, projectId);
+    if (!data) {
+      return c.json({
+        data: null,
+        message: "Need at least 2 completed crawls",
+      });
+    }
+    c.header("Cache-Control", "public, max-age=300");
+    return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
   }

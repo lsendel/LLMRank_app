@@ -27,7 +27,7 @@ function gradeLabel(score: number): string {
 export default function ProjectsPage() {
   const { data: result, isLoading: loading } = useApiSWR(
     "projects-list",
-    useCallback((token: string) => api.projects.list(token), []),
+    useCallback(() => api.projects.list(), []),
   );
 
   const projects = result?.data ?? [];

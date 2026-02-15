@@ -32,7 +32,7 @@ export default function LogsPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
 
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +46,7 @@ export default function LogsPage() {
     mutate,
   } = useApiSWR(
     `logs-${projectId}`,
-    useCallback(
-      (token: string) => api.logs.list(token, projectId),
-      [projectId],
-    ),
+    useCallback(() => api.logs.list(projectId), [projectId]),
   );
 
   async function handleFileUpload(file: File) {
@@ -57,8 +54,8 @@ export default function LogsPage() {
     setError(null);
     try {
       const content = await file.text();
-      await withToken(async (token) => {
-        const result = await api.logs.upload(token, projectId, {
+      await withAuth(async () => {
+        const result = await api.logs.upload(projectId, {
           filename: file.name,
           content,
         });

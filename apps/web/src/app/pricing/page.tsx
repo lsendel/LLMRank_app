@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@/lib/auth-hooks";
 import { Check, Minus, Sparkles } from "lucide-react";
 import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 

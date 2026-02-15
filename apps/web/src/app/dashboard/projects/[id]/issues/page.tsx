@@ -30,7 +30,7 @@ const severityOrder: Record<string, number> = {
 
 export default function IssuesPage() {
   const params = useParams<{ id: string }>();
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
 
   const [allIssues, setAllIssues] = useState<PageIssue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,19 +40,16 @@ export default function IssuesPage() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    withToken(async (token) => {
-      const project = await api.projects.get(token, params.id);
+    withAuth(async () => {
+      const project = await api.projects.get(params.id);
       if (project.latestCrawl?.id) {
-        const result = await api.issues.listForCrawl(
-          token,
-          project.latestCrawl.id,
-        );
+        const result = await api.issues.listForCrawl(project.latestCrawl.id);
         setAllIssues(result.data);
       }
     })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [withToken, params.id]);
+  }, [withAuth, params.id]);
 
   if (loading) {
     return (

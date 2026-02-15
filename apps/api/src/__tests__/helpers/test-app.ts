@@ -93,6 +93,8 @@ export function createTestApp(options: TestAppOptions = {}) {
     SEEN_URLS: createKVStub() as any,
     CRAWL_QUEUE: { send: async () => {} } as any,
     BROWSER: null as any,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "mock-secret",
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "http://localhost:8787",
     DATABASE_URL:
       process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
     SHARED_SECRET: "test-secret",
@@ -102,14 +104,13 @@ export function createTestApp(options: TestAppOptions = {}) {
     PERPLEXITY_API_KEY: "test-key",
     STRIPE_SECRET_KEY: "test-key",
     STRIPE_WEBHOOK_SECRET: "test-key",
-    CLERK_SECRET_KEY: "test-key",
-    CLERK_PUBLISHABLE_KEY: "test-key",
     CRAWLER_URL: "http://localhost:3000",
     INTEGRATION_ENCRYPTION_KEY: "0".repeat(64),
     GOOGLE_OAUTH_CLIENT_ID: "test-id",
     GOOGLE_OAUTH_CLIENT_SECRET: "test-secret",
     RESEND_API_KEY: "test-key",
     SENTRY_DSN: "",
+    APP_BASE_URL: "http://localhost:3000",
     ...options.envOverrides,
   };
 

@@ -213,8 +213,30 @@ describe("CrawlService", () => {
 
   describe("getCrawl", () => {
     it("returns crawl with scores for completed job", async () => {
+      const summaryData = {
+        project: {
+          id: "proj-1",
+          name: "My Site",
+          domain: "https://example.com",
+        },
+        overallScore: 82,
+        letterGrade: "B",
+        categoryScores: {
+          technical: 85,
+          content: 80,
+          aiReadiness: 78,
+          performance: 90,
+        },
+        quickWins: [],
+        pagesScored: 1,
+        generatedAt: new Date().toISOString(),
+      };
       crawls.getById.mockResolvedValueOnce(
-        buildCrawlJob({ status: "complete", summary: "Summary text" }),
+        buildCrawlJob({
+          status: "complete",
+          summary: "Summary text",
+          summaryData,
+        }),
       );
       scores.listByJob.mockResolvedValue([
         buildScore({
@@ -230,6 +252,7 @@ describe("CrawlService", () => {
       const result = await service.getCrawl("user-1", "crawl-1");
       expect(result?.projectName).toBe("My Site");
       expect(result?.summary).toBe("Summary text");
+      expect(result?.summaryData).toEqual(summaryData);
     });
 
     it("throws NOT_FOUND for nonexistent crawl", async () => {

@@ -17,22 +17,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { IssueCard } from "@/components/issue-card";
-import { cn } from "@/lib/utils";
+import { cn, scoreColor } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import { api, type CrawledPage, type PageDetail } from "@/lib/api";
 
 type SortField = "url" | "statusCode" | "title" | "overallScore" | "issueCount";
 type SortDirection = "asc" | "desc";
 
-function scoreColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
-
 export default function PagesPage() {
   const params = useParams<{ id: string }>();
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
 
   const [pages, setPages] = useState<CrawledPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,17 +39,17 @@ export default function PagesPage() {
   const [scoreMax, setScoreMax] = useState<string>("");
 
   useEffect(() => {
-    withToken(async (token) => {
+    withAuth(async () => {
       // Get the project to find the latest crawl ID
-      const project = await api.projects.get(token, params.id);
+      const project = await api.projects.get(params.id);
       if (project.latestCrawl?.id) {
-        const result = await api.pages.list(token, project.latestCrawl.id);
+        const result = await api.pages.list(project.latestCrawl.id);
         setPages(result.data);
       }
     })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [withToken, params.id]);
+  }, [withAuth, params.id]);
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -74,8 +68,8 @@ export default function PagesPage() {
     }
     setExpandedRow(pageId);
     try {
-      await withToken(async (token) => {
-        const detail = await api.pages.get(token, pageId);
+      await withAuth(async () => {
+        const detail = await api.pages.get(pageId);
         setExpandedPageDetail(detail);
       });
     } catch (err) {

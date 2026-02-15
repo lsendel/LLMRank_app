@@ -60,6 +60,7 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
   return {
     id: "user-1",
     email: "test@example.com",
+    emailVerified: false,
     name: "Test User",
     plan: "pro",
     clerkId: null,
@@ -91,6 +92,7 @@ export function buildCrawlJob(
     errorMessage: null,
     r2Prefix: null,
     summary: null,
+    summaryData: null,
     shareToken: null,
     shareEnabled: false,
     sharedAt: null,
@@ -107,6 +109,7 @@ export function buildCrawlJob(
 export function buildScore(overrides: Partial<ScoreEntity> = {}): ScoreEntity {
   return {
     id: "score-1",
+    image: null,
     pageId: "page-1",
     jobId: "crawl-1",
     overallScore: 85,

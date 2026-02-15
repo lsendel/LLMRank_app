@@ -1,6 +1,7 @@
 import { createDb, scoreQueries, pageQueries } from "@llm-boost/db";
 import { LLMScorer } from "@llm-boost/llm";
 import type { CrawlPageResult } from "@llm-boost/shared";
+import { pMap } from "../lib/concurrent";
 import { createLogger } from "../lib/logger";
 
 const log = createLogger({ service: "llm-scoring" });
@@ -26,43 +27,50 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
     kvNamespace: input.kvNamespace,
   });
 
-  for (let i = 0; i < input.insertedPages.length; i++) {
-    const crawlPage = input.batchPages[i];
-    const scoreRow = input.insertedScores[i];
+  await pMap(
+    input.insertedPages,
+    async (_insertedPage, i) => {
+      const crawlPage = input.batchPages[i];
+      const scoreRow = input.insertedScores[i];
 
-    if (!scoreRow) continue;
-    if (crawlPage.word_count < 200 || !crawlPage.content_hash) continue;
+      if (!scoreRow) return;
+      if (crawlPage.word_count < 200 || !crawlPage.content_hash) return;
 
-    try {
-      const r2Obj = await input.r2Bucket.get(crawlPage.html_r2_key);
-      if (!r2Obj) continue;
+      try {
+        const r2Obj = await input.r2Bucket.get(crawlPage.html_r2_key);
+        if (!r2Obj) return;
 
-      let html: string;
-      if (r2Obj.httpMetadata?.contentEncoding === "gzip") {
-        const ds = r2Obj.body.pipeThrough(new DecompressionStream("gzip"));
-        html = await new Response(ds).text();
-      } else {
-        html = await r2Obj.text();
+        let html: string;
+        if (r2Obj.httpMetadata?.contentEncoding === "gzip") {
+          const ds = r2Obj.body.pipeThrough(new DecompressionStream("gzip"));
+          html = await new Response(ds).text();
+        } else {
+          html = await r2Obj.text();
+        }
+
+        const text = html
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        const llmScores = await scorer.scoreContent(
+          text,
+          crawlPage.content_hash,
+        );
+        if (!llmScores) return;
+
+        await scoreQueries(db).updateDetail(scoreRow.id, {
+          llmContentScores: llmScores,
+        });
+      } catch (err) {
+        log.error("LLM scoring failed for page", {
+          pageId: scoreRow.pageId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
-
-      const text = html
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      const llmScores = await scorer.scoreContent(text, crawlPage.content_hash);
-      if (!llmScores) continue;
-
-      await scoreQueries(db).updateDetail(scoreRow.id, {
-        llmContentScores: llmScores,
-      });
-    } catch (err) {
-      log.error("LLM scoring failed for page", {
-        pageId: scoreRow.pageId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
+    },
+    { concurrency: 5, settle: true },
+  );
 }
 
 interface RescoreInput {

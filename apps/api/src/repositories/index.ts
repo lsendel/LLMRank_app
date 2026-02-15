@@ -13,7 +13,6 @@ import {
   enrichmentQueries,
   adminQueries,
   outboxQueries,
-  eq,
   and,
   sql,
 } from "@llm-boost/db";

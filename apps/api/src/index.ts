@@ -6,6 +6,7 @@ import { PLAN_LIMITS } from "@llm-boost/shared";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
+import { createAuth } from "./lib/auth";
 import { healthRoutes } from "./routes/health";
 import { projectRoutes } from "./routes/projects";
 import { crawlRoutes } from "./routes/crawls";
@@ -43,14 +44,15 @@ export type Bindings = {
   PERPLEXITY_API_KEY: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
-  CLERK_SECRET_KEY: string;
-  CLERK_PUBLISHABLE_KEY: string;
   CRAWLER_URL: string;
   INTEGRATION_ENCRYPTION_KEY: string;
   GOOGLE_OAUTH_CLIENT_ID: string;
   GOOGLE_OAUTH_CLIENT_SECRET: string;
   RESEND_API_KEY: string;
   SENTRY_DSN: string;
+  BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_URL: string;
+  APP_BASE_URL: string;
 };
 
 export type Variables = {
@@ -78,7 +80,12 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: "*",
+    origin: [
+      "http://localhost:3000",
+      "https://llmboost.com",
+      "https://www.llmboost.com",
+    ],
+    credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: [
       "Content-Type",
@@ -133,6 +140,12 @@ app.route("/api/integrations", integrationRoutes);
 app.route("/api/strategy", strategyRoutes);
 app.route("/api/browser", browserRoutes);
 app.route("/api/crawls", insightsRoutes);
+
+// Better Auth Routes
+app.on(["POST", "GET"], "/api/auth/*", (c) => {
+  const auth = createAuth(c.env);
+  return auth.handler(c.req.raw);
+});
 
 // Fallback
 app.notFound((c) => {
@@ -199,7 +212,9 @@ async function runScheduledTasks(env: Bindings) {
   const db = createDb(env.DATABASE_URL);
 
   // 1. Process email notifications
-  const notifications = createNotificationService(db, env.RESEND_API_KEY);
+  const notifications = createNotificationService(db, env.RESEND_API_KEY, {
+    appBaseUrl: env.APP_BASE_URL,
+  });
   await notifications.processQueue();
 
   // 2. Monitoring & Health

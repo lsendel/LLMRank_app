@@ -102,6 +102,15 @@ export function crawlQueries(db: Database) {
       return updated;
     },
 
+    async updateSummaryData(id: string, summaryData: unknown) {
+      const [updated] = await db
+        .update(crawlJobs)
+        .set({ summaryData })
+        .where(eq(crawlJobs.id, id))
+        .returning();
+      return updated;
+    },
+
     /** Count total crawls + average score for a user (2 queries, not N+1). */
     async getStatsForUser(userId: string) {
       const [countRow] = await db
@@ -139,6 +148,7 @@ export function crawlQueries(db: Database) {
           pagesScored: crawlJobs.pagesScored,
           errorMessage: crawlJobs.errorMessage,
           summary: crawlJobs.summary,
+          summaryData: crawlJobs.summaryData,
           startedAt: crawlJobs.startedAt,
           completedAt: crawlJobs.completedAt,
           createdAt: crawlJobs.createdAt,

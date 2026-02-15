@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser } from "@/lib/auth-hooks";
 import {
   FolderKanban,
   Activity,
@@ -57,12 +57,12 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading: statsLoading } = useApiSWR(
     "dashboard-stats",
-    useCallback((token: string) => api.dashboard.getStats(token), []),
+    useCallback(() => api.dashboard.getStats(), []),
   );
 
   const { data: activity, isLoading: activityLoading } = useApiSWR(
     "dashboard-activity",
-    useCallback((token: string) => api.dashboard.getRecentActivity(token), []),
+    useCallback(() => api.dashboard.getRecentActivity(), []),
   );
 
   const loading = statsLoading || activityLoading;

@@ -25,13 +25,21 @@ export function userQueries(db: Database) {
       if (existing) return existing;
       const [user] = await db
         .insert(users)
-        .values({ clerkId, email, name: name ?? null })
+        .values({
+          id: crypto.randomUUID(),
+          clerkId,
+          email,
+          name: name ?? null,
+        })
         .returning();
       return user;
     },
 
     async create(data: { email: string; name?: string; avatarUrl?: string }) {
-      const [user] = await db.insert(users).values(data).returning();
+      const [user] = await db
+        .insert(users)
+        .values({ ...data, id: crypto.randomUUID() })
+        .returning();
       return user;
     },
 

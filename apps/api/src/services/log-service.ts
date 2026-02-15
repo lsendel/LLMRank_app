@@ -6,6 +6,7 @@ import {
 } from "@llm-boost/shared";
 import type { LogRepository, ProjectRepository } from "../repositories";
 import { ServiceError } from "./errors";
+import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export interface LogServiceDeps {
   logs: LogRepository;
@@ -27,7 +28,7 @@ export function createLogService(deps: LogServiceDeps) {
         );
       }
 
-      await assertOwnership(userId, projectId);
+      await assertProjectOwnership(deps.projects, userId, projectId);
 
       const entries = parseEntries(payload.content);
       if (entries.length === 0) {
@@ -53,12 +54,12 @@ export function createLogService(deps: LogServiceDeps) {
     },
 
     async list(userId: string, projectId: string) {
-      await assertOwnership(userId, projectId);
+      await assertProjectOwnership(deps.projects, userId, projectId);
       return deps.logs.listByProject(projectId);
     },
 
     async getCrawlerTimeline(userId: string, projectId: string) {
-      await assertOwnership(userId, projectId);
+      await assertProjectOwnership(deps.projects, userId, projectId);
       const uploads = await deps.logs.listByProject(projectId);
 
       return uploads.map((upload) => {
@@ -100,7 +101,7 @@ export function createLogService(deps: LogServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Log upload not found");
       }
-      await assertOwnership(userId, upload.projectId);
+      await assertProjectOwnership(deps.projects, userId, upload.projectId);
       return upload;
     },
   };
@@ -113,13 +114,5 @@ export function createLogService(deps: LogServiceDeps) {
       if (entry) entries.push(entry);
     }
     return entries;
-  }
-
-  async function assertOwnership(userId: string, projectId: string) {
-    const project = await deps.projects.getById(projectId);
-    if (!project || project.userId !== userId) {
-      const err = ERROR_CODES.NOT_FOUND;
-      throw new ServiceError("NOT_FOUND", err.status, err.message);
-    }
   }
 }

@@ -239,6 +239,7 @@ publicRoutes.get("/reports/:token", async (c) => {
       completedAt: crawlJob.completedAt,
       pagesScored: crawlJob.pagesScored,
       summary: crawlJob.summary,
+      summaryData: crawlJob.summaryData ?? null,
       scores: {
         overall: agg.overallScore,
         technical: agg.scores.technical,

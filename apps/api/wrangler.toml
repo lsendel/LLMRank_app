@@ -29,6 +29,15 @@ binding = "BROWSER"
 
 [vars]
 CRAWLER_URL = "https://llmrank-crawler.fly.dev"
+APP_BASE_URL = "http://localhost:3000"
+
+[env.preview]
+[env.preview.vars]
+APP_BASE_URL = "https://staging.llmrank.app"
+
+[env.production]
+[env.production.vars]
+APP_BASE_URL = "https://llmrank.app"
 
 [triggers]
 crons = ["0 0 1 * *", "*/5 * * * *"] # Reset monthly + Run scheduled crawls every 5 min

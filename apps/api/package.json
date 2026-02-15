@@ -22,7 +22,8 @@
     "@llm-boost/scoring": "workspace:*",
     "@llm-boost/shared": "workspace:*",
     "@sentry/cloudflare": "^10.38.0",
-    "drizzle-orm": "^0.38",
+    "better-auth": "^1.4.18",
+    "drizzle-orm": "^0.45.1",
     "hono": "^4"
   },
   "devDependencies": {

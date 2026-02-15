@@ -176,7 +176,6 @@ strategyRoutes.post("/semantic-gap", enforcePlan("pro"), async (c) => {
 // ---------------------------------------------------------------------------
 
 strategyRoutes.post("/optimize", enforcePlan("starter"), async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const body = await c.req.json<{ pageId: string; content: string }>();
   if (!body.pageId || !body.content) {
@@ -242,7 +241,6 @@ strategyRoutes.post("/brief", enforcePlan("starter"), async (c) => {
 // ---------------------------------------------------------------------------
 
 strategyRoutes.post("/gap-analysis", enforcePlan("pro"), async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const body = await c.req.json<{
     projectId: string;
@@ -280,7 +278,6 @@ strategyRoutes.post(
   "/:projectId/personas",
   enforcePlan("starter"),
   async (c) => {
-    const db = c.get("db");
     const userId = c.get("userId");
     const projectId = c.req.param("projectId");
     const body = await c.req.json<{ description?: string; niche?: string }>();
@@ -312,7 +309,6 @@ strategyRoutes.post(
 // ---------------------------------------------------------------------------
 
 strategyRoutes.get("/:projectId/competitors", enforcePlan("pro"), async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
   const service = buildStrategyService(c);
@@ -332,7 +328,6 @@ strategyRoutes.post(
   "/:projectId/competitors",
   enforcePlan("pro"),
   async (c) => {
-    const db = c.get("db");
     const userId = c.get("userId");
     const projectId = c.req.param("projectId");
     const body = await c.req.json<{ domain: string }>();
@@ -361,7 +356,6 @@ strategyRoutes.post(
 // ---------------------------------------------------------------------------
 
 strategyRoutes.delete("/competitors/:id", enforcePlan("pro"), async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const id = c.req.param("id");
   const service = buildStrategyService(c);

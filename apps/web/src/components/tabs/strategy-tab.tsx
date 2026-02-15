@@ -13,14 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useApiSWR } from "@/lib/use-api-swr";
-import { useApi } from "@/lib/use-api";
 import { api, type StrategyPersona, type StrategyCompetitor } from "@/lib/api";
 import { TopicClusterGraph } from "../strategy/topic-cluster-graph";
 import { CrawlerTimelineChart } from "@/components/charts/crawler-timeline-chart";
 
 export function StrategyTab({ projectId }: { projectId: string }) {
-  const { withToken } = useApi();
-
   const [generating, setGenerating] = useState(false);
   const [personas, setPersonas] = useState<StrategyPersona[]>([]);
   const [addingComp, setAddingComp] = useState(false);
@@ -28,20 +25,14 @@ export function StrategyTab({ projectId }: { projectId: string }) {
 
   const { data: topicMap } = useApiSWR(
     `topic-map-${projectId}`,
-    useCallback(
-      (token: string) => api.strategy.getTopicMap(token, projectId),
-      [projectId],
-    ),
+    useCallback(() => api.strategy.getTopicMap(projectId), [projectId]),
   );
 
   const { data: competitors, mutate: mutateComps } = useApiSWR<
     StrategyCompetitor[]
   >(
     `competitors-${projectId}`,
-    useCallback(
-      (token: string) => api.strategy.getCompetitors(token, projectId),
-      [projectId],
-    ),
+    useCallback(() => api.strategy.getCompetitors(projectId), [projectId]),
   );
 
   async function handleGeneratePersonas() {

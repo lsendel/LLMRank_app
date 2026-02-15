@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useClerk } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth-hooks";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -102,20 +102,20 @@ const planNameMap: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const { withToken } = useApi();
-  const { signOut } = useClerk();
+  const { withAuth } = useApi();
+  const { signOut } = useAuth();
 
   const { data: billing, isLoading: loading } = useApiSWR<BillingInfo>(
     "billing-info",
-    useCallback((token: string) => api.billing.getInfo(token), []),
+    useCallback(() => api.billing.getInfo(), []),
   );
   const { data: subscription } = useApiSWR<SubscriptionInfo | null>(
     "billing-subscription",
-    useCallback((token: string) => api.billing.getSubscription(token), []),
+    useCallback(() => api.billing.getSubscription(), []),
   );
   const { data: payments } = useApiSWR<PaymentRecord[]>(
     "billing-payments",
-    useCallback((token: string) => api.billing.getPayments(token), []),
+    useCallback(() => api.billing.getPayments(), []),
   );
 
   const [emailNotifications, setEmailNotifications] = useState({
@@ -133,8 +133,8 @@ export default function SettingsPage() {
   async function handleCancelSubscription() {
     setCanceling(true);
     try {
-      await withToken(async (token) => {
-        await api.billing.cancelSubscription(token);
+      await withAuth(async () => {
+        await api.billing.cancelSubscription();
       });
       setCancelDialogOpen(false);
     } catch (err) {
@@ -154,9 +154,8 @@ export default function SettingsPage() {
   async function handleUpgrade(planTier: string) {
     setUpgrading(planTier);
     try {
-      await withToken(async (token) => {
+      await withAuth(async () => {
         const result = await api.billing.createCheckoutSession(
-          token,
           planTier,
           window.location.origin + "/dashboard/settings?upgraded=true",
           window.location.origin + "/dashboard/settings",
@@ -172,8 +171,8 @@ export default function SettingsPage() {
   async function handleDeleteAccount() {
     setDeleting(true);
     try {
-      await withToken(async (token) => {
-        await api.account.deleteAccount(token);
+      await withAuth(async () => {
+        await api.account.deleteAccount();
       });
       await signOut();
     } catch (err) {
@@ -526,9 +525,8 @@ export default function SettingsPage() {
                   size="sm"
                   onClick={async () => {
                     try {
-                      await withToken(async (token) => {
+                      await withAuth(async () => {
                         const result = await api.billing.createPortalSession(
-                          token,
                           window.location.href,
                         );
                         window.location.href = result.url;

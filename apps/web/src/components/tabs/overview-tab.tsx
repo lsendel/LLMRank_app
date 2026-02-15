@@ -30,10 +30,7 @@ export function OverviewTab({
   const crawlId = latestCrawl?.id;
   const { data: insights } = useApiSWR<CrawlInsights>(
     crawlId ? `insights-${crawlId}` : null,
-    useCallback(
-      (token: string) => api.crawls.getInsights(token, crawlId!),
-      [crawlId],
-    ),
+    useCallback(() => api.crawls.getInsights(crawlId!), [crawlId]),
   );
 
   const hasScores = latestCrawl?.scores != null;

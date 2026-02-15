@@ -64,17 +64,17 @@ export default function AdminPage() {
     projectName?: string | null;
   } | null>(null);
   const [cancelReason, setCancelReason] = useState("Cancelled by admin");
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
 
   const { data: stats } = useApiSWR<AdminStats>(
     "admin-stats",
-    useCallback((token: string) => api.admin.getStats(token), []),
+    useCallback(() => api.admin.getStats(), []),
     { refreshInterval: 10_000 },
   );
 
   const { data: metrics } = useApiSWR(
     "admin-metrics",
-    useCallback((token: string) => api.admin.getMetrics(token), []),
+    useCallback(() => api.admin.getMetrics(), []),
     { refreshInterval: 5_000 },
   );
 
@@ -101,7 +101,7 @@ export default function AdminPage() {
   const { data: ingestDetails, mutate: refreshIngestDetails } =
     useApiSWR<AdminIngestDetails>(
       "admin-ingest-details",
-      useCallback((token: string) => api.admin.getIngestDetails(token), []),
+      useCallback(() => api.admin.getIngestDetails(), []),
       { refreshInterval: 10_000 },
     );
 
@@ -110,7 +110,7 @@ export default function AdminPage() {
   async function handleRetryJob(jobId: string) {
     setActionTarget(`job-retry-${jobId}`);
     try {
-      await withToken((token) => api.admin.retryCrawlJob(token, jobId));
+      await withAuth(() => api.admin.retryCrawlJob(jobId));
       await refreshIngestDetails();
     } catch (error) {
       console.error(error);
@@ -122,9 +122,7 @@ export default function AdminPage() {
   async function handleCancelJob(jobId: string, reason?: string) {
     setActionTarget(`job-cancel-${jobId}`);
     try {
-      await withToken((token) =>
-        api.admin.cancelCrawlJob(token, jobId, reason),
-      );
+      await withAuth(() => api.admin.cancelCrawlJob(jobId, reason));
       await refreshIngestDetails();
     } catch (error) {
       console.error(error);
@@ -141,7 +139,7 @@ export default function AdminPage() {
   async function handleReplayEvent(eventId: string) {
     setActionTarget(`outbox-${eventId}`);
     try {
-      await withToken((token) => api.admin.replayOutboxEvent(token, eventId));
+      await withAuth(() => api.admin.replayOutboxEvent(eventId));
       await refreshIngestDetails();
     } catch (error) {
       console.error(error);
@@ -153,8 +151,7 @@ export default function AdminPage() {
   const { data: customersData, isLoading: customersLoading } = useApiSWR(
     search ? `admin-customers-${search}` : "admin-customers",
     useCallback(
-      (token: string) =>
-        api.admin.getCustomers(token, { search: search || undefined }),
+      () => api.admin.getCustomers({ search: search || undefined }),
       [search],
     ),
     { dedupingInterval: 500 },

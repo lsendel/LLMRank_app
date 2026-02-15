@@ -56,6 +56,7 @@ vi.mock("../../services/enrichments", () => ({
 // Mock summary
 vi.mock("../../services/summary", () => ({
   generateCrawlSummary: vi.fn().mockResolvedValue(undefined),
+  persistCrawlSummaryData: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock frontier service

@@ -56,8 +56,21 @@ describe("NotificationService", () => {
   describe("sendCrawlComplete", () => {
     it("queues notification when user has email", async () => {
       const user = buildUser({ email: "user@test.com" });
-      const { db } = createDbMock(user);
-      const service = createNotificationService(db, RESEND_KEY);
+      const { db } = createDbMock(user, {
+        pageScores: [
+          {
+            overallScore: 88,
+            technicalScore: 90,
+            contentScore: 86,
+            aiReadinessScore: 82,
+            detail: { performanceScore: 70 },
+          },
+        ],
+        issueCount: 5,
+      });
+      const service = createNotificationService(db, RESEND_KEY, {
+        appBaseUrl: "https://staging.llmboost.io/",
+      });
 
       await service.sendCrawlComplete({
         userId: user.id,
@@ -75,9 +88,58 @@ describe("NotificationService", () => {
             projectName: "My Site",
             projectId: "p1",
             jobId: "j1",
+            score: 88,
+            grade: "B",
+            issueCount: 5,
+            reportUrl: "https://staging.llmboost.io/dashboard/projects/p1",
           },
         },
       });
+    });
+
+    it("uses cached summary data when available", async () => {
+      const user = buildUser({ email: "user@test.com" });
+      const summaryData = {
+        project: {
+          id: "proj-1",
+          name: "My Site",
+          domain: "https://example.com",
+        },
+        overallScore: 91,
+        letterGrade: "A",
+        categoryScores: {
+          technical: 90,
+          content: 92,
+          aiReadiness: 88,
+          performance: 85,
+        },
+        quickWins: [],
+        pagesScored: 10,
+        generatedAt: new Date().toISOString(),
+        issueCount: 4,
+      };
+      const { db } = createDbMock(user, { summaryData });
+      const service = createNotificationService(db, RESEND_KEY);
+
+      await service.sendCrawlComplete({
+        userId: user.id,
+        projectId: "p1",
+        projectName: "My Site",
+        jobId: "j1",
+      });
+
+      expect(enqueueMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            data: expect.objectContaining({
+              score: 91,
+              grade: "A",
+              issueCount: 4,
+            }),
+          }),
+        }),
+      );
+      expect((db.query as any).pageScores.findMany).not.toHaveBeenCalled();
     });
 
     it("skips when user not found", async () => {
@@ -92,6 +154,31 @@ describe("NotificationService", () => {
       });
 
       expect(enqueueMock).not.toHaveBeenCalled();
+    });
+
+    it("falls back to null metrics when no scores exist", async () => {
+      const user = buildUser({ email: "user@test.com" });
+      const { db } = createDbMock(user);
+      const service = createNotificationService(db, RESEND_KEY);
+
+      await service.sendCrawlComplete({
+        userId: user.id,
+        projectId: "p1",
+        projectName: "My Site",
+        jobId: "j1",
+      });
+
+      expect(enqueueMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            data: expect.objectContaining({
+              score: null,
+              grade: null,
+              issueCount: 0,
+            }),
+          }),
+        }),
+      );
     });
   });
 
@@ -413,13 +500,35 @@ describe("NotificationService", () => {
   });
 });
 
-function createDbMock(user: UserEntity | null): { db: Database } {
+function createDbMock(
+  user: UserEntity | null,
+  options: {
+    pageScores?: any[];
+    issueCount?: number;
+    summaryData?: unknown;
+  } = {},
+): { db: Database } {
+  const selectWhereMock = vi
+    .fn()
+    .mockResolvedValue([{ count: options.issueCount ?? 0 }]);
+  const selectFromMock = vi.fn().mockReturnValue({ where: selectWhereMock });
+  const selectMock = vi.fn().mockReturnValue({ from: selectFromMock });
+
   const db = {
     query: {
       users: {
         findFirst: vi.fn().mockResolvedValue(user),
       },
+      pageScores: {
+        findMany: vi.fn().mockResolvedValue(options.pageScores ?? []),
+      },
+      crawlJobs: {
+        findFirst: vi.fn().mockResolvedValue({
+          summaryData: options.summaryData ?? null,
+        }),
+      },
     },
+    select: selectMock,
   } as unknown as Database;
   return { db };
 }

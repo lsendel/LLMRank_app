@@ -21,7 +21,7 @@ import {
 } from "@/components/crawl-progress";
 import { ScoreCircle } from "@/components/score-circle";
 import { CrawlProgressChart } from "@/components/charts/crawl-progress-chart";
-import { cn } from "@/lib/utils";
+import { cn, scoreColor } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { Button } from "@/components/ui/button";
@@ -40,12 +40,6 @@ const AIReadinessReport = dynamic(
   { ssr: false },
 );
 
-function scoreColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
-
 export default function CrawlDetailPage() {
   const params = useParams<{ id: string }>();
   const [pollInterval, setPollInterval] = useState(3000);
@@ -56,10 +50,7 @@ export default function CrawlDetailPage() {
     isLoading: loading,
   } = useApiSWR(
     `crawl-${params.id}`,
-    useCallback(
-      (token: string) => api.crawls.get(token, params.id),
-      [params.id],
-    ),
+    useCallback(() => api.crawls.get(params.id), [params.id]),
     {
       refreshInterval: pollInterval,
       onSuccess: (data) => {
@@ -78,21 +69,15 @@ export default function CrawlDetailPage() {
   const projectId = crawl?.projectId;
   const { data: project } = useApiSWR(
     projectId ? `project-${projectId}` : null,
-    useCallback(
-      async (token: string) => {
-        if (!projectId) throw new Error("No project ID");
-        return api.projects.get(token, projectId);
-      },
-      [projectId],
-    ),
+    useCallback(async () => {
+      if (!projectId) throw new Error("No project ID");
+      return api.projects.get(projectId);
+    }, [projectId]),
   );
 
   const { data: quickWins, isLoading: quickWinsLoading } = useApiSWR(
     `quick-wins-${params.id}`,
-    useCallback(
-      (token: string) => api.quickWins.get(token, params.id),
-      [params.id],
-    ),
+    useCallback(() => api.quickWins.get(params.id), [params.id]),
   );
 
   const branding = (project?.branding ?? {}) as {
@@ -326,7 +311,7 @@ export default function CrawlDetailPage() {
 }
 
 function ShareButton({ crawlId }: { crawlId: string }) {
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -334,9 +319,7 @@ function ShareButton({ crawlId }: { crawlId: string }) {
   async function handleShare() {
     setLoading(true);
     try {
-      const result = await withToken((token) =>
-        api.share.enable(token, crawlId),
-      );
+      const result = await withAuth(() => api.share.enable(crawlId));
       const fullUrl = `${window.location.origin}${result.shareUrl}`;
       setShareUrl(fullUrl);
       await navigator.clipboard.writeText(fullUrl);

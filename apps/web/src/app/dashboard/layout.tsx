@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton } from "@/lib/auth-hooks";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -16,48 +14,12 @@ const sidebarLinks = [
   { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
 ];
 
-async function checkOnboarding(token: string): Promise<boolean> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
-  try {
-    const res = await fetch(`${apiBase}/api/account`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      // Fail open: if the API call fails, don't trap user in onboarding loop
-      console.error(
-        "checkOnboarding: API returned",
-        res.status,
-        await res.text().catch(() => ""),
-      );
-      return true;
-    }
-    const { data } = await res.json();
-    return !!data?.phone;
-  } catch (e) {
-    // Fail open: network errors shouldn't block dashboard access
-    console.error("checkOnboarding: fetch error", e);
-    return true;
-  }
-}
-
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { userId, getToken } = await auth();
-  if (!userId) {
-    redirect("/sign-in");
-  }
-
-  const token = await getToken();
-  if (token) {
-    const hasPhone = await checkOnboarding(token);
-    if (!hasPhone) {
-      redirect("/onboarding");
-    }
-  }
+  // Auth is enforced by middleware.ts — if we reach here, user has a session cookie
 
   return (
     <div className="flex min-h-screen">
@@ -95,7 +57,7 @@ export default async function DashboardLayout({
             </span>
           </div>
           <div className="ml-auto">
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
           </div>
         </header>
 

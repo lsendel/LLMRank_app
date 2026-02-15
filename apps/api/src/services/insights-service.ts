@@ -1,10 +1,11 @@
+import { letterGrade } from "@llm-boost/shared";
 import type {
   CrawlRepository,
   ProjectRepository,
   ScoreRepository,
   PageRepository,
 } from "../repositories";
-import { ServiceError } from "./errors";
+import { assertCrawlAccess } from "./shared/assert-ownership";
 
 export interface InsightsServiceDeps {
   crawls: CrawlRepository;
@@ -13,30 +14,10 @@ export interface InsightsServiceDeps {
   pages: PageRepository;
 }
 
-function letterGrade(score: number): string {
-  if (score >= 90) return "A";
-  if (score >= 80) return "B";
-  if (score >= 70) return "C";
-  if (score >= 60) return "D";
-  return "F";
-}
-
 export function createInsightsService(deps: InsightsServiceDeps) {
-  async function assertAccess(userId: string, crawlId: string) {
-    const crawl = await deps.crawls.getById(crawlId);
-    if (!crawl) {
-      throw new ServiceError("NOT_FOUND", 404, "Crawl not found");
-    }
-    const project = await deps.projects.getById(crawl.projectId);
-    if (!project || project.userId !== userId) {
-      throw new ServiceError("NOT_FOUND", 404, "Not found");
-    }
-    return { crawl, project };
-  }
-
   return {
     async getInsights(userId: string, crawlId: string) {
-      const { crawl } = await assertAccess(userId, crawlId);
+      const { crawl } = await assertCrawlAccess(deps, userId, crawlId);
 
       const [allScores, allIssues, allPages] = await Promise.all([
         deps.scores.listByJob(crawlId),
@@ -125,7 +106,7 @@ export function createInsightsService(deps: InsightsServiceDeps) {
     },
 
     async getIssueHeatmap(userId: string, crawlId: string) {
-      await assertAccess(userId, crawlId);
+      await assertCrawlAccess(deps, userId, crawlId);
 
       const [allIssues, allPages] = await Promise.all([
         deps.scores.getIssuesByJob(crawlId),

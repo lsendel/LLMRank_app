@@ -15,7 +15,11 @@ import type {
 import { ServiceError } from "./errors";
 import { runLLMScoring, rescoreLLM, type LLMScoringInput } from "./llm-scoring";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
-import { generateCrawlSummary, type SummaryInput } from "./summary";
+import {
+  generateCrawlSummary,
+  persistCrawlSummaryData,
+  type SummaryInput,
+} from "./summary";
 import { createNotificationService } from "./notification-service";
 import { createFrontierService } from "./frontier-service";
 import { createDb } from "@llm-boost/db";
@@ -53,7 +57,7 @@ export function createIngestService(deps: IngestServiceDeps) {
       let parsedJson: unknown;
       try {
         parsedJson = JSON.parse(args.rawBody);
-      } catch (error) {
+      } catch (_error) {
         throw new ServiceError("VALIDATION_ERROR", 422, "Invalid JSON payload");
       }
 
@@ -251,6 +255,16 @@ export function createIngestService(deps: IngestServiceDeps) {
       });
     }
 
+    if (batch.is_final) {
+      args.executionCtx.waitUntil(
+        persistCrawlSummaryData({
+          databaseUrl: env.databaseUrl,
+          projectId,
+          jobId: crawlJobId,
+        }),
+      );
+    }
+
     if (batch.is_final && env.anthropicApiKey) {
       await dispatchOrRun(args.outbox, args.executionCtx, {
         type: "crawl_summary",
@@ -278,7 +292,9 @@ export function createIngestService(deps: IngestServiceDeps) {
       const project = await deps.projects.getById(projectId);
       if (project) {
         const db = createDb(env.databaseUrl);
-        const notifier = createNotificationService(db, env.resendApiKey);
+        const notifier = createNotificationService(db, env.resendApiKey, {
+          appBaseUrl: env.appBaseUrl,
+        });
         args.executionCtx.waitUntil(
           notifier.sendCrawlComplete({
             userId: project.userId,

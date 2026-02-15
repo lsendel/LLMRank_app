@@ -33,10 +33,7 @@ export function IssueHeatmap({
 }) {
   const { data: heatmap, isLoading } = useApiSWR<IssueHeatmapData>(
     `issue-heatmap-${crawlId}`,
-    useCallback(
-      (token: string) => api.crawls.getIssueHeatmap(token, crawlId),
-      [crawlId],
-    ),
+    useCallback(() => api.crawls.getIssueHeatmap(crawlId), [crawlId]),
   );
 
   if (isLoading || !heatmap || heatmap.pages.length === 0) {

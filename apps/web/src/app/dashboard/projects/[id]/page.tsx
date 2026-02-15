@@ -54,50 +54,38 @@ export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
-  const { withToken } = useApi();
+  const { withAuth } = useApi();
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [crawlError, setCrawlError] = useState<string | null>(null);
 
   const { data: project, isLoading: projectLoading } = useApiSWR(
     `project-${params.id}`,
-    useCallback(
-      (token: string) => api.projects.get(token, params.id),
-      [params.id],
-    ),
+    useCallback(() => api.projects.get(params.id), [params.id]),
   );
 
   const latestCrawlId = project?.latestCrawl?.id;
 
   const { data: crawlHistoryData } = useApiSWR(
     `crawl-history-${params.id}`,
-    useCallback(
-      (token: string) => api.crawls.list(token, params.id),
-      [params.id],
-    ),
+    useCallback(() => api.crawls.list(params.id), [params.id]),
   );
 
   const { data: pagesData } = useApiSWR(
     latestCrawlId ? `pages-${latestCrawlId}` : null,
-    useCallback(
-      (token: string) => api.pages.list(token, latestCrawlId!),
-      [latestCrawlId],
-    ),
+    useCallback(() => api.pages.list(latestCrawlId!), [latestCrawlId]),
   );
 
   const { data: issuesData } = useApiSWR(
     latestCrawlId ? `issues-${latestCrawlId}` : null,
-    useCallback(
-      (token: string) => api.issues.listForCrawl(token, latestCrawlId!),
-      [latestCrawlId],
-    ),
+    useCallback(() => api.issues.listForCrawl(latestCrawlId!), [latestCrawlId]),
   );
 
   async function handleStartCrawl() {
     setStartingCrawl(true);
     setCrawlError(null);
     try {
-      await withToken(async (token) => {
-        const crawlJob = await api.crawls.start(token, params.id);
+      await withAuth(async () => {
+        const crawlJob = await api.crawls.start(params.id);
         router.push(`/dashboard/crawl/${crawlJob.id}`);
       });
     } catch (err) {

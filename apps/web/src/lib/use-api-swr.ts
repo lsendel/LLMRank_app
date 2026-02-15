@@ -1,29 +1,27 @@
 "use client";
 
 import useSWR, { type SWRConfiguration } from "swr";
-import { useAuth } from "@clerk/nextjs";
-import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 /**
- * SWR wrapper that auto-injects Clerk auth token.
- * Provides caching, request dedup, and stale-while-revalidate.
+ * SWR wrapper for cookie-authenticated API calls.
+ * Cookies are sent automatically via credentials: 'include'.
  */
 export function useApiSWR<T>(
   key: string | null,
-  fetcher: (token: string) => Promise<T>,
+  fetcher: () => Promise<T>,
   config?: SWRConfiguration<T>,
 ) {
-  const { getToken } = useAuth();
+  const router = useRouter();
 
-  const wrappedFetcher = useCallback(async () => {
-    const token = await getToken();
-    if (!token) throw new Error("Not authenticated");
-    return fetcher(token);
-  }, [getToken, fetcher]);
-
-  return useSWR<T>(key, wrappedFetcher, {
+  return useSWR<T>(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 10_000,
+    onError(error: any) {
+      if (error?.status === 401) {
+        router.push("/sign-in");
+      }
+    },
     ...config,
   });
 }

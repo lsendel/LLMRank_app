@@ -1,5 +1,3 @@
-import { type Database } from "@llm-boost/db";
-
 export interface FrontierService {
   isSeen(projectId: string, url: string): Promise<boolean>;
   markSeen(projectId: string, url: string): Promise<void>;
@@ -22,7 +20,7 @@ export function createFrontierService(kv: KVNamespace): FrontierService {
       });
     },
 
-    async clearProject(projectId) {
+    async clearProject(_projectId) {
       // Note: KV doesn't support bulk delete by prefix easily in a single op
       // In production, we'd list keys and delete them.
     },

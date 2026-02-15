@@ -37,10 +37,7 @@ const BOT_LABELS: Record<string, string> = {
 export function CrawlerTimelineChart({ projectId }: { projectId: string }) {
   const { data: timeline, isLoading } = useApiSWR<CrawlerTimelinePoint[]>(
     `crawler-timeline-${projectId}`,
-    useCallback(
-      (token: string) => api.logs.getCrawlerTimeline(token, projectId),
-      [projectId],
-    ),
+    useCallback(() => api.logs.getCrawlerTimeline(projectId), [projectId]),
   );
 
   if (isLoading) {

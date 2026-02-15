@@ -6,8 +6,12 @@ import {
   eq,
   and,
   lte,
+  issues,
+  sql,
 } from "@llm-boost/db";
+import { aggregatePageScores } from "@llm-boost/shared";
 import { createLogger } from "../lib/logger";
+import type { CrawlSummaryData } from "./summary";
 
 export interface NotificationService {
   queueEmail(args: {
@@ -39,13 +43,17 @@ export interface NotificationService {
   processQueue(): Promise<void>;
 }
 
+const DEFAULT_APP_URL = "https://app.llmboost.io";
+
 export function createNotificationService(
   db: Database,
   resendApiKey: string,
+  options: { appBaseUrl?: string } = {},
 ): NotificationService {
   const log = createLogger({ context: "notification-service" });
   const resend = new Resend(resendApiKey);
   const outbox = outboxQueries(db);
+  const appBaseUrl = normalizeBaseUrl(options.appBaseUrl);
 
   return {
     async queueEmail(args) {
@@ -65,21 +73,18 @@ export function createNotificationService(
     },
 
     async sendCrawlComplete(args) {
-      // In real app, fetch user email from DB or pass it
       const user = await db.query.users.findFirst({
         where: (u, { eq }) => eq(u.id, args.userId),
       });
       if (!user?.email) return;
 
+      const payload = await buildCrawlCompletePayload(db, args, appBaseUrl);
+
       await this.queueEmail({
         userId: args.userId,
         to: user.email,
         template: "crawl_completed",
-        data: {
-          projectName: args.projectName,
-          projectId: args.projectId,
-          jobId: args.jobId,
-        },
+        data: payload,
       });
     },
 
@@ -143,6 +148,78 @@ export function createNotificationService(
   };
 }
 
+type CrawlCompleteArgs = {
+  projectId: string;
+  projectName: string;
+  jobId: string;
+};
+
+async function buildCrawlCompletePayload(
+  db: Database,
+  args: CrawlCompleteArgs,
+  baseUrl: string,
+) {
+  const crawl = await db.query.crawlJobs.findFirst({
+    where: (jobs, { eq }) => eq(jobs.id, args.jobId),
+    columns: {
+      summaryData: true,
+    },
+  });
+
+  const cachedSummary = crawl?.summaryData as CrawlSummaryData | null;
+  if (cachedSummary) {
+    return {
+      projectName: args.projectName,
+      projectId: args.projectId,
+      jobId: args.jobId,
+      score: cachedSummary.overallScore,
+      grade: cachedSummary.letterGrade,
+      issueCount: cachedSummary.issueCount,
+      reportUrl: `${baseUrl}/dashboard/projects/${args.projectId}`,
+    };
+  }
+
+  const [pageScores, issueCount] = await Promise.all([
+    db.query.pageScores.findMany({
+      where: (scores, { eq }) => eq(scores.jobId, args.jobId),
+      columns: {
+        overallScore: true,
+        technicalScore: true,
+        contentScore: true,
+        aiReadinessScore: true,
+        detail: true,
+      },
+    }),
+    countIssuesForJob(db, args.jobId),
+  ]);
+
+  const aggregate =
+    pageScores.length > 0 ? aggregatePageScores(pageScores) : null;
+
+  return {
+    projectName: args.projectName,
+    projectId: args.projectId,
+    jobId: args.jobId,
+    score: aggregate?.overallScore ?? null,
+    grade: aggregate?.letterGrade ?? null,
+    issueCount,
+    reportUrl: `${baseUrl}/dashboard/projects/${args.projectId}`,
+  };
+}
+
+async function countIssuesForJob(db: Database, jobId: string) {
+  const rows = await db
+    .select({ count: sql<number>`count(*)` as any })
+    .from(issues)
+    .where(eq(issues.jobId, jobId) as any);
+  return Number(rows[0]?.count ?? 0);
+}
+
+function normalizeBaseUrl(candidate?: string) {
+  if (!candidate) return DEFAULT_APP_URL;
+  return candidate.endsWith("/") ? candidate.slice(0, -1) : candidate;
+}
+
 function getSubject(type: string): string {
   if (type.includes("crawl_completed")) return "🚀 Your AI SEO Audit is Ready";
   if (type.includes("credit_alert"))
@@ -153,12 +230,33 @@ function getSubject(type: string): string {
 }
 
 function renderTemplate(type: string, data: any): string {
-  const appUrl = "https://app.llmboost.io";
   if (type.includes("crawl_completed")) {
-    return `<h1>Crawl Completed for ${data.projectName}</h1>
-            <p>Score: ${data.score} (${data.grade})</p>
-            <p>Found ${data.issueCount} issues to fix.</p>
-            <a href="${appUrl}/projects/${data.projectId}">View Full Report</a>`;
+    const projectName = data.projectName ?? "your project";
+    const gradeSuffix = data.grade ? ` (${data.grade})` : "";
+    const scoreLine =
+      typeof data.score === "number"
+        ? `<p>Score: ${data.score}/100${gradeSuffix}</p>`
+        : "<p>Your new AI SEO audit is ready.</p>";
+    const issueLine =
+      typeof data.issueCount === "number"
+        ? `<p>Found ${data.issueCount} issues to fix.</p>`
+        : "";
+    const reportUrl = resolveReportUrl(data);
+
+    return `<h1>Crawl Completed for ${projectName}</h1>
+            ${scoreLine}
+            ${issueLine}
+            <a href="${reportUrl}">View Full Report</a>`;
   }
   return `<p>New updates in your LLM Boost dashboard.</p>`;
+}
+
+function resolveReportUrl(data: any) {
+  const candidate =
+    typeof data.reportUrl === "string" ? data.reportUrl.trim() : "";
+  if (candidate) return candidate;
+  if (typeof data.projectId === "string" && data.projectId.length > 0) {
+    return `${DEFAULT_APP_URL}/dashboard/projects/${data.projectId}`;
+  }
+  return DEFAULT_APP_URL;
 }

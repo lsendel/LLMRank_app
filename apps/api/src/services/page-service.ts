@@ -7,6 +7,7 @@ import type {
   EnrichmentRepository,
 } from "../repositories";
 import { ServiceError } from "./errors";
+import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export interface PageServiceDeps {
   projects: ProjectRepository;
@@ -24,7 +25,7 @@ export function createPageService(deps: PageServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Page not found");
       }
-      await assertOwnership(userId, page.projectId);
+      await assertProjectOwnership(deps.projects, userId, page.projectId);
       const { score, issues } = await deps.scores.getByPageWithIssues(pageId);
       return { ...page, score, issues };
     },
@@ -35,7 +36,7 @@ export function createPageService(deps: PageServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
-      await assertOwnership(userId, crawl.projectId);
+      await assertProjectOwnership(deps.projects, userId, crawl.projectId);
       const rows = await deps.scores.listByJobWithPages(jobId);
       return rows.map((row) => {
         const detail = (row.detail ?? {}) as Record<string, unknown>;
@@ -60,7 +61,7 @@ export function createPageService(deps: PageServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
-      await assertOwnership(userId, crawl.projectId);
+      await assertProjectOwnership(deps.projects, userId, crawl.projectId);
       return deps.scores.getIssuesByJob(jobId);
     },
 
@@ -70,17 +71,8 @@ export function createPageService(deps: PageServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Page not found");
       }
-      await assertOwnership(userId, page.projectId);
+      await assertProjectOwnership(deps.projects, userId, page.projectId);
       return deps.enrichments.listByPage(pageId);
     },
   };
-
-  async function assertOwnership(userId: string, projectId: string) {
-    const project = await deps.projects.getById(projectId);
-    if (!project || project.userId !== userId) {
-      const err = ERROR_CODES.NOT_FOUND;
-      throw new ServiceError("NOT_FOUND", err.status, err.message);
-    }
-    return project;
-  }
 }

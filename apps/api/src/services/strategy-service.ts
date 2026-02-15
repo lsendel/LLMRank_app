@@ -9,6 +9,7 @@ import type {
 } from "../repositories";
 import { PersonaGenerator, StrategyOptimizer } from "@llm-boost/llm";
 import { ServiceError } from "./errors";
+import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export interface StrategyServiceDeps {
   projects: ProjectRepository;
@@ -21,7 +22,7 @@ export interface StrategyServiceDeps {
 export function createStrategyService(deps: StrategyServiceDeps) {
   return {
     async getTopicMap(userId: string, projectId: string) {
-      await assertProjectOwnership(userId, projectId);
+      await assertProjectOwnership(deps.projects, userId, projectId);
 
       const latestCrawl = await deps.crawls.getLatestByProject(projectId);
       if (!latestCrawl) {
@@ -119,7 +120,11 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       apiKey: string;
       pageId?: string;
     }) {
-      const project = await assertProjectOwnership(args.userId, args.projectId);
+      const project = await assertProjectOwnership(
+        deps.projects,
+        args.userId,
+        args.projectId,
+      );
       const page = args.pageId ? await deps.pages.getById(args.pageId) : null;
       if (args.pageId && (!page || page.projectId !== project.id)) {
         throw new ServiceError("NOT_FOUND", 404, "Page not found");
@@ -141,7 +146,11 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       payload: { description?: string; niche?: string },
       apiKey: string,
     ) {
-      const project = await assertProjectOwnership(userId, projectId);
+      const project = await assertProjectOwnership(
+        deps.projects,
+        userId,
+        projectId,
+      );
       if (!apiKey) {
         throw new ServiceError(
           "CONFIG_ERROR",
@@ -158,13 +167,17 @@ export function createStrategyService(deps: StrategyServiceDeps) {
     },
 
     listCompetitors(userId: string, projectId: string) {
-      return assertProjectOwnership(userId, projectId).then(() =>
+      return assertProjectOwnership(deps.projects, userId, projectId).then(() =>
         deps.competitors.listByProject(projectId),
       );
     },
 
     async addCompetitor(userId: string, projectId: string, domain: string) {
-      const project = await assertProjectOwnership(userId, projectId);
+      const project = await assertProjectOwnership(
+        deps.projects,
+        userId,
+        projectId,
+      );
       if (!deps.competitors.add) {
         throw new ServiceError(
           "NOT_IMPLEMENTED",
@@ -183,7 +196,7 @@ export function createStrategyService(deps: StrategyServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Competitor not found");
       }
-      await assertProjectOwnership(userId, competitor.projectId);
+      await assertProjectOwnership(deps.projects, userId, competitor.projectId);
       if (!deps.competitors.remove) {
         throw new ServiceError(
           "NOT_IMPLEMENTED",
@@ -196,22 +209,13 @@ export function createStrategyService(deps: StrategyServiceDeps) {
     },
   };
 
-  async function assertProjectOwnership(userId: string, projectId: string) {
-    const project = await deps.projects.getById(projectId);
-    if (!project || project.userId !== userId) {
-      const err = ERROR_CODES.NOT_FOUND;
-      throw new ServiceError("NOT_FOUND", err.status, err.message);
-    }
-    return project;
-  }
-
   async function assertPageOwnership(userId: string, pageId: string) {
     const page = await deps.pages.getById(pageId);
     if (!page) {
       const err = ERROR_CODES.NOT_FOUND;
       throw new ServiceError("NOT_FOUND", err.status, "Page not found");
     }
-    await assertProjectOwnership(userId, page.projectId);
+    await assertProjectOwnership(deps.projects, userId, page.projectId);
     return page;
   }
 }

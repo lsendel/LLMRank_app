@@ -20,7 +20,7 @@
   "dependencies": {
     "@llm-boost/shared": "workspace:*",
     "@neondatabase/serverless": "^0.10",
-    "drizzle-orm": "^0.38"
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^3",
