@@ -15,6 +15,7 @@ import {
   Plug,
   Compass,
   Settings,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,6 +50,14 @@ const IntegrationsTab = dynamic(
     ),
   },
 );
+
+const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
+  loading: () => (
+    <div className="py-8 text-center text-muted-foreground">
+      Loading reports...
+    </div>
+  ),
+});
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -177,6 +186,10 @@ export default function ProjectPage() {
             <Plug className="mr-1.5 h-4 w-4" />
             Integrations
           </TabsTrigger>
+          <TabsTrigger value="reports">
+            <Download className="mr-1.5 h-4 w-4" />
+            Reports
+          </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="mr-1.5 h-4 w-4" />
             Settings
@@ -221,6 +234,10 @@ export default function ProjectPage() {
 
         <TabsContent value="integrations" className="space-y-6 pt-4">
           <IntegrationsTab projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6 pt-4">
+          <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6 pt-4">
