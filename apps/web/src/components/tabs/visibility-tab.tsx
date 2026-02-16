@@ -33,6 +33,7 @@ import {
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
 import { CompetitorComparison } from "@/components/visibility/competitor-comparison";
+import { useToast } from "@/components/ui/use-toast";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -76,6 +77,7 @@ export default function VisibilityTab({
   latestCrawlId?: string;
 }) {
   const { withAuth } = useApi();
+  const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
@@ -182,7 +184,12 @@ export default function VisibilityTab({
         );
       });
     } catch (err) {
-      console.error("Failed to toggle schedule", err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to toggle schedule",
+        variant: "destructive",
+      });
     }
   }
 
@@ -193,7 +200,12 @@ export default function VisibilityTab({
         setSchedules((prev) => prev.filter((s) => s.id !== id));
       });
     } catch (err) {
-      console.error("Failed to delete schedule", err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to delete schedule",
+        variant: "destructive",
+      });
     }
   }
 

@@ -77,11 +77,9 @@ export function createReportService(deps: Deps) {
       };
       const mergedConfig = {
         ...(input.config ?? {}),
-        brandingLogoUrl:
-          (input.config as any)?.brandingLogoUrl ?? branding.logoUrl,
-        brandingColor:
-          (input.config as any)?.brandingColor ?? branding.primaryColor,
-        preparedFor: (input.config as any)?.preparedFor ?? branding.companyName,
+        brandingLogoUrl: input.config?.brandingLogoUrl ?? branding.logoUrl,
+        brandingColor: input.config?.brandingColor ?? branding.primaryColor,
+        preparedFor: input.config?.preparedFor ?? branding.companyName,
       };
 
       // 5. Create report record
@@ -105,7 +103,8 @@ export function createReportService(deps: Deps) {
         format: input.format,
         config: mergedConfig as ReportConfig,
         databaseUrl: "",
-        isPublic: !!(input.config as any)?.isPublic,
+        isPublic: !!(input.config as Record<string, unknown> | undefined)
+          ?.isPublic,
       };
 
       const body = JSON.stringify(job);

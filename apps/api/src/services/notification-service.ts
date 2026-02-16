@@ -14,6 +14,37 @@ import { aggregatePageScores } from "@llm-boost/shared";
 import { createLogger } from "../lib/logger";
 import type { CrawlSummaryData } from "./summary";
 
+// ---------------------------------------------------------------------------
+// Local Type Definitions
+// ---------------------------------------------------------------------------
+
+interface ProjectSettings {
+  webhookUrl?: string;
+  [key: string]: unknown;
+}
+
+interface EmailPayload {
+  to: string;
+  data: Record<string, unknown>;
+}
+
+interface WebhookAlertPayload {
+  webhookUrl: string;
+  event: string;
+  data: Record<string, unknown>;
+}
+
+interface WebhookEventPayload {
+  url: string;
+  data: Record<string, unknown>;
+}
+
+interface HighRoiWin {
+  message: string;
+  recommendation: string;
+  scoreImpact: number;
+}
+
 export interface NotificationService {
   queueEmail(args: {
     userId: string;
@@ -46,7 +77,7 @@ export interface NotificationService {
     userId: string;
     projectId: string;
     projectName: string;
-    wins: any[];
+    wins: HighRoiWin[];
   }): Promise<void>;
 
   queueWebhook(args: {
@@ -100,7 +131,7 @@ export function createNotificationService(
       });
       if (!project) return;
 
-      const settings = (project.settings as any) || {};
+      const settings = (project.settings as ProjectSettings) || {};
       const webhookUrl = settings.webhookUrl;
       if (!webhookUrl) return;
 
@@ -108,7 +139,7 @@ export function createNotificationService(
         type: `webhook:${args.event}`,
         eventType: args.event,
         projectId: args.projectId,
-        userId: (project as any).userId ?? null,
+        userId: project.userId,
         payload: {
           url: webhookUrl,
           data: args.payload,
@@ -213,57 +244,57 @@ export function createNotificationService(
           and(
             eq(outboxEvents.status, "pending"),
             lte(outboxEvents.availableAt, new Date()),
-          ) as any,
+          ),
         )
         .limit(20);
 
       for (const event of events) {
         try {
           if (event.type.startsWith("email:")) {
-            const { to, data } = event.payload as any;
+            const emailPayload = event.payload as EmailPayload;
 
             await resend.emails.send({
               from: "LLM Boost <notifications@llmboost.io>",
-              to: [to],
+              to: [emailPayload.to],
               subject: getSubject(event.type),
-              html: renderTemplate(event.type, data),
+              html: renderTemplate(event.type, emailPayload.data),
             });
           } else if (event.type === "webhook:alert") {
             // User-level webhook with Slack detection
-            const {
-              webhookUrl,
-              event: eventName,
-              data: alertData,
-            } = event.payload as any;
-            const isSlack = webhookUrl.includes("hooks.slack.com");
+            const alertPayload = event.payload as WebhookAlertPayload;
+            const alertData = alertPayload.data;
+            const isSlack = alertPayload.webhookUrl.includes("hooks.slack.com");
             const body = isSlack
               ? {
-                  text: `*${eventName}*: ${alertData.projectName} \u2014 score ${alertData.previousScore} \u2192 ${alertData.currentScore}`,
+                  text: `*${alertPayload.event}*: ${alertData.projectName} \u2014 score ${alertData.previousScore} \u2192 ${alertData.currentScore}`,
                 }
               : {
-                  event: eventName,
+                  event: alertPayload.event,
                   timestamp: new Date().toISOString(),
                   ...alertData,
                 };
 
-            const res = await fetch(webhookUrl, {
+            const res = await fetch(alertPayload.webhookUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body),
             });
             if (!res.ok) throw new Error(`Webhook failed: ${res.status}`);
           } else if (event.type.startsWith("webhook:")) {
-            const { url, data } = event.payload as any;
+            const webhookPayload = event.payload as WebhookEventPayload;
 
-            await fetch(url, {
+            const webhookRes = await fetch(webhookPayload.url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 event: event.type.split(":")[1],
                 timestamp: new Date().toISOString(),
-                data,
+                data: webhookPayload.data,
               }),
             });
+            if (!webhookRes.ok) {
+              throw new Error(`Webhook delivery failed: ${webhookRes.status}`);
+            }
           }
 
           // Channel-aware delivery: route to configured notification channels
@@ -307,8 +338,11 @@ export function createNotificationService(
 
           await db
             .update(outboxEvents)
-            .set({ status: "completed", processedAt: new Date() } as any)
-            .where(eq(outboxEvents.id, event.id) as any);
+            .set({
+              status: "completed" as const,
+              processedAt: new Date(),
+            })
+            .where(eq(outboxEvents.id, event.id));
         } catch (err) {
           log.error("Failed to process notification event", {
             eventId: event.id,
@@ -316,8 +350,8 @@ export function createNotificationService(
           });
           await db
             .update(outboxEvents)
-            .set({ attempts: event.attempts + 1 } as any)
-            .where(eq(outboxEvents.id, event.id) as any);
+            .set({ attempts: event.attempts + 1 })
+            .where(eq(outboxEvents.id, event.id));
         }
       }
     },
@@ -385,9 +419,9 @@ async function buildCrawlCompletePayload(
 
 async function countIssuesForJob(db: Database, jobId: string) {
   const rows = await db
-    .select({ count: sql<number>`count(*)` as any })
+    .select({ count: sql<number>`count(*)` })
     .from(issues)
-    .where(eq(issues.jobId, jobId) as any);
+    .where(eq(issues.jobId, jobId));
   return Number(rows[0]?.count ?? 0);
 }
 
@@ -405,7 +439,7 @@ function getSubject(type: string): string {
   return "🔍 Competitor Alert: New Semantic Gaps Detected";
 }
 
-function renderTemplate(type: string, data: any): string {
+function renderTemplate(type: string, data: Record<string, unknown>): string {
   if (type.includes("crawl_completed")) {
     const projectName = data.projectName ?? "your project";
     const gradeSuffix = data.grade ? ` (${data.grade})` : "";
@@ -440,7 +474,7 @@ function renderTemplate(type: string, data: any): string {
 
   if (type.includes("high_roi_wins")) {
     const projectName = data.projectName ?? "your project";
-    const wins = (data.wins as any[]) ?? [];
+    const wins = (data.wins as HighRoiWin[]) ?? [];
     const reportUrl = `${DEFAULT_APP_URL}/dashboard/projects/${data.projectId}`;
 
     const winsHtml = wins
@@ -460,7 +494,7 @@ function renderTemplate(type: string, data: any): string {
   return `<p>New updates in your LLM Boost dashboard.</p>`;
 }
 
-function resolveReportUrl(data: any) {
+function resolveReportUrl(data: Record<string, unknown>) {
   const candidate =
     typeof data.reportUrl === "string" ? data.reportUrl.trim() : "";
   if (candidate) return candidate;
@@ -520,7 +554,14 @@ async function sendWebhook(
     headers["X-Signature"] = `hmac-sha256=${hex}`;
   }
 
-  await fetch(config.url as string, { method: "POST", headers, body });
+  const res = await fetch(config.url as string, {
+    method: "POST",
+    headers,
+    body,
+  });
+  if (!res.ok) {
+    throw new Error(`Webhook delivery failed: ${res.status} ${res.statusText}`);
+  }
 }
 
 async function sendSlackIncoming(
@@ -545,15 +586,20 @@ async function sendSlackIncoming(
       },
     ],
   };
-  await fetch(config.url as string, {
+  const res = await fetch(config.url as string, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    throw new Error(
+      `Slack webhook delivery failed: ${res.status} ${res.statusText}`,
+    );
+  }
 }
 
 function formatSlackMessage(event: OutboxEvent): string {
-  const data = event.payload as Record<string, any>;
+  const data = event.payload;
   switch (event.eventType) {
     case "crawl_completed":
       return `*Crawl completed* for ${data.domain ?? "unknown"}\nScore: ${data.score ?? "N/A"} | Grade: ${data.grade ?? "N/A"}`;

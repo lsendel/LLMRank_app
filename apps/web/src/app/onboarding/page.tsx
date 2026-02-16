@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, scoreColor } from "@/lib/utils";
 import { Loader2, ArrowRight, Globe, RotateCcw } from "lucide-react";
+import { track } from "@/lib/telemetry";
 
 const TIPS = [
   "73% of AI citations come from pages with structured data.",
@@ -53,6 +54,8 @@ export default function OnboardingPage() {
   // Step 0 state
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
+  const [workStyle, _setWorkStyle] = useState<string | null>(null);
+  const [teamSize, _setTeamSize] = useState<string | null>(null);
 
   // Step 1 state
   const [domain, setDomain] = useState("");
@@ -223,12 +226,6 @@ export default function OnboardingPage() {
 
     setSubmitting(true);
     try {
-      // Update profile with name and mark onboarding complete
-      await api.account.updateProfile({
-        name: name.trim(),
-        onboardingComplete: true,
-      });
-
       // Normalize domain
       let normalizedDomain = domain.trim();
       if (
@@ -238,11 +235,37 @@ export default function OnboardingPage() {
         normalizedDomain = `https://${normalizedDomain}`;
       }
 
-      // Create project
-      const project = await api.projects.create({
-        name: projectName.trim(),
-        domain: normalizedDomain,
-      });
+      // Build persona payload from Step 0 answers
+      const personaPayload = workStyle
+        ? {
+            teamSize: teamSize ?? "solo",
+            primaryGoal: workStyle,
+            domain: normalizedDomain,
+          }
+        : null;
+
+      // Run profile update, persona classification, and project creation in parallel
+      const [, personaResult, project] = await Promise.all([
+        api.account.updateProfile({
+          name: name.trim(),
+          onboardingComplete: true,
+        }),
+        personaPayload
+          ? api.account.classifyPersona(personaPayload).catch(() => null)
+          : Promise.resolve(null),
+        api.projects.create({
+          name: projectName.trim(),
+          domain: normalizedDomain,
+        }),
+      ]);
+
+      if (personaResult) {
+        track("persona_classified", {
+          persona: personaResult.persona,
+          source: "onboarding",
+          confidence: personaResult.confidence,
+        });
+      }
 
       setProjectId(project.id);
       setStep(2);

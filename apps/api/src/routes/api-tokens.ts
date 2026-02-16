@@ -5,6 +5,7 @@ import { apiTokenQueries, userQueries, projectQueries } from "@llm-boost/db";
 import type { PlanTier } from "@llm-boost/shared";
 import {
   createApiTokenService,
+  type ApiTokenRepository,
   type TokenScope,
 } from "../services/api-token-service";
 import { handleServiceError } from "../services/errors";
@@ -22,7 +23,7 @@ function buildService(c: {
 }) {
   const db = c.get("db");
   return createApiTokenService({
-    apiTokens: apiTokenQueries(db) as any,
+    apiTokens: apiTokenQueries(db) as unknown as ApiTokenRepository,
     projects: { getById: (id: string) => projectQueries(db).getById(id) },
   });
 }

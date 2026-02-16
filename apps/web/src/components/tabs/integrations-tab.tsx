@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -72,6 +73,7 @@ function planAllows(userPlan: string, requiredPlan: string): boolean {
 
 export default function IntegrationsTab({ projectId }: { projectId: string }) {
   const { withAuth } = useApi();
+  const { toast } = useToast();
 
   const { data: billing } = useApiSWR<BillingInfo>(
     "billing-info",
@@ -168,7 +170,12 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
       });
       await refreshIntegrations();
     } catch (err) {
-      console.error(err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to toggle integration",
+        variant: "destructive",
+      });
     }
   }
 
@@ -180,7 +187,14 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
       });
       await refreshIntegrations();
     } catch (err) {
-      console.error(err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Failed to disconnect integration",
+        variant: "destructive",
+      });
     } finally {
       setDisconnecting(null);
     }

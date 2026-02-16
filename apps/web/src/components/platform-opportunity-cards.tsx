@@ -21,7 +21,16 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
     useCallback(() => api.crawls.fusedInsights(crawlId), [crawlId]),
   );
 
-  if (!fused) return null;
+  if (!fused) {
+    return (
+      <div className="rounded-lg border border-dashed p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          Platform opportunity data will appear after your first crawl
+          completes.
+        </p>
+      </div>
+    );
+  }
 
   const { platformOpportunities, contentHealthMatrix } = fused;
 

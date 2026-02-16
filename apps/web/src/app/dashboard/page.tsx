@@ -1,8 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
+import {
+  PersonaDiscoveryModal,
+  shouldShowPersonaModal,
+} from "@/components/persona-discovery-modal";
 import {
   FolderKanban,
   Activity,
@@ -87,6 +91,27 @@ export default function DashboardPage() {
     "dashboard-activity",
     useCallback(() => api.dashboard.getRecentActivity(), []),
   );
+
+  // Persona discovery modal for existing users without a persona
+  const [personaDismissed, setPersonaDismissed] = useState(false);
+  const [accountData, setAccountData] = useState<{
+    persona: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    api.account
+      .getMe()
+      .then(setAccountData)
+      .catch(() => {});
+  }, []);
+
+  const personaModalOpen =
+    !personaDismissed &&
+    !!accountData &&
+    !accountData.persona &&
+    !!stats &&
+    stats.totalProjects > 0 &&
+    shouldShowPersonaModal();
 
   const loading = statsLoading || activityLoading;
 
@@ -492,6 +517,13 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Persona discovery modal for existing users */}
+      <PersonaDiscoveryModal
+        open={personaModalOpen}
+        onClose={() => setPersonaDismissed(true)}
+        defaultDomain={undefined}
+      />
     </div>
   );
 }

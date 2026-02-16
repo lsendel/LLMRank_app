@@ -23,7 +23,23 @@ export function ScoreTrendChart({
     .filter((c) => c.status === "complete" && c.overallScore != null)
     .reverse(); // oldest first for the chart
 
-  if (completedCrawls.length < 2) return null;
+  if (completedCrawls.length < 2) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-4 w-4" />
+            Score Trends
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Score trends will appear after at least two completed crawls.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const data = completedCrawls.map((c) => ({
     date: new Date(c.startedAt || c.createdAt).toLocaleDateString("en-US", {

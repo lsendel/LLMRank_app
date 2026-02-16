@@ -480,6 +480,10 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         },
       );
     } catch (err) {
+      captureError(err instanceof Error ? err : new Error(String(err)), {
+        scheduleId: schedule.id,
+        context: "cron-visibility",
+      });
       // Log and continue — don't let one failure block the rest
       const log = createLogger({ requestId: "cron-visibility" });
       log.error("Scheduled visibility check failed", {

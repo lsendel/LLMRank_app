@@ -1080,6 +1080,7 @@ export const api = {
         const res = await fetch(
           `${API_BASE_URL}/api/crawls/${crawlId}/export?format=csv`,
           {
+            headers: { "Content-Type": "application/json" },
             credentials: "include",
           },
         );

@@ -196,13 +196,13 @@ export function createVisibilityRepository(db: Database): VisibilityRepository {
     create: (data) => queries.create(data),
     async countSince(projectId, since) {
       const rows = await db
-        .select({ count: sql<number>`count(*)` as any })
+        .select({ count: sql<number>`count(*)` })
         .from(visibilityChecks)
         .where(
           and(
             sql`${visibilityChecks.projectId} = ${projectId}`,
             sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
-          ) as any,
+          ),
         );
       return Number(rows[0]?.count ?? 0);
     },

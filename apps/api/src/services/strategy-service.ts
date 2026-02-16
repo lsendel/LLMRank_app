@@ -11,6 +11,17 @@ import { PersonaGenerator, StrategyOptimizer } from "@llm-boost/llm";
 import { ServiceError } from "./errors";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
+/** Shape of the `detail` jsonb column in page_scores, relevant to strategy service */
+interface ScoreDetail {
+  extracted?: {
+    h1?: string[];
+    h2?: string[];
+    internal_links?: string[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export interface StrategyServiceDeps {
   projects: ProjectRepository;
   competitors: CompetitorRepository;
@@ -39,13 +50,16 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       if (scoresWithPages.length === 0) return { nodes: [], edges: [] };
 
       // 1. Prepare data for clustering
-      const clusterInput = scoresWithPages.map((s) => ({
-        url: s.page?.url || "",
-        title: s.page?.title || null,
-        headings: ((s.detail as any)?.extracted?.h1 || []).concat(
-          (s.detail as any)?.extracted?.h2 || [],
-        ),
-      }));
+      const clusterInput = scoresWithPages.map((s) => {
+        const detail = s.detail as ScoreDetail | null;
+        return {
+          url: s.page?.url || "",
+          title: s.page?.title || null,
+          headings: (detail?.extracted?.h1 || []).concat(
+            detail?.extracted?.h2 || [],
+          ),
+        };
+      });
 
       const clusters = clusterPagesByTopic(clusterInput);
 
@@ -71,8 +85,8 @@ export function createStrategyService(deps: StrategyServiceDeps) {
         const sourceUrl = s.page?.url;
         if (!sourceUrl) return;
 
-        const internalLinks =
-          (s.detail as any)?.extracted?.internal_links || [];
+        const detail = s.detail as ScoreDetail | null;
+        const internalLinks = detail?.extracted?.internal_links || [];
         internalLinks.forEach((targetUrl: string) => {
           // Only include links to pages within the same crawl
           if (urlSet.has(targetUrl) && sourceUrl !== targetUrl) {
