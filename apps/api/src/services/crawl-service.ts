@@ -17,6 +17,7 @@ import type {
 import { ServiceError } from "./errors";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 import { signPayload } from "../middleware/hmac";
+import { fetchWithRetry } from "../lib/fetch-retry";
 import { toAggregateInput } from "./score-helpers";
 
 const ACTIVE_STATUSES = new Set(["pending", "queued", "crawling", "scoring"]);
@@ -103,25 +104,35 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       );
 
       try {
-        const response = await fetch(`${args.env.crawlerUrl}/api/v1/jobs`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Signature": signature,
-            "X-Timestamp": timestamp,
+        console.log(
+          `[crawl] dispatching to ${args.env.crawlerUrl}/api/v1/jobs`,
+        );
+        const response = await fetchWithRetry(
+          `${args.env.crawlerUrl}/api/v1/jobs`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Signature": signature,
+              "X-Timestamp": timestamp,
+            },
+            body: payloadJson,
           },
-          body: payloadJson,
-        });
+        );
 
         if (!response.ok) {
+          const respBody = await response.text().catch(() => "");
+          console.error(
+            `[crawl] dispatch rejected: ${response.status} body=${respBody}`,
+          );
           await deps.crawls.updateStatus(crawlJob.id, {
             status: "failed",
             errorMessage: `Crawler dispatch failed: ${response.status} ${response.statusText}`,
           });
           throw new ServiceError(
-            "CRAWLER_ERROR",
+            "CRAWLER_REJECTED",
             502,
-            "Failed to dispatch crawl job to crawler",
+            "Crawler rejected the request",
           );
         }
 
@@ -130,14 +141,23 @@ export function createCrawlService(deps: CrawlServiceDeps) {
           startedAt: new Date(),
         });
       } catch (error) {
+        if (error instanceof ServiceError) throw error;
+        console.error(
+          `[crawl] dispatch error:`,
+          error instanceof Error ? error.stack || error.message : String(error),
+        );
+
         await deps.crawls.updateStatus(crawlJob.id, {
           status: "failed",
           errorMessage: `Crawler dispatch error: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
+
+        const isTimeout = error instanceof Error && error.name === "AbortError";
+
         throw new ServiceError(
-          "CRAWLER_ERROR",
-          502,
-          "Failed to connect to crawler service",
+          isTimeout ? "CRAWLER_TIMEOUT" : "CRAWLER_UNAVAILABLE",
+          isTimeout ? 504 : 503,
+          "Crawler service is temporarily unavailable. Please try again in a few minutes.",
         );
       }
 
@@ -308,7 +328,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
           );
 
           try {
-            await fetch(`${env.crawlerUrl}/api/v1/jobs`, {
+            await fetchWithRetry(`${env.crawlerUrl}/api/v1/jobs`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

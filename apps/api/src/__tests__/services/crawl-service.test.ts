@@ -16,7 +16,7 @@ import {
   buildScore,
 } from "../helpers/factories";
 
-// Mock signPayload and fetch
+// Mock signPayload and fetchWithRetry
 vi.mock("../../middleware/hmac", () => ({
   signPayload: vi.fn().mockResolvedValue({
     signature: "hmac-sha256=abc123",
@@ -24,8 +24,10 @@ vi.mock("../../middleware/hmac", () => ({
   }),
 }));
 
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+const mockFetchWithRetry = vi.fn();
+vi.mock("../../lib/fetch-retry", () => ({
+  fetchWithRetry: (...args: unknown[]) => mockFetchWithRetry(...args),
+}));
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -60,7 +62,7 @@ describe("CrawlService", () => {
       create: vi.fn().mockResolvedValue(buildCrawlJob()),
     });
     scores = createMockScoreRepo();
-    mockFetch.mockResolvedValue({
+    mockFetchWithRetry.mockResolvedValue({
       ok: true,
       status: 200,
       json: () => Promise.resolve({}),
@@ -81,7 +83,7 @@ describe("CrawlService", () => {
       expect(result.id).toBe("crawl-1");
       expect(users.decrementCrawlCredits).toHaveBeenCalledWith("user-1");
       expect(crawls.create).toHaveBeenCalled();
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(mockFetchWithRetry).toHaveBeenCalledWith(
         "https://crawler.test/api/v1/jobs",
         expect.objectContaining({ method: "POST" }),
       );
@@ -155,10 +157,11 @@ describe("CrawlService", () => {
     });
 
     it("marks job failed when crawler dispatch returns non-OK", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithRetry.mockResolvedValueOnce({
         ok: false,
         status: 503,
         statusText: "Service Unavailable",
+        text: () => Promise.resolve(""),
       });
       const service = createCrawlService({ crawls, projects, users, scores });
 
@@ -169,7 +172,39 @@ describe("CrawlService", () => {
           requestUrl: "https://api.test",
           env,
         }),
-      ).rejects.toThrow("Failed to connect to crawler service");
+      ).rejects.toThrow("Crawler rejected the request");
+    });
+
+    it("retries on network error and succeeds", async () => {
+      mockFetchWithRetry.mockResolvedValueOnce({ ok: true, status: 202 });
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.requestCrawl({
+        userId: "user-1",
+        projectId: "proj-1",
+        requestUrl: "https://api.test",
+        env,
+      });
+
+      expect(result.id).toBe("crawl-1");
+      expect(crawls.updateStatus).toHaveBeenCalledWith("crawl-1", {
+        status: "queued",
+        startedAt: expect.any(Date),
+      });
+    });
+
+    it("throws CRAWLER_UNAVAILABLE after all retries exhausted", async () => {
+      mockFetchWithRetry.mockRejectedValue(new Error("Connection refused"));
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(
+        service.requestCrawl({
+          userId: "user-1",
+          projectId: "proj-1",
+          requestUrl: "https://api.test",
+          env,
+        }),
+      ).rejects.toThrow("Crawler service is temporarily unavailable");
     });
 
     it("prevents concurrent crawls for same project", async () => {
@@ -538,7 +573,7 @@ describe("CrawlService", () => {
         },
       ]);
       crawls.create.mockResolvedValue(buildCrawlJob());
-      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+      mockFetchWithRetry.mockRejectedValueOnce(new Error("Network error"));
       const service = createCrawlService({ crawls, projects, users, scores });
 
       await service.dispatchScheduledJobs(env);
