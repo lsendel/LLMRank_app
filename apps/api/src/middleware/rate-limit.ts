@@ -12,7 +12,12 @@ interface RateLimitOptions {
 
 /**
  * KV-based rate limiter middleware for Cloudflare Workers.
- * Uses sliding window counter stored in KV with TTL expiration.
+ *
+ * NOTE: This implements fixed-window rate limiting via KV TTL.
+ * A user can burst at window boundaries (up to 2x the limit if
+ * requests straddle a TTL reset). For stricter limiting, consider
+ * a sliding window approach with timestamp arrays.
+ *
  * Adds standard X-RateLimit-* headers to responses.
  */
 export function rateLimit(options: RateLimitOptions) {

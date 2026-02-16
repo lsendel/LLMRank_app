@@ -141,6 +141,7 @@ export function ReportList({ reports, onDelete }: Props) {
                   <Button
                     size="sm"
                     variant="outline"
+                    aria-label="Download report"
                     onClick={() => handleDownload(report)}
                     disabled={downloading === report.id}
                   >
@@ -154,6 +155,7 @@ export function ReportList({ reports, onDelete }: Props) {
                 <Button
                   size="sm"
                   variant="ghost"
+                  aria-label="Delete report"
                   onClick={() => onDelete(report.id)}
                 >
                   <Trash2 className="h-4 w-4 text-muted-foreground" />

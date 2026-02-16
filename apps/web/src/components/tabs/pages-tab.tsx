@@ -60,6 +60,13 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
         <TableHeader>
           <TableRow>
             <TableHead
+              aria-sort={
+                sortField === "url"
+                  ? sortDir === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("url")}
             >
@@ -71,6 +78,13 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
               />
             </TableHead>
             <TableHead
+              aria-sort={
+                sortField === "statusCode"
+                  ? sortDir === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("statusCode")}
             >
@@ -82,6 +96,13 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
               />
             </TableHead>
             <TableHead
+              aria-sort={
+                sortField === "title"
+                  ? sortDir === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("title")}
             >
@@ -93,6 +114,13 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
               />
             </TableHead>
             <TableHead
+              aria-sort={
+                sortField === "overallScore"
+                  ? sortDir === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("overallScore")}
             >
@@ -104,6 +132,13 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
               />
             </TableHead>
             <TableHead
+              aria-sort={
+                sortField === "issueCount"
+                  ? sortDir === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("issueCount")}
             >

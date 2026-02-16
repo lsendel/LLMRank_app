@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ import {
   Trophy,
   Settings,
   Download,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,10 +27,6 @@ import { api, ApiError } from "@/lib/api";
 import { useProject } from "@/hooks/use-project";
 import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
-import { PagesTab } from "@/components/tabs/pages-tab";
-import { IssuesTab } from "@/components/tabs/issues-tab";
-import { HistoryTab } from "@/components/tabs/history-tab";
-import { StrategyTab } from "@/components/tabs/strategy-tab";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 
@@ -45,6 +42,70 @@ function TabLoadingSkeleton() {
     </div>
   );
 }
+class TabErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <p className="text-sm text-destructive">
+            Something went wrong loading this tab.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => this.setState({ hasError: false })}
+          >
+            Retry
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const PagesTab = dynamic(
+  () =>
+    import("@/components/tabs/pages-tab").then((mod) => ({
+      default: mod.PagesTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const IssuesTab = dynamic(
+  () =>
+    import("@/components/tabs/issues-tab").then((mod) => ({
+      default: mod.IssuesTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const HistoryTab = dynamic(
+  () =>
+    import("@/components/tabs/history-tab").then((mod) => ({
+      default: mod.HistoryTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const StrategyTab = dynamic(
+  () =>
+    import("@/components/tabs/strategy-tab").then((mod) => ({
+      default: mod.StrategyTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
 
 const VisibilityTab = dynamic(
   () => import("@/components/tabs/visibility-tab"),
@@ -233,31 +294,41 @@ export default function ProjectPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 pt-4">
-          <OverviewTab
-            latestCrawl={project.latestCrawl}
-            issues={issuesData?.data ?? []}
-            projectId={project.id}
-          />
+          <TabErrorBoundary>
+            <OverviewTab
+              latestCrawl={project.latestCrawl}
+              issues={issuesData?.data ?? []}
+              projectId={project.id}
+            />
+          </TabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="pages" className="pt-4">
-          <PagesTab pages={pagesData?.data ?? []} />
+          <TabErrorBoundary>
+            <PagesTab pages={pagesData?.data ?? []} />
+          </TabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="issues" className="pt-4">
-          <IssuesTab
-            issues={issuesData?.data ?? []}
-            crawlId={latestCrawlId}
-            projectId={project?.id}
-          />
+          <TabErrorBoundary>
+            <IssuesTab
+              issues={issuesData?.data ?? []}
+              crawlId={latestCrawlId}
+              projectId={project?.id}
+            />
+          </TabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="history" className="pt-4">
-          <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
+          <TabErrorBoundary>
+            <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
+          </TabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="strategy" className="pt-4">
-          <StrategyTab projectId={project.id} />
+          <TabErrorBoundary>
+            <StrategyTab projectId={project.id} />
+          </TabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="competitors" className="space-y-6 pt-4">

@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
-import { Plus, Compass, Trophy, Eye, Bug } from "lucide-react";
+import {
+  Plus,
+  Compass,
+  Trophy,
+  Eye,
+  Bug,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -30,13 +38,21 @@ function gradeLabel(score: number): string {
   return "Poor";
 }
 
+const PROJECTS_PER_PAGE = 12;
+
 export default function ProjectsPage() {
+  const [page, setPage] = useState(0);
+
   const { data: result, isLoading: loading } = useApiSWR(
-    "projects-list",
-    useCallback(() => api.projects.list(), []),
+    `projects-list-${page}`,
+    useCallback(
+      () => api.projects.list({ page, limit: PROJECTS_PER_PAGE }),
+      [page],
+    ),
   );
 
   const projects = result?.data ?? [];
+  const pagination = result?.pagination;
 
   if (loading) {
     return (
@@ -203,6 +219,37 @@ export default function ProjectsPage() {
               </Link>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {page * PROJECTS_PER_PAGE + 1}–
+            {Math.min((page + 1) * PROJECTS_PER_PAGE, pagination.total)} of{" "}
+            {pagination.total} projects
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= pagination.totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
