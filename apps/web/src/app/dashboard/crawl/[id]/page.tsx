@@ -3,14 +3,7 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  ExternalLink,
-  Share2,
-  Copy,
-  Check,
-  Brain,
-} from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Brain } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,15 +15,16 @@ import {
 import { ScoreCircle } from "@/components/score-circle";
 import { CrawlProgressChart } from "@/components/charts/crawl-progress-chart";
 import { cn, scoreColor } from "@/lib/utils";
-import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { PdfDownloadButton } from "@/components/report/pdf-download-button";
+import { ShareModal } from "@/components/share/share-modal";
 
 export default function CrawlDetailPage() {
   const params = useParams<{ id: string }>();
   const [pollInterval, setPollInterval] = useState(3000);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const {
     data: crawl,
@@ -141,7 +135,19 @@ export default function CrawlDetailPage() {
             crawlId={params.id}
             disabled={quickWinsLoading}
           />
-          <ShareButton crawlId={params.id} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShareOpen(true)}
+          >
+            <Share2 className="mr-1.5 h-3.5 w-3.5" />
+            Share Report
+          </Button>
+          <ShareModal
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+            crawlId={params.id}
+          />
         </div>
       )}
 
@@ -210,7 +216,14 @@ export default function CrawlDetailPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Score Summary</CardTitle>
               <div className="flex items-center gap-3">
-                <ShareButton crawlId={params.id} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShareOpen(true)}
+                >
+                  <Share2 className="mr-1.5 h-3.5 w-3.5" />
+                  Share
+                </Button>
                 <Link
                   href={`/dashboard/projects/${crawl.projectId}`}
                   className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
@@ -279,65 +292,5 @@ export default function CrawlDetailPage() {
         </Card>
       )}
     </div>
-  );
-}
-
-function ShareButton({ crawlId }: { crawlId: string }) {
-  const { withAuth } = useApi();
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleShare() {
-    setLoading(true);
-    try {
-      const result = await withAuth(() => api.share.enable(crawlId));
-      const fullUrl = `${window.location.origin}${result.shareUrl}`;
-      setShareUrl(fullUrl);
-      await navigator.clipboard.writeText(fullUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (shareUrl) {
-    return (
-      <div className="flex items-center gap-2">
-        <code className="max-w-[200px] truncate rounded bg-muted px-2 py-1 text-xs">
-          {shareUrl}
-        </code>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={async () => {
-            await navigator.clipboard.writeText(shareUrl);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }}
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-success" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
-          )}
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={handleShare}
-      disabled={loading}
-    >
-      <Share2 className="mr-1.5 h-3.5 w-3.5" />
-      {loading ? "Sharing..." : "Share Report"}
-    </Button>
   );
 }
