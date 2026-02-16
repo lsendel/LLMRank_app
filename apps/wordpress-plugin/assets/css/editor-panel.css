@@ -1,0 +1,128 @@
+.llm-boost-panel {
+  padding: 16px;
+}
+
+.llm-boost-panel__score-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.llm-boost-panel__score-ring {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+.llm-boost-panel__score-ring svg {
+  transform: rotate(-90deg);
+}
+
+.llm-boost-panel__score-ring circle {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.llm-boost-panel__score-ring .bg {
+  stroke: #e5e7eb;
+}
+
+.llm-boost-panel__score-ring .fg {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.llm-boost-panel__score-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.llm-boost-panel__score-label {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.llm-boost-panel__categories {
+  margin-bottom: 16px;
+}
+
+.llm-boost-panel__category {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+
+.llm-boost-panel__category:last-child {
+  border-bottom: none;
+}
+
+.llm-boost-panel__category-score {
+  font-weight: 600;
+}
+
+.llm-boost-panel__category-score--good {
+  color: #16a34a;
+}
+
+.llm-boost-panel__category-score--ok {
+  color: #2563eb;
+}
+
+.llm-boost-panel__category-score--bad {
+  color: #dc2626;
+}
+
+.llm-boost-panel__issues {
+  margin-top: 12px;
+}
+
+.llm-boost-panel__issue {
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.llm-boost-panel__issue--critical {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.llm-boost-panel__issue--warning {
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  color: #92400e;
+}
+
+.llm-boost-panel__issue--info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.llm-boost-panel__empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.llm-boost-panel__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  padding: 8px 0;
+}
