@@ -1,14 +1,8 @@
 import {
   CrawlResultBatchSchema,
   type CrawlPageResult,
-  type CrawlResultBatch,
 } from "@llm-boost/shared";
-import {
-  scorePage,
-  detectContentType,
-  generateRecommendations,
-  type PageData,
-} from "@llm-boost/scoring";
+import { detectContentType } from "@llm-boost/scoring";
 import type {
   CrawlRepository,
   PageRepository,
@@ -18,17 +12,9 @@ import type {
   UserRepository,
 } from "../repositories";
 import { ServiceError } from "./errors";
-import { runLLMScoring, rescoreLLM, type LLMScoringInput } from "./llm-scoring";
-import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
-import {
-  generateCrawlSummary,
-  persistCrawlSummaryData,
-  type SummaryInput,
-} from "./summary";
-import { createNotificationService } from "./notification-service";
-import { createRegressionService } from "./regression-service";
-import { createFrontierService } from "./frontier-service";
-import { createDb, outboxEvents } from "@llm-boost/db";
+import { rescoreLLM } from "./llm-scoring";
+import { createPageScoringService } from "./page-scoring-service";
+import { createPostProcessingService } from "./post-processing-service";
 
 export interface IngestServiceDeps {
   crawls: CrawlRepository;
@@ -54,12 +40,21 @@ export interface BatchEnvironment {
 }
 
 export function createIngestService(deps: IngestServiceDeps) {
+  const pageScoringService = createPageScoringService();
+  const postProcessingService = createPostProcessingService({
+    crawls: deps.crawls,
+    projects: deps.projects,
+    users: deps.users,
+    outbox: deps.outbox,
+  });
+
   return {
     async processBatch(args: {
       rawBody: string;
       env: BatchEnvironment;
       executionCtx: ExecutionContext;
     }) {
+      // 1. Parse & validate
       let parsedJson: unknown;
       try {
         parsedJson = JSON.parse(args.rawBody);
@@ -90,6 +85,7 @@ export function createIngestService(deps: IngestServiceDeps) {
         });
       }
 
+      // 2. Insert pages
       const pageRows = batch.pages.map((p: CrawlPageResult) => {
         const contentTypeResult = detectContentType(
           p.url,
@@ -117,67 +113,17 @@ export function createIngestService(deps: IngestServiceDeps) {
       const insertedPages = await deps.pages.createBatch(pageRows);
       await deps.crawls.updateStatus(crawlJob.id, { status: "scoring" });
 
-      const scoreRows: Parameters<ScoreRepository["createBatch"]>[0] = [];
-      const issueRows: Parameters<ScoreRepository["createIssues"]>[0] = [];
-
-      for (let i = 0; i < insertedPages.length; i++) {
-        const insertedPage = insertedPages[i];
-        const crawlPageResult = batch.pages[i];
-
-        const pageData: PageData = {
-          url: crawlPageResult.url,
-          statusCode: crawlPageResult.status_code,
-          title: crawlPageResult.title,
-          metaDescription: crawlPageResult.meta_description,
-          canonicalUrl: crawlPageResult.canonical_url,
-          wordCount: crawlPageResult.word_count,
-          contentHash: crawlPageResult.content_hash,
-          extracted: crawlPageResult.extracted,
-          lighthouse: crawlPageResult.lighthouse ?? null,
-          llmScores: null,
-        };
-
-        const result = scorePage(pageData);
-
-        scoreRows.push({
-          pageId: insertedPage.id,
-          jobId: batch.job_id,
-          overallScore: result.overallScore,
-          technicalScore: result.technicalScore,
-          contentScore: result.contentScore,
-          aiReadinessScore: result.aiReadinessScore,
-          lighthousePerf: crawlPageResult.lighthouse?.performance ?? null,
-          lighthouseSeo: crawlPageResult.lighthouse?.seo ?? null,
-          detail: {
-            performanceScore: result.performanceScore,
-            letterGrade: result.letterGrade,
-            extracted: crawlPageResult.extracted,
-            lighthouse: crawlPageResult.lighthouse ?? null,
-          },
-          platformScores: result.platformScores,
-          recommendations: generateRecommendations(
-            result.issues,
-            result.overallScore,
-          ),
-        });
-
-        for (const issue of result.issues) {
-          issueRows.push({
-            pageId: insertedPage.id,
-            jobId: batch.job_id,
-            category: issue.category,
-            severity: issue.severity,
-            code: issue.code,
-            message: issue.message,
-            recommendation: issue.recommendation,
-            data: issue.data ?? null,
-          });
-        }
-      }
+      // 3. Score pages
+      const { scoreRows, issueRows } = pageScoringService.scorePages(
+        batch.pages,
+        insertedPages,
+        batch.job_id,
+      );
 
       const insertedScores = await deps.scores.createBatch(scoreRows);
       await deps.scores.createIssues(issueRows);
 
+      // 4. Update crawl status
       const updateData: Parameters<CrawlRepository["updateStatus"]>[1] = {
         status: batch.is_final ? "complete" : "crawling",
         pagesFound: batch.stats.pages_found,
@@ -189,7 +135,8 @@ export function createIngestService(deps: IngestServiceDeps) {
       }
       await deps.crawls.updateStatus(crawlJob.id, updateData);
 
-      await schedulePostProcessing({
+      // 5. Schedule post-processing
+      await postProcessingService.schedule({
         batch,
         crawlJobId: crawlJob.id,
         projectId: crawlJob.projectId,
@@ -197,9 +144,9 @@ export function createIngestService(deps: IngestServiceDeps) {
         insertedScores,
         env: args.env,
         executionCtx: args.executionCtx,
-        outbox: deps.outbox,
       });
 
+      // 6. Return result
       return {
         job_id: batch.job_id,
         batch_index: batch.batch_index,
@@ -225,180 +172,4 @@ export function createIngestService(deps: IngestServiceDeps) {
       });
     },
   };
-
-  async function schedulePostProcessing(args: {
-    batch: CrawlResultBatch;
-    crawlJobId: string;
-    projectId: string;
-    insertedPages: Awaited<ReturnType<PageRepository["createBatch"]>>;
-    insertedScores: Awaited<ReturnType<ScoreRepository["createBatch"]>>;
-    env: BatchEnvironment;
-    executionCtx: ExecutionContext;
-    outbox?: OutboxRepository;
-  }) {
-    const { batch, insertedPages, insertedScores, projectId, crawlJobId } =
-      args;
-    const env = args.env;
-
-    if (env.anthropicApiKey) {
-      await dispatchOrRun(args.outbox, args.executionCtx, {
-        type: "llm_scoring",
-        payload: {
-          databaseUrl: env.databaseUrl,
-          anthropicApiKey: env.anthropicApiKey,
-          kvNamespace: env.kvNamespace,
-          r2Bucket: env.r2,
-          batchPages: batch.pages,
-          insertedPages,
-          insertedScores,
-        },
-      });
-    }
-
-    if (
-      batch.is_final &&
-      env.integrationKey &&
-      env.googleClientId &&
-      env.googleClientSecret
-    ) {
-      await dispatchOrRun(args.outbox, args.executionCtx, {
-        type: "integration_enrichment",
-        payload: {
-          databaseUrl: env.databaseUrl,
-          encryptionKey: env.integrationKey,
-          googleClientId: env.googleClientId,
-          googleClientSecret: env.googleClientSecret,
-          projectId,
-          jobId: batch.job_id,
-          insertedPages,
-        },
-      });
-    }
-
-    if (batch.is_final) {
-      args.executionCtx.waitUntil(
-        persistCrawlSummaryData({
-          databaseUrl: env.databaseUrl,
-          projectId,
-          jobId: crawlJobId,
-          resendApiKey: env.resendApiKey,
-          appBaseUrl: env.appBaseUrl,
-        }),
-      );
-    }
-
-    if (batch.is_final && env.anthropicApiKey) {
-      await dispatchOrRun(args.outbox, args.executionCtx, {
-        type: "crawl_summary",
-        payload: {
-          databaseUrl: env.databaseUrl,
-          anthropicApiKey: env.anthropicApiKey,
-          projectId,
-          jobId: batch.job_id,
-        },
-      });
-    }
-
-    // Invalidate dashboard KV cache on crawl completion
-    if (batch.is_final && env.kvNamespace && deps.projects) {
-      const project = await deps.projects.getById(projectId);
-      if (project) {
-        args.executionCtx.waitUntil(
-          env.kvNamespace.delete(`dashboard:stats:${project.userId}`),
-        );
-      }
-    }
-
-    // Send crawl-complete email notification (fire-and-forget)
-    if (batch.is_final && env.resendApiKey && deps.users && deps.projects) {
-      const project = await deps.projects.getById(projectId);
-      if (project) {
-        const db = createDb(env.databaseUrl);
-        const notifier = createNotificationService(db, env.resendApiKey, {
-          appBaseUrl: env.appBaseUrl,
-        });
-        args.executionCtx.waitUntil(
-          notifier.sendCrawlComplete({
-            userId: project.userId,
-            projectId,
-            projectName: project.name,
-            jobId: crawlJobId,
-          }),
-        );
-
-        // Regression detection — fire-and-forget after crawl completion
-        const regressionSvc = createRegressionService({
-          crawls: { listByProject: (pid) => deps.crawls.listByProject(pid) },
-          notifications: {
-            create: (data) =>
-              db.insert(outboxEvents).values({
-                type: "notification",
-                eventType: data.type,
-                userId: data.userId,
-                projectId,
-                payload: data.data,
-                status: "pending",
-              }),
-          },
-        });
-        args.executionCtx.waitUntil(
-          regressionSvc.checkAndNotify({
-            projectId,
-            userId: project.userId,
-          }),
-        );
-      }
-    }
-
-    // New: Recursive Link Discovery (Infinite Scaling)
-    if (batch.pages.length > 0 && env.queue && env.seenUrls) {
-      const frontier = createFrontierService(env.seenUrls);
-      const newLinks = batch.pages.flatMap((p) => p.extracted.internal_links);
-
-      for (const link of newLinks) {
-        const isNew = !(await frontier.isSeen(projectId, link));
-        if (isNew) {
-          await frontier.markSeen(projectId, link);
-          await env.queue.send({
-            job_id: crawlJobId,
-            projectId,
-            url: link,
-            depth: 1, // Simple heuristic for now
-          });
-        }
-      }
-    }
-  }
-
-  async function dispatchOrRun(
-    outbox: OutboxRepository | undefined,
-    executionCtx: ExecutionContext,
-    event: { type: string; payload: Record<string, unknown> },
-  ) {
-    if (outbox) {
-      await outbox.enqueue(event);
-      return;
-    }
-
-    executionCtx.waitUntil(runEventNow(event));
-  }
-
-  async function runEventNow(event: {
-    type: string;
-    payload: Record<string, unknown>;
-  }) {
-    switch (event.type) {
-      case "llm_scoring":
-        await runLLMScoring(event.payload as unknown as LLMScoringInput);
-        break;
-      case "integration_enrichment":
-        await runIntegrationEnrichments(
-          event.payload as unknown as EnrichmentInput,
-        );
-        break;
-      case "crawl_summary":
-        await generateCrawlSummary(event.payload as unknown as SummaryInput);
-        break;
-    }
-  }
 }
