@@ -287,6 +287,65 @@ export interface DigestPreferences {
   lastDigestSentAt: string | null;
 }
 
+export interface ShareInfo {
+  shareToken: string;
+  shareUrl: string;
+  badgeUrl: string;
+  level: "summary" | "issues" | "full";
+  expiresAt: string | null;
+}
+
+export interface PublicReport {
+  shareLevel: string;
+  crawlId: string;
+  projectId: string;
+  completedAt: string;
+  pagesScored: number;
+  summary: string | null;
+  summaryData: {
+    overallScore: number;
+    letterGrade: string;
+    categoryScores: {
+      technical: number;
+      content: number;
+      aiReadiness: number;
+      performance: number;
+    };
+    quickWins: unknown[];
+  } | null;
+  project: { name: string; domain: string; branding: unknown };
+  scores: {
+    overall: number;
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+    letterGrade: string;
+  };
+  pages: Array<{
+    url: string;
+    title: string;
+    overallScore: number;
+    technicalScore: number;
+    contentScore: number;
+    aiReadinessScore: number;
+    issueCount: number;
+  }>;
+  issueCount: number;
+  readinessCoverage: Record<string, number>;
+  scoreDeltas: Record<string, number> | null;
+  quickWins: Array<{
+    code: string;
+    category: string;
+    severity: string;
+    scoreImpact: number;
+    effortLevel: string;
+    message: string;
+    recommendation: string;
+    affectedPages: number;
+  }>;
+}
+
 export interface BillingInfo {
   plan: "free" | "starter" | "pro" | "agency";
   crawlCreditsRemaining: number;
@@ -1632,15 +1691,43 @@ export const api = {
   share: {
     async enable(
       crawlId: string,
-    ): Promise<{ shareToken: string; shareUrl: string }> {
-      const res = await apiClient.post<
-        ApiEnvelope<{ shareToken: string; shareUrl: string }>
-      >(`/api/crawls/${crawlId}/share`);
+      options?: {
+        level?: "summary" | "issues" | "full";
+        expiresAt?: string | null;
+      },
+    ): Promise<ShareInfo> {
+      const res = await apiClient.post<ApiEnvelope<ShareInfo>>(
+        `/api/crawls/${crawlId}/share`,
+        options,
+      );
+      return res.data;
+    },
+
+    async update(
+      crawlId: string,
+      settings: {
+        level?: "summary" | "issues" | "full";
+        expiresAt?: string | null;
+      },
+    ): Promise<ShareInfo> {
+      const res = await apiClient.patch<ApiEnvelope<ShareInfo>>(
+        `/api/crawls/${crawlId}/share`,
+        settings,
+      );
       return res.data;
     },
 
     async disable(crawlId: string): Promise<void> {
       await apiClient.delete(`/api/crawls/${crawlId}/share`);
+    },
+
+    async getPublicReport(token: string): Promise<PublicReport> {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/public/reports/${token}`,
+      );
+      if (!res.ok) throw new Error("Report not found");
+      const json = await res.json();
+      return json.data;
     },
   },
 

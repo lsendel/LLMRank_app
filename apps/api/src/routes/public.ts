@@ -12,8 +12,11 @@ import {
   leadQueries,
   scanResultQueries,
 } from "@llm-boost/db";
+import { badgeRoutes } from "./badge";
 
 export const publicRoutes = new Hono<AppEnv>();
+
+publicRoutes.route("/badge", badgeRoutes);
 
 // ---------------------------------------------------------------------------
 // POST /api/public/scan — No-auth instant domain scan
