@@ -8,6 +8,7 @@ import {
   userQueries,
   projectQueries,
   pageQueries,
+  crawlQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 
@@ -99,6 +100,105 @@ fixRoutes.post("/generate", async (c) => {
     });
 
     return c.json({ data: fix }, 201);
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// POST /api/fixes/generate-batch — Generate fixes for all supported quick wins
+fixRoutes.post("/generate-batch", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+
+  const body = await c.req.json<{
+    projectId?: string;
+    crawlId?: string;
+  }>();
+
+  if (
+    !body.projectId ||
+    !UUID_RE.test(body.projectId) ||
+    !body.crawlId ||
+    !UUID_RE.test(body.crawlId)
+  ) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId and crawlId (uuids) are required",
+        },
+      },
+      422,
+    );
+  }
+
+  try {
+    const user = await userQueries(db).getById(userId);
+    const project = await projectQueries(db).getById(body.projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
+
+    const service = createFixGeneratorService({
+      contentFixes: contentFixQueries(db),
+    });
+
+    const supportedCodes = new Set(service.getSupportedIssueCodes());
+
+    // Fetch quick wins for this crawl
+    const crawl = await crawlQueries(db).getById(body.crawlId);
+    if (!crawl || crawl.projectId !== body.projectId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+        404,
+      );
+    }
+
+    // Get quick wins from the crawl's summary data
+    const summaryData = crawl.summaryData as any;
+    const quickWins: Array<{ code: string; message: string }> =
+      summaryData?.quickWins ?? [];
+
+    // Filter to supported codes, deduplicate
+    const seen = new Set<string>();
+    const toGenerate = quickWins.filter((w) => {
+      if (seen.has(w.code) || !supportedCodes.has(w.code)) return false;
+      seen.add(w.code);
+      return true;
+    });
+
+    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const results: any[] = [];
+
+    for (const win of toGenerate) {
+      try {
+        const fix = await service.generateFix({
+          userId,
+          projectId: body.projectId,
+          issueCode: win.code,
+          context: {
+            url: project.domain,
+            title: project.name,
+            excerpt: "",
+            domain: project.domain,
+          },
+          apiKey: c.env.ANTHROPIC_API_KEY,
+          planLimit: limits.fixesPerMonth,
+        });
+        results.push({ code: win.code, fix, error: null });
+      } catch (err: any) {
+        results.push({
+          code: win.code,
+          fix: null,
+          error: err.message ?? "Generation failed",
+        });
+      }
+    }
+
+    return c.json({ data: results }, 201);
   } catch (error) {
     return handleServiceError(c, error);
   }

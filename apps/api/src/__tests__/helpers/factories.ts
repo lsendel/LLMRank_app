@@ -77,6 +77,7 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
     notifyOnCrawlComplete: true,
     notifyOnScoreDrop: true,
     webhookUrl: null,
+    persona: null,
     isAdmin: false,
     onboardingComplete: false,
     lastSignedIn: null,

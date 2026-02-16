@@ -39,10 +39,19 @@ import {
   api,
   ApiError,
   type VisibilityCheck,
+  type VisibilityGap,
   type StrategyCompetitor,
   type ScheduledQuery,
 } from "@/lib/api";
-import { Plus, Trash2, Clock, CalendarClock, Pause, Play } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Clock,
+  CalendarClock,
+  Pause,
+  Play,
+  AlertTriangle,
+} from "lucide-react";
 
 const PROVIDERS = [
   { id: "chatgpt", label: "ChatGPT" },
@@ -80,6 +89,11 @@ export default function VisibilityTab({
   const { data: competitors } = useApiSWR<StrategyCompetitor[]>(
     `competitors-${projectId}`,
     useCallback(() => api.strategy.getCompetitors(projectId), [projectId]),
+  );
+
+  const { data: gaps } = useApiSWR<VisibilityGap[]>(
+    `visibility-gaps-${projectId}`,
+    useCallback(() => api.visibility.getGaps(projectId), [projectId]),
   );
 
   // Scheduled checks state
@@ -321,6 +335,39 @@ export default function VisibilityTab({
             </Table>
           </Card>
         </div>
+      )}
+
+      {/* Content Gaps */}
+      {gaps && gaps.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              Content Gaps
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {gaps.map((gap) => (
+              <div
+                key={gap.query}
+                className="rounded-lg border border-warning/20 bg-warning/5 p-4"
+              >
+                <p className="text-sm font-medium">&ldquo;{gap.query}&rdquo;</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>Your status: Not mentioned</span>
+                  <span>&bull;</span>
+                  <span>
+                    Competitors cited:{" "}
+                    {gap.competitorsCited.map((c) => c.domain).join(", ")}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Create content targeting this query to close the gap.
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

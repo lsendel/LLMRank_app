@@ -22,17 +22,7 @@ export function useLocalAI() {
   const generateText = useCallback(
     async (prompt: string): Promise<string> => {
       if (!isAvailable) {
-        // Simulate/mock AI response for testing if not available
-        console.warn("Local AI unavailable, using mock response.");
-        return new Promise((resolve) =>
-          setTimeout(
-            () =>
-              resolve(
-                `[Mock AI Response] Analysis for: "${prompt.substring(0, 30)}..."`,
-              ),
-            1000,
-          ),
-        );
+        throw new Error("Local AI is not available in this browser");
       }
 
       try {

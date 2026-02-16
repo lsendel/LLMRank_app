@@ -15,3 +15,4 @@ export * from "./domain/log-analysis";
 export * from "./domain/plan-enforcer";
 export * from "./domain/llms-txt";
 export * from "./schemas/report";
+export * from "./persona-widget-config";

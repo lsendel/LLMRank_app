@@ -6,6 +6,7 @@ import { scorePage, type PageData } from "@llm-boost/scoring";
 import { aggregateReportData, fetchReportData } from "@llm-boost/reports";
 import type { GenerateReportJob } from "@llm-boost/reports";
 import { getQuickWins } from "@llm-boost/shared";
+import { VisibilityChecker } from "@llm-boost/llm";
 import {
   crawlQueries,
   projectQueries,
@@ -182,6 +183,37 @@ publicRoutes.post("/scan", async (c) => {
   const result = scorePage(pageData);
   const quickWins = getQuickWins(result.issues);
 
+  // Run a single visibility probe (Perplexity) — best-effort, don't block on failure
+  let visibility: {
+    provider: string;
+    brandMentioned: boolean;
+    urlCited: boolean;
+  } | null = null;
+
+  const perplexityKey = c.env.PERPLEXITY_API_KEY;
+  if (perplexityKey) {
+    try {
+      const checker = new VisibilityChecker();
+      const autoQuery = `What is ${domain} known for?`;
+      const [probeResult] = await checker.checkAllProviders({
+        query: autoQuery,
+        targetDomain: domain,
+        competitors: [],
+        providers: ["perplexity"],
+        apiKeys: { perplexity: perplexityKey },
+      });
+      if (probeResult) {
+        visibility = {
+          provider: probeResult.provider,
+          brandMentioned: probeResult.brandMentioned,
+          urlCited: probeResult.urlCited,
+        };
+      }
+    } catch {
+      // Visibility probe is best-effort; swallow errors
+    }
+  }
+
   // Persist scan result to DB
   const db = c.get("db");
   const ipBytes = new TextEncoder().encode(ip);
@@ -227,6 +259,7 @@ publicRoutes.post("/scan", async (c) => {
         schemaTypes: parsed.schemaTypes,
         ogTags: parsed.ogTags,
       },
+      visibility,
     },
   });
 });

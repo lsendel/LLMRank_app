@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle, Lock, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Eye, Lock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -220,6 +220,54 @@ function ScanResultsContent() {
                 pass={Object.keys(meta.ogTags).length > 0}
                 label="Open Graph tags"
               />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Visibility Preview */}
+      {result.visibility && (
+        <Card
+          className={cn(
+            "border-2",
+            result.visibility.brandMentioned
+              ? "border-success/30 bg-success/5"
+              : "border-warning/30 bg-warning/5",
+          )}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Eye className="h-4 w-4" />
+              AI Visibility Preview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm">
+              We asked <span className="font-medium">Perplexity</span> about
+              your brand.{" "}
+              {result.visibility.brandMentioned ? (
+                <span className="font-semibold text-success">
+                  Your site was mentioned!
+                </span>
+              ) : (
+                <span className="font-semibold text-warning">
+                  Your site wasn&apos;t mentioned.
+                </span>
+              )}
+            </p>
+            {!result.visibility.brandMentioned && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your site isn&apos;t appearing in AI responses yet. LLM Boost
+                can help you improve your AI visibility.
+              </p>
+            )}
+            <div className="mt-3">
+              <Link href="/sign-up">
+                <Button size="sm" variant="outline">
+                  Track visibility across 5 AI platforms
+                  <ArrowLeft className="ml-1 h-3 w-3 rotate-180" />
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -297,10 +297,11 @@ describe("Fixes Routes", () => {
 
       const body: any = await res.json();
       expect(body.data).toBeInstanceOf(Array);
-      expect(body.data).toHaveLength(10);
+      expect(body.data).toHaveLength(11);
       expect(body.data).toContain("MISSING_META_DESC");
       expect(body.data).toContain("MISSING_TITLE");
       expect(body.data).toContain("NO_STRUCTURED_DATA");
+      expect(body.data).toContain("AI_CRAWLER_BLOCKED");
     });
   });
 });

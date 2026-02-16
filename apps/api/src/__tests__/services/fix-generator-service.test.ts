@@ -70,14 +70,15 @@ describe("FixGeneratorService", () => {
 
   // ---- getSupportedIssueCodes ----
 
-  it("getSupportedIssueCodes returns 10 codes", () => {
+  it("getSupportedIssueCodes returns 11 codes", () => {
     const service = createFixGeneratorService(deps);
     const codes = service.getSupportedIssueCodes();
-    expect(codes).toHaveLength(10);
+    expect(codes).toHaveLength(11);
     expect(codes).toContain("MISSING_META_DESC");
     expect(codes).toContain("MISSING_TITLE");
     expect(codes).toContain("NO_STRUCTURED_DATA");
     expect(codes).toContain("MISSING_LLMS_TXT");
+    expect(codes).toContain("AI_CRAWLER_BLOCKED");
   });
 
   // ---- generateFix success ----

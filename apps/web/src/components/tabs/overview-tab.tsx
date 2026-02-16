@@ -8,7 +8,7 @@ import { IssueCard } from "@/components/issue-card";
 import { QuickWinsCard } from "@/components/quick-wins-card";
 import { IssueDistributionChart } from "@/components/charts/issue-distribution-chart";
 import { GradeDistributionChart } from "@/components/charts/grade-distribution-chart";
-import { Brain } from "lucide-react";
+import { Brain, CheckCircle, XCircle } from "lucide-react";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -77,54 +77,95 @@ export function OverviewTab({
           />
         </Card>
 
-        {/* Category breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Category Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {[
-              {
-                key: "technical",
-                label: "Technical SEO",
-                score: latestCrawl!.scores!.technical,
-              },
-              {
-                key: "content",
-                label: "Content Quality",
-                score: latestCrawl!.scores!.content,
-              },
-              {
-                key: "aiReadiness",
-                label: "AI Readiness",
-                score: latestCrawl!.scores!.aiReadiness,
-              },
-              {
-                key: "performance",
-                label: "Performance",
-                score: latestCrawl!.scores!.performance,
-              },
-            ].map((cat) => (
-              <div key={cat.key} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{cat.label}</span>
-                  <span className={cn("font-semibold", gradeColor(cat.score))}>
-                    {cat.score} / 100
-                  </span>
+        {/* Category breakdown — AI Readiness featured */}
+        <div className="space-y-4">
+          {/* Featured AI Readiness card */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Brain className="h-5 w-5 text-primary" />
                 </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      scoreBarColor(cat.score),
-                    )}
-                    style={{ width: `${cat.score}%` }}
-                  />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">AI Readiness</h3>
+                    <span
+                      className={cn(
+                        "text-xl font-bold",
+                        gradeColor(latestCrawl!.scores!.aiReadiness),
+                      )}
+                    >
+                      {latestCrawl!.scores!.aiReadiness}/100
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    How well AI assistants can understand, cite, and recommend
+                    your content
+                  </p>
+                  <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-primary/10">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        scoreBarColor(latestCrawl!.scores!.aiReadiness),
+                      )}
+                      style={{
+                        width: `${latestCrawl!.scores!.aiReadiness}%`,
+                      }}
+                    />
+                  </div>
+                  {/* AI-specific factor checklist */}
+                  <AiReadinessChecklist issues={issues} />
                 </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Other categories */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Other Categories</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {[
+                {
+                  key: "technical",
+                  label: "Technical SEO (25%)",
+                  score: latestCrawl!.scores!.technical,
+                },
+                {
+                  key: "content",
+                  label: "Content Quality (30%)",
+                  score: latestCrawl!.scores!.content,
+                },
+                {
+                  key: "performance",
+                  label: "Performance (15%)",
+                  score: latestCrawl!.scores!.performance,
+                },
+              ].map((cat) => (
+                <div key={cat.key} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{cat.label}</span>
+                    <span
+                      className={cn("font-semibold", gradeColor(cat.score))}
+                    >
+                      {cat.score} / 100
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        scoreBarColor(cat.score),
+                      )}
+                      style={{ width: `${cat.score}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* AI Summary */}
@@ -208,5 +249,40 @@ export function OverviewTab({
         </div>
       )}
     </>
+  );
+}
+
+// AI readiness factor checklist — shows pass/fail for key AI-specific factors
+const AI_FACTORS = [
+  { code: "MISSING_LLMS_TXT", label: "llms.txt file" },
+  { code: "AI_CRAWLER_BLOCKED", label: "AI crawlers allowed" },
+  { code: "NO_STRUCTURED_DATA", label: "Structured data" },
+  { code: "CITATION_WORTHINESS", label: "Citation-worthy content" },
+] as const;
+
+function AiReadinessChecklist({ issues }: { issues: PageIssue[] }) {
+  const issueCodes = new Set(issues.map((i) => i.code));
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
+      {AI_FACTORS.map((factor) => {
+        // AI_CRAWLER_BLOCKED is inverted: the factor label says "allowed", so issue present = fail
+        const hasProblem = issueCodes.has(factor.code);
+        const pass = !hasProblem;
+        return (
+          <div key={factor.code} className="flex items-center gap-1.5 text-xs">
+            {pass ? (
+              <CheckCircle className="h-3.5 w-3.5 text-success" />
+            ) : (
+              <XCircle className="h-3.5 w-3.5 text-destructive" />
+            )}
+            <span
+              className={pass ? "text-foreground" : "text-muted-foreground"}
+            >
+              {factor.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }

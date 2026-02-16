@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
 import {
@@ -14,6 +14,10 @@ import {
   FileText,
   AlertTriangle,
   Zap,
+  Brain,
+  Eye,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +73,10 @@ const pillarLabels: Record<string, string> = {
 export default function DashboardPage() {
   const { user } = useUser();
   const firstName = user?.name?.split(" ")[0] ?? "there";
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("ai-features-banner-dismissed") === "1";
+  });
 
   const { data: stats, isLoading: statsLoading } = useApiSWR(
     "dashboard-stats",
@@ -129,6 +137,67 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* AI Features onboarding banner — shown for new users with 0 crawls */}
+      {stats.totalCrawls === 0 && !bannerDismissed && (
+        <Card className="relative border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+          <button
+            onClick={() => {
+              setBannerDismissed(true);
+              localStorage.setItem("ai-features-banner-dismissed", "1");
+            }}
+            className="absolute right-3 top-3 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              What makes LLM Boost different
+            </CardTitle>
+            <CardDescription>
+              Go beyond traditional SEO — optimize for AI search engines
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="flex gap-3 rounded-lg border bg-background p-3">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Brain className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">AI Content Scoring</p>
+                  <p className="text-xs text-muted-foreground">
+                    37 factors scored by Claude to measure AI-readiness
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 rounded-lg border bg-background p-3">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Eye className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">LLM Visibility Tracking</p>
+                  <p className="text-xs text-muted-foreground">
+                    See if ChatGPT, Claude, Perplexity mention your brand
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 rounded-lg border bg-background p-3">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">AI Fix Generator</p>
+                  <p className="text-xs text-muted-foreground">
+                    One-click AI-generated fixes for SEO issues
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

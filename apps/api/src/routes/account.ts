@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { userQueries, digestPreferenceQueries } from "@llm-boost/db";
-import { UpdateProfileSchema } from "@llm-boost/shared";
+import {
+  UpdateProfileSchema,
+  PersonaQuestionnaireSchema,
+} from "@llm-boost/shared";
+import { classifyPersona } from "../services/persona-classifier";
 
 export const accountRoutes = new Hono<AppEnv>();
 accountRoutes.use("*", authMiddleware);
@@ -47,6 +51,36 @@ accountRoutes.put("/", async (c) => {
   }
   const updated = await userQueries(db).updateProfile(userId, parsed.data);
   return c.json({ data: updated });
+});
+
+// ---------------------------------------------------------------------------
+// POST /classify-persona — Classify user persona from questionnaire
+// ---------------------------------------------------------------------------
+
+accountRoutes.post("/classify-persona", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+  const parsed = PersonaQuestionnaireSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: parsed.error.issues[0]?.message ?? "Invalid input",
+          details: parsed.error.flatten().fieldErrors,
+        },
+      },
+      422,
+    );
+  }
+
+  const result = classifyPersona(parsed.data);
+
+  // Persist the classified persona to the user record
+  await userQueries(db).updateProfile(userId, { persona: result.persona });
+
+  return c.json({ data: result });
 });
 
 // ---------------------------------------------------------------------------

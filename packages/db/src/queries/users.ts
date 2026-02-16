@@ -1,8 +1,9 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { users, planEnum } from "../schema";
+import { users, planEnum, personaEnum } from "../schema";
 
 type Plan = (typeof planEnum.enumValues)[number];
+type Persona = (typeof personaEnum.enumValues)[number];
 
 export function userQueries(db: Database) {
   return {
@@ -45,7 +46,12 @@ export function userQueries(db: Database) {
 
     async updateProfile(
       id: string,
-      data: { name?: string; phone?: string; onboardingComplete?: boolean },
+      data: {
+        name?: string;
+        phone?: string;
+        onboardingComplete?: boolean;
+        persona?: Persona;
+      },
     ) {
       const [updated] = await db
         .update(users)
