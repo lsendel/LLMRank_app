@@ -118,7 +118,7 @@ crawlRoutes.get("/:id/quick-wins", withOwnership("crawl"), async (c) => {
 // GET /:id/export — Export crawl data as CSV or JSON (Starter+ only)
 // ---------------------------------------------------------------------------
 
-crawlRoutes.get("/:id/export", async (c) => {
+crawlRoutes.get("/:id/export", withOwnership("crawl"), async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
@@ -151,22 +151,7 @@ crawlRoutes.get("/:id/export", async (c) => {
     );
   }
 
-  const crawl = await crawlQueries(db).getById(crawlId);
-  if (!crawl) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
-      404,
-    );
-  }
-
-  // IDOR check: verify crawl belongs to a project owned by the authenticated user
-  const project = await projectQueries(db).getById(crawl.projectId);
-  if (!project || project.userId !== userId) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
-      404,
-    );
-  }
+  // Ownership already verified by withOwnership("crawl") middleware
 
   // Fetch pages and scores
   let crawledPages, scores, allIssues;
@@ -276,24 +261,28 @@ crawlRoutes.get("/:id/export", async (c) => {
 // GET /:id/platform-readiness — Pass/fail per AI platform
 // ---------------------------------------------------------------------------
 
-crawlRoutes.get("/:id/platform-readiness", async (c) => {
-  const userId = c.get("userId");
-  const crawlId = c.req.param("id");
-  const { crawlService } = c.get("container");
+crawlRoutes.get(
+  "/:id/platform-readiness",
+  withOwnership("crawl"),
+  async (c) => {
+    const userId = c.get("userId");
+    const crawlId = c.req.param("id");
+    const { crawlService } = c.get("container");
 
-  try {
-    const data = await crawlService.getPlatformReadiness(userId, crawlId);
-    return c.json({ data });
-  } catch (error) {
-    return handleServiceError(c, error);
-  }
-});
+    try {
+      const data = await crawlService.getPlatformReadiness(userId, crawlId);
+      return c.json({ data });
+    } catch (error) {
+      return handleServiceError(c, error);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // POST /:id/share — Enable sharing, generate token
 // ---------------------------------------------------------------------------
 
-crawlRoutes.post("/:id/share", async (c) => {
+crawlRoutes.post("/:id/share", withOwnership("crawl"), async (c) => {
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
@@ -315,7 +304,7 @@ crawlRoutes.post("/:id/share", async (c) => {
 // DELETE /:id/share — Disable sharing
 // ---------------------------------------------------------------------------
 
-crawlRoutes.delete("/:id/share", async (c) => {
+crawlRoutes.delete("/:id/share", withOwnership("crawl"), async (c) => {
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
   const { crawlService } = c.get("container");
@@ -332,7 +321,7 @@ crawlRoutes.delete("/:id/share", async (c) => {
 // PATCH /:id/share — Update share settings (level, expiry)
 // ---------------------------------------------------------------------------
 
-crawlRoutes.patch("/:id/share", async (c) => {
+crawlRoutes.patch("/:id/share", withOwnership("crawl"), async (c) => {
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
   const body = await c.req.json();
