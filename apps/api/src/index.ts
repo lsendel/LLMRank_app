@@ -39,6 +39,7 @@ import { tokenRoutes } from "./routes/api-tokens";
 import { v1Routes } from "./routes/v1";
 import { scoringProfileRoutes } from "./routes/scoring-profiles";
 import { generatorRoutes } from "./routes/generators";
+import { teamRoutes } from "./routes/teams";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -194,6 +195,7 @@ app.route("/api/tokens", tokenRoutes);
 app.route("/api/v1", v1Routes);
 app.route("/api/scoring-profiles", scoringProfileRoutes);
 app.route("/api/projects", generatorRoutes);
+app.route("/api/teams", teamRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
