@@ -475,6 +475,11 @@ export interface PublicScanResult {
     schemaTypes: string[];
     ogTags: Record<string, string>;
   };
+  visibility?: {
+    provider: string;
+    brandMentioned: boolean;
+    urlCited: boolean;
+  } | null;
 }
 
 export interface SharedReport {
@@ -535,6 +540,17 @@ export interface VisibilityTrend {
   mentionRate: number;
   citationRate: number;
   totalChecks: number;
+}
+
+export interface VisibilityGap {
+  query: string;
+  providers: string[];
+  userMentioned: boolean;
+  userCited: boolean;
+  competitorsCited: Array<{
+    domain: string;
+    position: number | null;
+  }>;
 }
 
 export interface ScheduledQuery {
@@ -1047,6 +1063,28 @@ export const api = {
       return res.data;
     },
 
+    async exportData(crawlId: string, format: "csv" | "json"): Promise<any> {
+      if (format === "csv") {
+        // For CSV, we need the raw response
+        const res = await fetch(
+          `${API_BASE_URL}/api/crawls/${crawlId}/export?format=csv`,
+          {
+            headers: apiClient.getHeaders
+              ? apiClient.getHeaders()
+              : { "Content-Type": "application/json" },
+            credentials: "include",
+          },
+        );
+        if (!res.ok)
+          throw new ApiError(res.status, "EXPORT_FAILED", "Export failed");
+        return res.text();
+      }
+      const res = await apiClient.get<ApiEnvelope<any[]>>(
+        `/api/crawls/${crawlId}/export?format=json`,
+      );
+      return res.data;
+    },
+
     async getIssueHeatmap(crawlId: string): Promise<IssueHeatmapData> {
       const res = await apiClient.get<ApiEnvelope<IssueHeatmapData>>(
         `/api/crawls/${crawlId}/issue-heatmap`,
@@ -1263,6 +1301,13 @@ export const api = {
       return res.data;
     },
 
+    async getGaps(projectId: string): Promise<VisibilityGap[]> {
+      const res = await apiClient.get<ApiEnvelope<VisibilityGap[]>>(
+        `/api/visibility/${projectId}/gaps`,
+      );
+      return res.data;
+    },
+
     schedules: {
       async list(projectId: string): Promise<ScheduledQuery[]> {
         const res = await apiClient.get<ApiEnvelope<ScheduledQuery[]>>(
@@ -1401,12 +1446,29 @@ export const api = {
 
   // ── Account ─────────────────────────────────────────────────────
   account: {
-    async getMe(): Promise<{ isAdmin: boolean; plan: string; email: string }> {
-      const res =
-        await apiClient.get<
-          ApiEnvelope<{ isAdmin: boolean; plan: string; email: string }>
-        >("/api/account");
+    async getMe(): Promise<{
+      isAdmin: boolean;
+      plan: string;
+      email: string;
+      onboardingComplete: boolean;
+    }> {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          isAdmin: boolean;
+          plan: string;
+          email: string;
+          onboardingComplete: boolean;
+        }>
+      >("/api/account");
       return res.data;
+    },
+
+    async updateProfile(data: {
+      name?: string;
+      phone?: string;
+      onboardingComplete?: boolean;
+    }): Promise<void> {
+      await apiClient.put("/api/account", data);
     },
 
     async deleteAccount(): Promise<void> {
@@ -1789,6 +1851,19 @@ export const api = {
       const res = await apiClient.get<ApiEnvelope<string[]>>(
         "/api/fixes/supported",
       );
+      return res.data;
+    },
+
+    async generateBatch(data: { projectId: string; crawlId: string }) {
+      const res = await apiClient.post<
+        ApiEnvelope<
+          Array<{
+            code: string;
+            fix: { generatedFix: string; fixType: string } | null;
+            error: string | null;
+          }>
+        >
+      >("/api/fixes/generate-batch", data);
       return res.data;
     },
   },
