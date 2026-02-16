@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserButton } from "@/lib/auth-hooks";
 import {
@@ -29,11 +30,26 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
   // Auth is enforced by middleware.ts — if we reach here, user has a session cookie
   const { data: me } = useApiSWR(
     "account-me",
     useCallback(() => api.account.getMe(), []),
   );
+
+  const { data: projectList } = useApiSWR(
+    "projects-guard",
+    useCallback(() => api.projects.list({ limit: 1 }), []),
+  );
+
+  useEffect(() => {
+    if (me && projectList) {
+      if (!me.onboardingComplete && projectList.pagination.total === 0) {
+        router.push("/onboarding");
+      }
+    }
+  }, [me, projectList, router]);
 
   const sidebarLinks = useMemo(
     () => (me?.isAdmin ? [...baseSidebarLinks, adminLink] : baseSidebarLinks),
