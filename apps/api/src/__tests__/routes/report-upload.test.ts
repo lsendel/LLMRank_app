@@ -43,7 +43,7 @@ function createBindings(): { env: Bindings; r2Put: ReturnType<typeof vi.fn> } {
     CRAWL_QUEUE: queue,
     REPORT_QUEUE: queue,
     REPORT_SERVICE_URL: "https://reports",
-    BROWSER: null,
+    BROWSER: null as unknown as import("@cloudflare/puppeteer").BrowserWorker,
     DATABASE_URL: "postgresql://test",
     SHARED_SECRET: "test-secret",
     ANTHROPIC_API_KEY: "key",
