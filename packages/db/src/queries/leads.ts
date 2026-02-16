@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, lte } from "drizzle-orm";
 import type { Database } from "../client";
 import { leads } from "../schema";
 
@@ -43,6 +43,15 @@ export function leadQueries(db: Database) {
         .where(eq(leads.id, id))
         .returning();
       return updated ?? null;
+    },
+
+    async deleteOldUnconverted(daysOld: number) {
+      const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
+      const deleted = await db
+        .delete(leads)
+        .where(and(isNull(leads.convertedAt), lte(leads.createdAt, cutoff)))
+        .returning({ id: leads.id });
+      return deleted.length;
     },
   };
 }

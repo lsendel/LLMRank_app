@@ -217,6 +217,8 @@ import {
   visibilityQueries,
   projectQueries,
   outboxEvents,
+  scanResultQueries,
+  leadQueries,
 } from "@llm-boost/db";
 import { trackServer } from "./lib/telemetry";
 
@@ -263,6 +265,22 @@ async function runScheduledTasks(env: Bindings) {
     sharedSecret: env.SHARED_SECRET,
     queue: env.CRAWL_QUEUE,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup cron — daily at 3 AM UTC
+// ---------------------------------------------------------------------------
+
+async function cleanupExpiredData(env: Bindings): Promise<void> {
+  const db = createDb(env.DATABASE_URL);
+
+  // Delete expired scan results (30-day TTL handled by expiresAt column)
+  const deletedScans = await scanResultQueries(db).deleteExpired();
+  console.log(`Cleaned up ${deletedScans} expired scan results`);
+
+  // Delete unconverted leads older than 90 days
+  const deletedLeads = await leadQueries(db).deleteOldUnconverted(90);
+  console.log(`Cleaned up ${deletedLeads} stale leads`);
 }
 
 // ---------------------------------------------------------------------------
@@ -458,6 +476,8 @@ export default withSentry(
         await resetMonthlyCredits(env);
       } else if (controller.cron === "*/15 * * * *") {
         await processScheduledVisibilityChecks(env);
+      } else if (controller.cron === "0 3 * * *") {
+        await cleanupExpiredData(env);
       } else {
         await runScheduledTasks(env);
       }
