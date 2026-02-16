@@ -30,27 +30,43 @@ trendRoutes.get("/:projectId", async (c) => {
   // Get completed crawls in the period
   const crawls = await crawlQueries(db).listByProject(projectId);
   const completedCrawls = crawls
-    .filter((cr: any) => cr.status === "complete" && cr.completedAt)
-    .filter((cr: any) => new Date(cr.completedAt) >= since)
+    .filter((cr) => cr.status === "complete" && cr.completedAt)
+    .filter((cr) => new Date(cr.completedAt!).getTime() >= since.getTime())
     .sort(
-      (a: any, b: any) =>
-        new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime(),
+      (a, b) =>
+        new Date(a.completedAt!).getTime() - new Date(b.completedAt!).getTime(),
     );
 
-  // For each crawl, get aggregated scores from summaryData
-  const trendPoints = [];
+  interface TrendPoint {
+    crawlId: string;
+    date: string | Date | null;
+    overall: number;
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+    letterGrade: string;
+    pageCount: number;
+  }
+  const trendPoints: TrendPoint[] = [];
   for (const crawl of completedCrawls) {
     if (crawl.summaryData) {
-      const sd = crawl.summaryData as any;
+      const sd = crawl.summaryData as Record<string, unknown>;
+      const num = (key1: string, key2: string): number =>
+        (typeof sd[key1] === "number"
+          ? sd[key1]
+          : typeof sd[key2] === "number"
+            ? sd[key2]
+            : 0) as number;
       trendPoints.push({
         crawlId: crawl.id,
         date: crawl.completedAt,
-        overall: sd.overallScore ?? sd.overall ?? 0,
-        technical: sd.technicalScore ?? sd.technical ?? 0,
-        content: sd.contentScore ?? sd.content ?? 0,
-        aiReadiness: sd.aiReadinessScore ?? sd.aiReadiness ?? 0,
-        performance: sd.performanceScore ?? sd.performance ?? 0,
-        letterGrade: sd.letterGrade ?? "F",
+        overall: num("overallScore", "overall"),
+        technical: num("technicalScore", "technical"),
+        content: num("contentScore", "content"),
+        aiReadiness: num("aiReadinessScore", "aiReadiness"),
+        performance: num("performanceScore", "performance"),
+        letterGrade: typeof sd.letterGrade === "string" ? sd.letterGrade : "F",
         pageCount: crawl.pagesScored ?? 0,
       });
     }
