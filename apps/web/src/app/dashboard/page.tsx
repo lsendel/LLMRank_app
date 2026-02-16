@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
 import {
@@ -33,11 +33,11 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, gradeColor } from "@/lib/utils";
-import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
 import { Progress } from "@/components/ui/progress";
 import { NextStepsCard } from "@/components/cards/next-steps-card";
 import { usePersonaLayout } from "@/hooks/use-persona-layout";
+import { useDashboardStats, useRecentActivity } from "@/hooks/use-dashboard";
 import { track } from "@/lib/telemetry";
 import { formatRelativeTime } from "@/lib/format";
 import { getStatusBadgeVariant } from "@/lib/status";
@@ -65,15 +65,8 @@ export default function DashboardPage() {
     return localStorage.getItem("ai-features-banner-dismissed") === "1";
   });
 
-  const { data: stats, isLoading: statsLoading } = useApiSWR(
-    "dashboard-stats",
-    useCallback(() => api.dashboard.getStats(), []),
-  );
-
-  const { data: activity, isLoading: activityLoading } = useApiSWR(
-    "dashboard-activity",
-    useCallback(() => api.dashboard.getRecentActivity(), []),
-  );
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: activity, isLoading: activityLoading } = useRecentActivity();
 
   // Persona discovery modal for existing users without a persona
   const [personaDismissed, setPersonaDismissed] = useState(false);
