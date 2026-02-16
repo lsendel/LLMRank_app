@@ -465,6 +465,32 @@ export interface VisibilityTrend {
   totalChecks: number;
 }
 
+export interface ScheduledQuery {
+  id: string;
+  projectId: string;
+  query: string;
+  providers: string[];
+  frequency: "hourly" | "daily" | "weekly";
+  enabled: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string;
+  createdAt: string;
+}
+
+export interface CreateScheduleInput {
+  projectId: string;
+  query: string;
+  providers: string[];
+  frequency: "hourly" | "daily" | "weekly";
+}
+
+export interface ScheduleUpdate {
+  query: string;
+  providers: string[];
+  frequency: "hourly" | "daily" | "weekly";
+  enabled: boolean;
+}
+
 export interface LogUpload {
   id: string;
   projectId: string;
@@ -1127,6 +1153,38 @@ export const api = {
         `/api/visibility/${projectId}/trends`,
       );
       return res.data;
+    },
+
+    schedules: {
+      async list(projectId: string): Promise<ScheduledQuery[]> {
+        const res = await apiClient.get<ApiEnvelope<ScheduledQuery[]>>(
+          `/api/visibility/schedules?projectId=${projectId}`,
+        );
+        return res.data;
+      },
+
+      async create(data: CreateScheduleInput): Promise<ScheduledQuery> {
+        const res = await apiClient.post<ApiEnvelope<ScheduledQuery>>(
+          "/api/visibility/schedules",
+          data,
+        );
+        return res.data;
+      },
+
+      async update(
+        id: string,
+        data: Partial<ScheduleUpdate>,
+      ): Promise<ScheduledQuery> {
+        const res = await apiClient.patch<ApiEnvelope<ScheduledQuery>>(
+          `/api/visibility/schedules/${id}`,
+          data,
+        );
+        return res.data;
+      },
+
+      async delete(id: string): Promise<void> {
+        await apiClient.delete(`/api/visibility/schedules/${id}`);
+      },
     },
   },
 
