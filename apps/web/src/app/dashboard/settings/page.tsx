@@ -133,7 +133,6 @@ export default function SettingsPage() {
 
         <TabsContent value="general" className="space-y-8">
           <GeneralSection />
-          <DigestPreferencesSection />
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-8">
@@ -146,6 +145,7 @@ export default function SettingsPage() {
 
         <TabsContent value="notifications" className="space-y-6">
           <NotificationChannelsSection />
+          <DigestPreferencesSection />
         </TabsContent>
 
         <TabsContent value="api-tokens" className="space-y-6">
