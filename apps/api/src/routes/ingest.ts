@@ -20,11 +20,13 @@ ingestRoutes.use("*", hmacMiddleware);
 // ---------------------------------------------------------------------------
 
 ingestRoutes.post("/batch", async (c) => {
+  const db = c.get("db");
   const service = createIngestService({
-    crawls: createCrawlRepository(c.get("db")),
-    pages: createPageRepository(c.get("db")),
-    scores: createScoreRepository(c.get("db")),
-    outbox: createOutboxRepository(c.get("db")),
+    crawls: createCrawlRepository(db),
+    pages: createPageRepository(db),
+    scores: createScoreRepository(db),
+    outbox: createOutboxRepository(db),
+    db,
   });
 
   const stored = c.get("parsedBody" as never) as string | undefined;

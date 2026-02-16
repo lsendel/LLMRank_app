@@ -3,7 +3,8 @@ import {
   CrawlStatus,
   type CrawlPageResult,
 } from "@llm-boost/shared";
-import { detectContentType } from "@llm-boost/scoring";
+import { detectContentType, type ScoringWeights } from "@llm-boost/scoring";
+import { scoringProfileQueries } from "@llm-boost/db";
 import type {
   CrawlRepository,
   PageRepository,
@@ -24,6 +25,7 @@ export interface IngestServiceDeps {
   outbox?: OutboxRepository;
   users?: UserRepository;
   projects?: ProjectRepository;
+  db?: import("@llm-boost/db").Database;
 }
 
 export interface BatchEnvironment {
@@ -115,11 +117,26 @@ export function createIngestService(deps: IngestServiceDeps) {
       const insertedPages = await deps.pages.createBatch(pageRows);
       await deps.crawls.updateStatus(crawlJob.id, { status: "scoring" });
 
-      // 3. Score pages
+      // 3. Load custom scoring weights (if project has a scoring profile)
+      let customWeights: ScoringWeights | undefined;
+      if (deps.db && deps.projects) {
+        const project = await deps.projects.getById(crawlJob.projectId);
+        if (project?.scoringProfileId) {
+          const profile = await scoringProfileQueries(deps.db).getById(
+            project.scoringProfileId,
+          );
+          if (profile?.weights) {
+            customWeights = profile.weights as ScoringWeights;
+          }
+        }
+      }
+
+      // 4. Score pages
       const { scoreRows, issueRows } = pageScoringService.scorePages(
         batch.pages,
         insertedPages,
         batch.job_id,
+        customWeights,
       );
 
       const insertedScores = await deps.scores.createBatch(scoreRows);
