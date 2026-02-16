@@ -8,7 +8,14 @@ import { IssueCard } from "@/components/issue-card";
 import { QuickWinsCard } from "@/components/quick-wins-card";
 import { IssueDistributionChart } from "@/components/charts/issue-distribution-chart";
 import { GradeDistributionChart } from "@/components/charts/grade-distribution-chart";
-import { Brain, CheckCircle, XCircle } from "lucide-react";
+import { Brain, CheckCircle, Download, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -77,8 +84,30 @@ export function OverviewTab({
 
   return (
     <>
-      {/* Regression alert banner */}
-      <RegressionAlert projectId={projectId} />
+      {/* Export + Regression alert */}
+      <div className="flex items-center justify-between">
+        <RegressionAlert projectId={projectId} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Download className="mr-1.5 h-4 w-4" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => api.exports.download(projectId, "csv")}
+            >
+              Export CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => api.exports.download(projectId, "json")}
+            >
+              Export JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Hero section with ScoreCircle */}
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">

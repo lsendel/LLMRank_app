@@ -2255,6 +2255,16 @@ export const api = {
     },
   },
 
+  // ── Exports ───────────────────────────────────────────────
+  exports: {
+    download(projectId: string, format: "csv" | "json") {
+      window.open(
+        `${API_BASE_URL}/api/projects/${projectId}/export?format=${format}`,
+        "_blank",
+      );
+    },
+  },
+
   // ── Benchmarks ──────────────────────────────────────────────
   benchmarks: {
     async get(): Promise<Benchmarks | null> {

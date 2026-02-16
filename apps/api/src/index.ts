@@ -40,6 +40,7 @@ import { tokenRoutes } from "./routes/api-tokens";
 import { v1Routes } from "./routes/v1";
 import { scoringProfileRoutes } from "./routes/scoring-profiles";
 import { brandingRoutes } from "./routes/branding";
+import { exportRoutes } from "./routes/exports";
 import { generatorRoutes } from "./routes/generators";
 import { teamRoutes } from "./routes/teams";
 import { organizationRoutes } from "./routes/organizations";
@@ -172,6 +173,7 @@ app.use("*", async (c, next) => {
 app.route("/api/health", healthRoutes);
 app.route("/api/projects", projectRoutes);
 app.route("/api/projects", brandingRoutes);
+app.route("/api/projects", exportRoutes);
 app.route("/api/crawls", crawlRoutes);
 app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
