@@ -99,7 +99,18 @@ export default function ProjectPage() {
       });
     } catch (err) {
       if (err instanceof ApiError) {
-        setCrawlError(err.message);
+        const messages: Record<string, string> = {
+          CRAWLER_UNAVAILABLE:
+            "The crawler service is temporarily unavailable. Please try again in a few minutes.",
+          CRAWLER_TIMEOUT:
+            "The crawler service took too long to respond. Please try again.",
+          CRAWLER_REJECTED:
+            "The crawler could not process this request. Please contact support if this persists.",
+          CRAWL_IN_PROGRESS: "A crawl is already running for this project.",
+          CRAWL_LIMIT_REACHED:
+            "You've used all your crawl credits for this month.",
+        };
+        setCrawlError(messages[err.code] ?? err.message);
       } else {
         setCrawlError("Failed to start crawl. Please try again.");
       }

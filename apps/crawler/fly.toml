@@ -12,14 +12,20 @@ primary_region = "iad"
   min_machines_running = 1
   processes = ["app"]
 
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 10
+    hard_limit = 25
+
 [checks]
   [checks.health]
     type = "http"
     port = 8080
     path = "/api/v1/health"
-    interval = "10s"
+    interval = "15s"
     timeout = "2s"
     method = "GET"
+    grace_period = "30s"
 
 [[vm]]
   size = "shared-cpu-2x"

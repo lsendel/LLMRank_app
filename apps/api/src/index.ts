@@ -254,6 +254,9 @@ async function runScheduledTasks(env: Bindings) {
   const monitor = createMonitoringService(db, notifications);
   await monitor.checkSystemHealth();
 
+  // 2b. Crawler health check
+  await monitor.checkCrawlerHealth(env.CRAWLER_URL, env.KV);
+
   // 3. Dispatch scheduled crawls
   const crawlService = createCrawlService({
     crawls: createCrawlRepository(db),
