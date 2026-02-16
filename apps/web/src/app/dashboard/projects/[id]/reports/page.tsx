@@ -89,7 +89,6 @@ export default function ReportsPage() {
             reports={reports}
             onDelete={handleDelete}
             onRefresh={fetchReports}
-            projectName={project?.name ?? "report"}
           />
         </CardContent>
       </Card>
