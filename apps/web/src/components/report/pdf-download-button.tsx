@@ -33,7 +33,7 @@ export function PdfDownloadButton({
       // reconciler crash on page mount (React 19 + scheduler mismatch)
       const { pdf } = await import("@react-pdf/renderer");
       const { AIReadinessReport } = await import("./report-template");
-      const blob = await pdf(
+      const rawBlob = await pdf(
         <AIReadinessReport
           crawl={crawl}
           quickWins={quickWins}
