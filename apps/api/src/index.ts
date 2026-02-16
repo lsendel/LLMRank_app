@@ -275,14 +275,13 @@ async function detectAndEmitChanges(
   schedule: { id: string; projectId: string; query: string },
   project: { id: string; userId: string; domain: string },
   results: VisibilityCheckResult[],
-  visQueries: ReturnType<typeof visibilityQueries>,
-) {
+  previousByProvider: Map<
+    string,
+    { brandMentioned: boolean; citationPosition: number | null }
+  >,
+): Promise<void> {
   for (const result of results) {
-    const previous = await visQueries.getLatestForQuery(
-      schedule.projectId,
-      schedule.query,
-      result.provider,
-    );
+    const previous = previousByProvider.get(result.provider);
 
     if (!previous) continue;
 
@@ -337,7 +336,7 @@ async function detectAndEmitChanges(
   }
 }
 
-async function processScheduledVisibilityChecks(env: Bindings) {
+async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
   const db = createDb(env.DATABASE_URL);
   const scheduleRepo = scheduledVisibilityQueryQueries(db);
   const visQueries = visibilityQueries(db);
@@ -352,6 +351,27 @@ async function processScheduledVisibilityChecks(env: Bindings) {
       if (!project) {
         await scheduleRepo.markRun(schedule.id, schedule.frequency);
         continue;
+      }
+
+      // Fetch previous checks BEFORE running the new check to avoid the
+      // race condition where getLatestForQuery returns the newly-stored
+      // row instead of the previous one.
+      const previousByProvider = new Map<
+        string,
+        { brandMentioned: boolean; citationPosition: number | null }
+      >();
+      for (const provider of schedule.providers) {
+        const prev = await visQueries.getLatestForQuery(
+          schedule.projectId,
+          schedule.query,
+          provider,
+        );
+        if (prev) {
+          previousByProvider.set(provider, {
+            brandMentioned: prev.brandMentioned ?? false,
+            citationPosition: prev.citationPosition ?? null,
+          });
+        }
       }
 
       const visibilityService = createVisibilityService({
@@ -374,6 +394,11 @@ async function processScheduledVisibilityChecks(env: Bindings) {
         },
       });
 
+      if (!stored || stored.length === 0) {
+        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        continue;
+      }
+
       const results: VisibilityCheckResult[] = stored.map((s) => ({
         provider: s.llmProvider,
         brandMentioned: s.brandMentioned ?? false,
@@ -381,7 +406,13 @@ async function processScheduledVisibilityChecks(env: Bindings) {
         citationPosition: s.citationPosition ?? null,
       }));
 
-      await detectAndEmitChanges(db, schedule, project, results, visQueries);
+      await detectAndEmitChanges(
+        db,
+        schedule,
+        project,
+        results,
+        previousByProvider,
+      );
       await scheduleRepo.markRun(schedule.id, schedule.frequency);
 
       trackServer(
