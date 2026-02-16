@@ -10,6 +10,11 @@ import {
 } from "../repositories";
 import { createReportService } from "../services/report-service";
 import { handleServiceError } from "../services/errors";
+import {
+  reportScheduleQueries,
+  projectQueries,
+  userQueries,
+} from "@llm-boost/db";
 
 export const reportRoutes = new Hono<AppEnv>();
 
@@ -191,4 +196,159 @@ reportRoutes.delete("/:id", async (c) => {
   } catch (error) {
     return handleServiceError(c, error);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Report Schedules CRUD — Pro+ only
+// ---------------------------------------------------------------------------
+
+// POST /api/reports/schedules — Create a report schedule
+reportRoutes.post("/schedules", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+
+  const body = await c.req.json<{
+    projectId?: string;
+    format?: string;
+    type?: string;
+    recipientEmail?: string;
+  }>();
+
+  if (!body.projectId || !body.recipientEmail) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId and recipientEmail are required",
+        },
+      },
+      422,
+    );
+  }
+
+  // Plan gate: Pro+ only
+  const user = await userQueries(db).getById(userId);
+  if (!user || (user.plan !== "pro" && user.plan !== "agency")) {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: "Scheduled reports are available on Pro plans and above.",
+        },
+      },
+      403,
+    );
+  }
+
+  const project = await projectQueries(db).getById(body.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const schedule = await reportScheduleQueries(db).create({
+    projectId: body.projectId,
+    format: (body.format as "pdf" | "docx") || "pdf",
+    type: (body.type as "summary" | "detailed") || "summary",
+    recipientEmail: body.recipientEmail,
+  });
+
+  return c.json({ data: schedule }, 201);
+});
+
+// GET /api/reports/schedules?projectId=xxx — List schedules for a project
+reportRoutes.get("/schedules", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId is required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const schedules = await reportScheduleQueries(db).listByProject(projectId);
+  return c.json({ data: schedules });
+});
+
+// PATCH /api/reports/schedules/:id — Update a schedule
+reportRoutes.patch("/schedules/:id", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const scheduleId = c.req.param("id");
+
+  const body = await c.req.json<{
+    format?: string;
+    type?: string;
+    recipientEmail?: string;
+    enabled?: boolean;
+  }>();
+
+  const schedule = await reportScheduleQueries(db).getById(scheduleId);
+  if (!schedule) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Schedule not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(schedule.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Schedule not found" } },
+      404,
+    );
+  }
+
+  const updated = await reportScheduleQueries(db).update(scheduleId, {
+    ...(body.format && { format: body.format as "pdf" | "docx" }),
+    ...(body.type && { type: body.type as "summary" | "detailed" }),
+    ...(body.recipientEmail && { recipientEmail: body.recipientEmail }),
+    ...(body.enabled !== undefined && { enabled: body.enabled }),
+  });
+
+  return c.json({ data: updated });
+});
+
+// DELETE /api/reports/schedules/:id — Delete a schedule
+reportRoutes.delete("/schedules/:id", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const scheduleId = c.req.param("id");
+
+  const schedule = await reportScheduleQueries(db).getById(scheduleId);
+  if (!schedule) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Schedule not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(schedule.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Schedule not found" } },
+      404,
+    );
+  }
+
+  await reportScheduleQueries(db).delete(scheduleId);
+  return c.json({ data: { deleted: true } });
 });

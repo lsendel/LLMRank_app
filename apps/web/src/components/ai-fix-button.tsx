@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Copy, Check } from "lucide-react";
+import { Sparkles, Copy, Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -56,6 +56,27 @@ export function AiFixButton({
     }
   }
 
+  function handleDownload() {
+    if (!fix) return;
+    const filenames: Record<string, string> = {
+      llms_txt: "llms.txt",
+      robots_txt: "robots.txt",
+      json_ld: "schema.json",
+      meta_description: `fix-${issueCode}.txt`,
+      title_tag: `fix-${issueCode}.txt`,
+      faq_section: `fix-${issueCode}.html`,
+      og_tags: `fix-${issueCode}.html`,
+    };
+    const filename = filenames[getFixType(issueCode)] ?? `fix-${issueCode}.txt`;
+    const blob = new Blob([fix], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <>
       <Button
@@ -76,7 +97,15 @@ export function AiFixButton({
           <pre className="bg-muted p-4 rounded-lg text-sm overflow-auto max-h-96 whitespace-pre-wrap">
             {fix}
           </pre>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={handleDownload}
+              variant="outline"
+              className="gap-1"
+            >
+              <Download className="h-4 w-4" />
+              Download as file
+            </Button>
             <Button onClick={handleCopy} variant="outline" className="gap-1">
               {copied ? (
                 <Check className="h-4 w-4" />
@@ -90,4 +119,22 @@ export function AiFixButton({
       </Dialog>
     </>
   );
+}
+
+const ISSUE_TO_FIX_TYPE: Record<string, string> = {
+  MISSING_META_DESC: "meta_description",
+  MISSING_TITLE: "title_tag",
+  NO_STRUCTURED_DATA: "json_ld",
+  MISSING_LLMS_TXT: "llms_txt",
+  NO_FAQ_SECTION: "faq_section",
+  MISSING_SUMMARY: "summary_section",
+  MISSING_ALT_TEXT: "alt_text",
+  MISSING_OG_TAGS: "og_tags",
+  MISSING_CANONICAL: "canonical",
+  BAD_HEADING_HIERARCHY: "heading_structure",
+  AI_CRAWLER_BLOCKED: "robots_txt",
+};
+
+function getFixType(issueCode: string): string {
+  return ISSUE_TO_FIX_TYPE[issueCode] ?? issueCode;
 }

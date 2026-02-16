@@ -461,7 +461,9 @@ export default function SharedReportPage() {
 
       <footer className="text-center pt-8 border-t">
         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-          Powered by LLM Boost &bull; The AI SEO Intelligence Platform
+          {isAgencyReport
+            ? `Prepared by ${project.branding?.companyName}`
+            : "Powered by LLM Boost \u2022 The AI SEO Intelligence Platform"}
         </p>
       </footer>
     </div>

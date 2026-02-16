@@ -26,6 +26,29 @@ export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(
     }),
   });
 
+// ── Persona ────────────────────────────────────────────────────────
+
+export const PersonaValues = [
+  "agency",
+  "freelancer",
+  "in_house",
+  "developer",
+] as const;
+export type Persona = (typeof PersonaValues)[number];
+
+export const PersonaQuestionnaireSchema = z.object({
+  teamSize: z.enum(["solo", "small_team", "large_team"]),
+  primaryGoal: z.enum([
+    "client_reporting",
+    "own_site_optimization",
+    "technical_audit",
+    "competitive_analysis",
+  ]),
+  domain: z.string().url().optional(),
+});
+
+export type PersonaQuestionnaire = z.infer<typeof PersonaQuestionnaireSchema>;
+
 // Phone: E.164 format (+1234567890) or common formats (123-456-7890, (123) 456-7890)
 export const UpdateProfileSchema = z.object({
   name: z.string().min(1, "Name is required").max(100).optional(),
@@ -36,6 +59,7 @@ export const UpdateProfileSchema = z.object({
     .pipe(z.string().regex(/^\+?[1-9]\d{6,14}$/, "Invalid phone number format"))
     .optional(),
   onboardingComplete: z.boolean().optional(),
+  persona: z.enum(PersonaValues).optional(),
 });
 
 export type UpdateProfile = z.infer<typeof UpdateProfileSchema>;

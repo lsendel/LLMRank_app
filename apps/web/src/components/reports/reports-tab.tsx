@@ -2,10 +2,28 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Loader2 } from "lucide-react";
-import { api, type Report } from "@/lib/api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FileText, Loader2, Download, Mail, Trash2 } from "lucide-react";
+import { api, type Report, type ReportSchedule } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 import { GenerateReportModal } from "./generate-report-modal";
 import { ReportList } from "./report-list";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   projectId: string;
@@ -16,6 +34,39 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const { toast } = useToast();
+
+  async function handleExport(format: "csv" | "json") {
+    if (!crawlJobId) return;
+    try {
+      const data = await api.crawls.exportData(crawlJobId, format);
+      if (format === "csv") {
+        const blob = new Blob([data], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `crawl-export.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `crawl-export.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Export failed",
+        description: err.message || "Could not export data",
+        variant: "destructive",
+      });
+    }
+  }
 
   const fetchReports = useCallback(async () => {
     try {
@@ -61,7 +112,23 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={!crawlJobId}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleExport("csv")}>
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("json")}>
+              Export as JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           onClick={() => setShowModal(true)}
           disabled={!crawlJobId}
@@ -87,6 +154,184 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
           onGenerated={fetchReports}
         />
       )}
+
+      {/* Auto-Report Settings */}
+      <AutoReportSettings projectId={projectId} />
     </div>
+  );
+}
+
+function AutoReportSettings({ projectId }: { projectId: string }) {
+  const [schedules, setSchedules] = useState<ReportSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [format, setFormat] = useState<"pdf" | "docx">("pdf");
+  const [type, setType] = useState<"summary" | "detailed">("summary");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const fetchSchedules = useCallback(async () => {
+    try {
+      const list = await api.reports.schedules.list(projectId);
+      setSchedules(list);
+    } catch {
+      // May fail on free plan — that's fine
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
+
+  async function handleCreate() {
+    if (!email) return;
+    setSaving(true);
+    try {
+      const schedule = await api.reports.schedules.create({
+        projectId,
+        format,
+        type,
+        recipientEmail: email,
+      });
+      setSchedules((prev) => [...prev, schedule]);
+      setEmail("");
+      toast({ title: "Schedule created" });
+    } catch (err: any) {
+      toast({
+        title: "Failed to create schedule",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleToggle(schedule: ReportSchedule) {
+    try {
+      const updated = await api.reports.schedules.update(schedule.id, {
+        enabled: !schedule.enabled,
+      });
+      setSchedules((prev) =>
+        prev.map((s) => (s.id === updated.id ? updated : s)),
+      );
+    } catch {
+      // Handle error
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await api.reports.schedules.delete(id);
+      setSchedules((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      // Handle error
+    }
+  }
+
+  if (loading) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Mail className="h-4 w-4" />
+          Auto-Report Settings
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Automatically generate and email reports after each completed crawl.
+          Available on Pro plans and above.
+        </p>
+
+        {/* Existing schedules */}
+        {schedules.length > 0 && (
+          <div className="space-y-2">
+            {schedules.map((schedule) => (
+              <div
+                key={schedule.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">
+                    {schedule.recipientEmail}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {schedule.format.toUpperCase()} &bull;{" "}
+                    {schedule.type === "detailed" ? "Detailed" : "Summary"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={schedule.enabled ? "success" : "secondary"}
+                    className="cursor-pointer"
+                    onClick={() => handleToggle(schedule)}
+                  >
+                    {schedule.enabled ? "Active" : "Paused"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(schedule.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new schedule */}
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="sm:col-span-2">
+            <Label htmlFor="schedule-email">Recipient Email</Label>
+            <Input
+              id="schedule-email"
+              type="email"
+              placeholder="client@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Format</Label>
+            <Select
+              value={format}
+              onValueChange={(v) => setFormat(v as "pdf" | "docx")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pdf">PDF</SelectItem>
+                <SelectItem value="docx">DOCX</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Type</Label>
+            <Select
+              value={type}
+              onValueChange={(v) => setType(v as "summary" | "detailed")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="summary">Summary</SelectItem>
+                <SelectItem value="detailed">Detailed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={handleCreate} disabled={saving || !email} size="sm">
+          {saving ? "Creating..." : "Add Schedule"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

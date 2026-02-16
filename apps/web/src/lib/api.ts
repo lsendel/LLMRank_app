@@ -668,6 +668,17 @@ export interface Report {
   createdAt: string;
 }
 
+export interface ReportSchedule {
+  id: string;
+  projectId: string;
+  format: "pdf" | "docx";
+  type: "summary" | "detailed";
+  recipientEmail: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectIntegration {
   id: string;
   projectId: string;
@@ -1069,9 +1080,6 @@ export const api = {
         const res = await fetch(
           `${API_BASE_URL}/api/crawls/${crawlId}/export?format=csv`,
           {
-            headers: apiClient.getHeaders
-              ? apiClient.getHeaders()
-              : { "Content-Type": "application/json" },
             credentials: "include",
           },
         );
@@ -1451,6 +1459,7 @@ export const api = {
       plan: string;
       email: string;
       onboardingComplete: boolean;
+      persona: string | null;
     }> {
       const res = await apiClient.get<
         ApiEnvelope<{
@@ -1458,6 +1467,7 @@ export const api = {
           plan: string;
           email: string;
           onboardingComplete: boolean;
+          persona: string | null;
         }>
       >("/api/account");
       return res.data;
@@ -1467,8 +1477,28 @@ export const api = {
       name?: string;
       phone?: string;
       onboardingComplete?: boolean;
+      persona?: string;
     }): Promise<void> {
       await apiClient.put("/api/account", data);
+    },
+
+    async classifyPersona(data: {
+      teamSize: string;
+      primaryGoal: string;
+      domain?: string;
+    }): Promise<{
+      persona: string;
+      confidence: "high" | "medium";
+      reasoning: string;
+    }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          persona: string;
+          confidence: "high" | "medium";
+          reasoning: string;
+        }>
+      >("/api/account/classify-persona", data);
+      return res.data;
     },
 
     async deleteAccount(): Promise<void> {
@@ -1612,6 +1642,48 @@ export const api = {
 
     async delete(reportId: string): Promise<void> {
       await apiClient.delete(`/api/reports/${reportId}`);
+    },
+
+    schedules: {
+      async list(projectId: string): Promise<ReportSchedule[]> {
+        const res = await apiClient.get<ApiEnvelope<ReportSchedule[]>>(
+          `/api/reports/schedules?projectId=${projectId}`,
+        );
+        return res.data;
+      },
+
+      async create(data: {
+        projectId: string;
+        format: "pdf" | "docx";
+        type: "summary" | "detailed";
+        recipientEmail: string;
+      }): Promise<ReportSchedule> {
+        const res = await apiClient.post<ApiEnvelope<ReportSchedule>>(
+          "/api/reports/schedules",
+          data,
+        );
+        return res.data;
+      },
+
+      async update(
+        id: string,
+        data: Partial<{
+          format: "pdf" | "docx";
+          type: "summary" | "detailed";
+          recipientEmail: string;
+          enabled: boolean;
+        }>,
+      ): Promise<ReportSchedule> {
+        const res = await apiClient.patch<ApiEnvelope<ReportSchedule>>(
+          `/api/reports/schedules/${id}`,
+          data,
+        );
+        return res.data;
+      },
+
+      async delete(id: string): Promise<void> {
+        await apiClient.delete(`/api/reports/schedules/${id}`);
+      },
     },
   },
 

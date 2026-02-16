@@ -30,34 +30,35 @@ import { HistoryTab } from "@/components/tabs/history-tab";
 import { StrategyTab } from "@/components/tabs/strategy-tab";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 
+function TabLoadingSkeleton() {
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="h-40 animate-pulse rounded-lg border bg-muted/30" />
+        <div className="h-40 animate-pulse rounded-lg border bg-muted/30" />
+      </div>
+      <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
+    </div>
+  );
+}
+
 const VisibilityTab = dynamic(
   () => import("@/components/tabs/visibility-tab"),
   {
-    loading: () => (
-      <div className="py-8 text-center text-muted-foreground">
-        Loading visibility data...
-      </div>
-    ),
+    loading: () => <TabLoadingSkeleton />,
   },
 );
 
 const IntegrationsTab = dynamic(
   () => import("@/components/tabs/integrations-tab"),
   {
-    loading: () => (
-      <div className="py-8 text-center text-muted-foreground">
-        Loading integrations...
-      </div>
-    ),
+    loading: () => <TabLoadingSkeleton />,
   },
 );
 
 const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
-  loading: () => (
-    <div className="py-8 text-center text-muted-foreground">
-      Loading reports...
-    </div>
-  ),
+  loading: () => <TabLoadingSkeleton />,
 });
 
 const CompetitorsTab = dynamic(
@@ -66,11 +67,7 @@ const CompetitorsTab = dynamic(
       default: mod.CompetitorsTab,
     })),
   {
-    loading: () => (
-      <div className="py-8 text-center text-muted-foreground">
-        Loading competitors...
-      </div>
-    ),
+    loading: () => <TabLoadingSkeleton />,
   },
 );
 

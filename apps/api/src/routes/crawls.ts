@@ -10,6 +10,12 @@ import {
 import { createCrawlService } from "../services/crawl-service";
 import { handleServiceError } from "../services/errors";
 import { rateLimit } from "../middleware/rate-limit";
+import {
+  crawlQueries,
+  pageQueries,
+  scoreQueries,
+  userQueries,
+} from "@llm-boost/db";
 
 export const crawlRoutes = new Hono<AppEnv>();
 
@@ -141,6 +147,138 @@ crawlRoutes.get("/:id/quick-wins", async (c) => {
   } catch (error) {
     return handleServiceError(c, error);
   }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/export — Export crawl data as CSV or JSON (Starter+ only)
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/:id/export", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId = c.req.param("id");
+  const format = c.req.query("format") ?? "json";
+
+  if (format !== "csv" && format !== "json") {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "format must be csv or json",
+        },
+      },
+      422,
+    );
+  }
+
+  // Plan gate: Starter+ only
+  const user = await userQueries(db).getById(userId);
+  if (!user || user.plan === "free") {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message:
+            "Data export is available on Starter plans and above. Upgrade to export your crawl data.",
+        },
+      },
+      403,
+    );
+  }
+
+  const crawl = await crawlQueries(db).getById(crawlId);
+  if (!crawl) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  // Fetch pages and scores
+  const [crawledPages, scores, allIssues] = await Promise.all([
+    pageQueries(db).listByJob(crawlId),
+    scoreQueries(db).listByJob(crawlId),
+    scoreQueries(db).getIssuesByJob(crawlId),
+  ]);
+
+  // Build score and issue lookups by pageId
+  const scoreMap = new Map(scores.map((s) => [s.pageId, s]));
+  const issueMap = new Map<string, typeof allIssues>();
+  for (const issue of allIssues) {
+    const existing = issueMap.get(issue.pageId) ?? [];
+    existing.push(issue);
+    issueMap.set(issue.pageId, existing);
+  }
+
+  const rows = crawledPages.map((page) => {
+    const score = scoreMap.get(page.id);
+    const pageIssues = issueMap.get(page.id) ?? [];
+    return {
+      url: page.url,
+      title: page.title,
+      overallScore: score?.overallScore ?? null,
+      technicalScore: score?.technicalScore ?? null,
+      contentScore: score?.contentScore ?? null,
+      aiReadinessScore: score?.aiReadinessScore ?? null,
+      grade:
+        score?.overallScore != null
+          ? score.overallScore >= 90
+            ? "A"
+            : score.overallScore >= 80
+              ? "B"
+              : score.overallScore >= 70
+                ? "C"
+                : score.overallScore >= 60
+                  ? "D"
+                  : "F"
+          : null,
+      issueCodes: pageIssues.map((i) => i.code).join("; "),
+      recommendations: pageIssues
+        .filter((i) => i.recommendation)
+        .map((i) => i.recommendation)
+        .join("; "),
+    };
+  });
+
+  if (format === "json") {
+    return c.json({ data: rows });
+  }
+
+  // CSV format
+  const headers = [
+    "url",
+    "title",
+    "overallScore",
+    "technicalScore",
+    "contentScore",
+    "aiReadinessScore",
+    "grade",
+    "issueCodes",
+    "recommendations",
+  ];
+  const csvRows = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers
+        .map((h) => {
+          const val = row[h as keyof typeof row];
+          if (val == null) return "";
+          const str = String(val);
+          // Escape CSV fields with commas or quotes
+          return str.includes(",") || str.includes('"')
+            ? `"${str.replace(/"/g, '""')}"`
+            : str;
+        })
+        .join(","),
+    ),
+  ];
+
+  c.header("Content-Type", "text/csv; charset=utf-8");
+  c.header(
+    "Content-Disposition",
+    `attachment; filename="crawl-${crawlId}.csv"`,
+  );
+  return c.text(csvRows.join("\n"));
 });
 
 // ---------------------------------------------------------------------------

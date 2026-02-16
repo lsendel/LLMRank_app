@@ -749,9 +749,17 @@ export default function SettingsPage() {
                     setWebhookError(null);
                     setWebhookSuccess(false);
                     const url = webhookInput.trim();
-                    if (url && !url.startsWith("https://")) {
-                      setWebhookError("URL must start with https://");
-                      return;
+                    if (url) {
+                      try {
+                        const parsed = new URL(url);
+                        if (parsed.protocol !== "https:") {
+                          setWebhookError("URL must use HTTPS");
+                          return;
+                        }
+                      } catch {
+                        setWebhookError("Invalid URL format");
+                        return;
+                      }
                     }
                     setSavingWebhook(true);
                     try {

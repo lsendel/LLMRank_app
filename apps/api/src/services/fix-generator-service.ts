@@ -8,6 +8,7 @@ interface FixContext {
   domain: string;
   contentType?: string;
   pages?: { url: string; title: string }[];
+  robotsTxt?: string;
 }
 
 interface FixGeneratorDeps {
@@ -38,6 +39,8 @@ const FIX_PROMPTS: Record<string, (ctx: FixContext) => string> = {
     `Suggest the canonical URL for this page.\nCurrent URL: ${ctx.url}\nDomain: ${ctx.domain}\nReturn only the canonical URL.`,
   BAD_HEADING_HIERARCHY: (ctx) =>
     `Suggest an improved heading structure for this page.\nURL: ${ctx.url}\nTitle: ${ctx.title}\nContent excerpt: ${ctx.excerpt?.slice(0, 1500)}\nReturn a clean H1 > H2 > H3 outline.`,
+  AI_CRAWLER_BLOCKED: (ctx) =>
+    `Fix this robots.txt to allow AI crawlers while preserving existing rules.\nDomain: ${ctx.domain}\nCurrent robots.txt:\n${ctx.robotsTxt ?? "User-agent: *\nDisallow:"}\n\nRequirements:\n- Allow these AI user-agents: GPTBot, ClaudeBot, PerplexityBot, Google-Extended\n- Keep all other existing rules intact\n- Add explicit Allow: / for each AI bot\n- Return ONLY the corrected robots.txt file content, no explanation.`,
 };
 
 const ISSUE_TO_FIX_TYPE: Record<string, string> = {
@@ -51,6 +54,7 @@ const ISSUE_TO_FIX_TYPE: Record<string, string> = {
   MISSING_OG_TAGS: "og_tags",
   MISSING_CANONICAL: "canonical",
   BAD_HEADING_HIERARCHY: "heading_structure",
+  AI_CRAWLER_BLOCKED: "robots_txt",
 };
 
 export function createFixGeneratorService(deps: FixGeneratorDeps) {

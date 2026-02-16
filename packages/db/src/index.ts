@@ -23,4 +23,5 @@ export { notificationChannelQueries } from "./queries/notification-channels";
 export { scheduledVisibilityQueryQueries } from "./queries/scheduled-visibility";
 export { contentFixQueries } from "./queries/content-fixes";
 export { digestPreferenceQueries } from "./queries/digest-preferences";
+export { reportScheduleQueries } from "./queries/report-schedules";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";

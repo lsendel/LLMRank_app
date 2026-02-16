@@ -1,9 +1,24 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Zap, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Copy,
+  Check,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
@@ -27,6 +42,38 @@ export function QuickWinsCard({
     useCallback(() => api.quickWins.get(crawlId), [crawlId]),
   );
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchResults, setBatchResults] = useState<
+    Array<{
+      code: string;
+      fix: { generatedFix: string } | null;
+      error: string | null;
+    }>
+  >([]);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  async function handleFixAll() {
+    if (!projectId) return;
+    setBatchLoading(true);
+    try {
+      const results = await api.fixes.generateBatch({
+        projectId,
+        crawlId,
+      });
+      setBatchResults(results);
+      setBatchDialogOpen(true);
+    } catch (err: any) {
+      toast({
+        title: "Batch fix failed",
+        description: err.message || "Could not generate fixes",
+        variant: "destructive",
+      });
+    } finally {
+      setBatchLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -49,10 +96,24 @@ export function QuickWinsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Zap className="h-4 w-4 text-warning" />
-          Quick Wins
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="h-4 w-4 text-warning" />
+            Quick Wins
+          </CardTitle>
+          {projectId && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleFixAll}
+              disabled={batchLoading}
+              className="gap-1"
+            >
+              <Sparkles className="h-3 w-3" />
+              {batchLoading ? "Generating..." : "Fix All"}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {wins.map((win, i) => {
@@ -119,6 +180,53 @@ export function QuickWinsCard({
           );
         })}
       </CardContent>
+
+      {/* Batch fix results dialog */}
+      <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Generated Fixes ({batchResults.filter((r) => r.fix).length}/
+              {batchResults.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {batchResults.map((result) => (
+              <div key={result.code} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">{result.code}</span>
+                  {result.fix && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1"
+                      onClick={() => {
+                        navigator.clipboard.writeText(result.fix!.generatedFix);
+                        setCopiedCode(result.code);
+                        setTimeout(() => setCopiedCode(null), 2000);
+                      }}
+                    >
+                      {copiedCode === result.code ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                      {copiedCode === result.code ? "Copied" : "Copy"}
+                    </Button>
+                  )}
+                </div>
+                {result.fix ? (
+                  <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+                    {result.fix.generatedFix}
+                  </pre>
+                ) : (
+                  <p className="text-xs text-destructive">{result.error}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

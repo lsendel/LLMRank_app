@@ -97,6 +97,85 @@ visibilityRoutes.get("/:projectId", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /:projectId/gaps — Content gaps where competitors are cited but user isn't
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.get("/:projectId/gaps", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const service = createVisibilityService({
+    projects: createProjectRepository(db),
+    users: createUserRepository(db),
+    visibility: createVisibilityRepository(db),
+    competitors: createCompetitorRepository(db),
+  });
+
+  try {
+    const checks = await service.listForProject(userId, projectId);
+
+    // Group by query and find gaps: queries where user is NOT mentioned
+    // but at least one competitor IS mentioned
+    const queryMap = new Map<
+      string,
+      {
+        query: string;
+        providers: string[];
+        userMentioned: boolean;
+        userCited: boolean;
+        competitorsCited: Array<{
+          domain: string;
+          position: number | null;
+        }>;
+      }
+    >();
+
+    for (const check of checks) {
+      const existing = queryMap.get(check.query) ?? {
+        query: check.query,
+        providers: [],
+        userMentioned: false,
+        userCited: false,
+        competitorsCited: [],
+      };
+
+      existing.providers.push(check.llmProvider);
+      if (check.brandMentioned) existing.userMentioned = true;
+      if (check.urlCited) existing.userCited = true;
+
+      const mentions = (check.competitorMentions ?? []) as Array<{
+        domain: string;
+        mentioned: boolean;
+        position: number | null;
+      }>;
+      for (const m of mentions) {
+        if (
+          m.mentioned &&
+          !existing.competitorsCited.find((c2) => c2.domain === m.domain)
+        ) {
+          existing.competitorsCited.push({
+            domain: m.domain,
+            position: m.position,
+          });
+        }
+      }
+
+      queryMap.set(check.query, existing);
+    }
+
+    // Filter to gaps: user not mentioned, competitors are
+    const gaps = Array.from(queryMap.values()).filter(
+      (q) => !q.userMentioned && q.competitorsCited.length > 0,
+    );
+
+    return c.json({ data: gaps });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /:projectId/trends — Weekly share-of-voice trends
 // ---------------------------------------------------------------------------
 

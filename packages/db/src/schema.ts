@@ -99,6 +99,13 @@ export const scheduleFrequencyEnum = pgEnum("schedule_frequency", [
   "weekly",
 ]);
 
+export const personaEnum = pgEnum("persona", [
+  "agency",
+  "freelancer",
+  "in_house",
+  "developer",
+]);
+
 export const fixTypeEnum = pgEnum("fix_type", [
   "meta_description",
   "title_tag",
@@ -150,6 +157,7 @@ export const users = pgTable("users", {
   webhookUrl: text("webhook_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
   onboardingComplete: boolean("onboarding_complete").notNull().default(false),
+  persona: personaEnum("persona"),
   digestFrequency: text("digest_frequency").notNull().default("off"),
   digestDay: integer("digest_day").notNull().default(1),
   lastDigestSentAt: timestamp("last_digest_sent_at"),
@@ -828,4 +836,25 @@ export const contentFixes = pgTable(
     index("idx_content_fixes_project").on(t.projectId),
     index("idx_content_fixes_page").on(t.pageId),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Report Schedules (auto-generate after crawl)
+// ---------------------------------------------------------------------------
+
+export const reportSchedules = pgTable(
+  "report_schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    format: reportFormatEnum("format").notNull().default("pdf"),
+    type: reportTypeEnum("type").notNull().default("summary"),
+    recipientEmail: text("recipient_email").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_report_schedules_project").on(t.projectId)],
 );
