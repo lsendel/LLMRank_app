@@ -68,8 +68,8 @@ export type Bindings = {
   BETTER_AUTH_URL: string;
   APP_BASE_URL: string;
   POSTHOG_API_KEY: string;
-  ADMIN_ALERT_EMAIL: string;
-  SLACK_ALERT_WEBHOOK_URL: string;
+  ADMIN_ALERT_EMAIL?: string;
+  SLACK_ALERT_WEBHOOK_URL?: string;
 };
 
 export type Variables = {

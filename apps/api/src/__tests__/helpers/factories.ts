@@ -79,6 +79,9 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
     webhookUrl: null,
     isAdmin: false,
     lastSignedIn: null,
+    digestFrequency: "off",
+    digestDay: 1,
+    lastDigestSentAt: null,
     createdAt: STATIC_DATE,
     updatedAt: STATIC_DATE,
   };
