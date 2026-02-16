@@ -276,7 +276,11 @@ export default function ProjectPage() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6 pt-4">
-          <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
+          <ReportsTab
+            projectId={params.id}
+            crawlJobId={latestCrawlId}
+            projectName={project.name}
+          />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6 pt-4">

@@ -28,9 +28,14 @@ import { Badge } from "@/components/ui/badge";
 interface Props {
   projectId: string;
   crawlJobId: string | undefined;
+  projectName: string;
 }
 
-export default function ReportsTab({ projectId, crawlJobId }: Props) {
+export default function ReportsTab({
+  projectId,
+  crawlJobId,
+  projectName,
+}: Props) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -148,6 +153,7 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
         reports={reports}
         onDelete={handleDelete}
         onRefresh={fetchReports}
+        projectName={projectName}
       />
 
       {crawlJobId && (

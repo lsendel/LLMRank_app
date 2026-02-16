@@ -53,9 +53,10 @@ interface Props {
   reports: Report[];
   onDelete: (id: string) => void;
   onRefresh: () => void;
+  projectName: string;
 }
 
-export function ReportList({ reports, onDelete }: Props) {
+export function ReportList({ reports, onDelete, projectName }: Props) {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState<string | null>(null);
 
@@ -68,8 +69,20 @@ export function ReportList({ reports, onDelete }: Props) {
         projectId: report.projectId,
       });
       const ext = report.format === "pdf" ? "pdf" : "docx";
-      const filename = `ai-readiness-report-${report.type}.${ext}`;
-      const url = URL.createObjectURL(blob);
+      const mimeType =
+        ext === "pdf"
+          ? "application/pdf"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      const typedBlob = new Blob([blob], { type: mimeType });
+      const slug = projectName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      const dateStr = new Date(report.createdAt).toISOString().slice(0, 10);
+      const typeLabel =
+        report.type === "summary" ? "Executive-Summary" : "Detailed-Report";
+      const filename = `${slug}-${typeLabel}-${dateStr}.${ext}`;
+      const url = URL.createObjectURL(typedBlob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
