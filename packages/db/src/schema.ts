@@ -117,6 +117,7 @@ export const fixTypeEnum = pgEnum("fix_type", [
   "og_tags",
   "canonical",
   "heading_structure",
+  "robots_txt",
 ]);
 
 export const fixStatusEnum = pgEnum("fix_status", [

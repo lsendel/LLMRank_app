@@ -213,8 +213,11 @@ publicRoutes.post("/scan", async (c) => {
           urlCited: probeResult.urlCited,
         };
       }
-    } catch {
-      // Visibility probe is best-effort; swallow errors
+    } catch (err) {
+      console.error(
+        `[public-scan] Visibility probe failed for domain="${domain}":`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 

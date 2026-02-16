@@ -428,7 +428,7 @@ export default function SharedReportPage() {
                 asChild
               >
                 <a
-                  href={`mailto:hello@${project.branding?.companyName?.toLowerCase().replace(/\s+/g, "")}.com?subject=AI Readiness Report Inquiry`}
+                  href={`mailto:?subject=${encodeURIComponent(`AI Readiness Report Inquiry - ${project.domain}`)}`}
                 >
                   Contact Us{" "}
                   <ExternalLink className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
