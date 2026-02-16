@@ -270,7 +270,10 @@ publicRoutes.get("/reports/:token", async (c) => {
 
   const raw = await fetchReportData(db, job);
   const aggregated = aggregateReportData(raw, { type: "detailed" });
-  const quickWins = aggregated.quickWins.slice(0, 5);
+
+  // Filter data based on share level
+  const level = (crawlJob.shareLevel as string) || "summary";
+  const quickWins = level === "summary" ? [] : aggregated.quickWins.slice(0, 5);
 
   c.header("Cache-Control", "public, max-age=3600");
   return c.json({
@@ -281,6 +284,7 @@ publicRoutes.get("/reports/:token", async (c) => {
       pagesScored: crawlJob.pagesScored,
       summary: crawlJob.summary,
       summaryData: crawlJob.summaryData ?? null,
+      shareLevel: level,
       project: {
         name: project.name,
         domain: project.domain,
@@ -294,18 +298,21 @@ publicRoutes.get("/reports/:token", async (c) => {
         performance: aggregated.scores.performance,
         letterGrade: aggregated.scores.letterGrade,
       },
-      pages: aggregated.pages.map((p) => ({
-        url: p.url,
-        title: p.title,
-        overallScore: p.overall,
-        technicalScore: p.technical,
-        contentScore: p.content,
-        aiReadinessScore: p.aiReadiness,
-        issueCount: p.issueCount,
-      })),
+      pages:
+        level === "summary"
+          ? []
+          : aggregated.pages.map((p) => ({
+              url: p.url,
+              title: p.title,
+              overallScore: p.overall,
+              technicalScore: p.technical,
+              contentScore: p.content,
+              aiReadinessScore: p.aiReadiness,
+              issueCount: p.issueCount,
+            })),
       issueCount: aggregated.issues.total,
       readinessCoverage: aggregated.readinessCoverage,
-      scoreDeltas: aggregated.scoreDeltas,
+      scoreDeltas: level === "full" ? aggregated.scoreDeltas : null,
       quickWins: quickWins.map((win) => ({
         code: win.code,
         category: win.category,

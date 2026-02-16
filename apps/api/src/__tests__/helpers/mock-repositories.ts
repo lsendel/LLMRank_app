@@ -91,6 +91,7 @@ export function createMockCrawlRepo(
       updateStatus: vi.fn().mockResolvedValue(undefined),
       generateShareToken: vi.fn().mockResolvedValue("share-token-abc"),
       disableSharing: vi.fn().mockResolvedValue(undefined),
+      updateShareSettings: vi.fn().mockResolvedValue(undefined),
     },
     overrides,
   );

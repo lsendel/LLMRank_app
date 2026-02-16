@@ -174,6 +174,8 @@ crawlRoutes.post("/:id/share", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+
   const service = createCrawlService({
     crawls: createCrawlRepository(db),
     projects: createProjectRepository(db),
@@ -182,7 +184,10 @@ crawlRoutes.post("/:id/share", async (c) => {
   });
 
   try {
-    const data = await service.enableSharing(userId, crawlId);
+    const data = await service.enableSharing(userId, crawlId, {
+      level: body.level,
+      expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+    });
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -206,6 +211,39 @@ crawlRoutes.delete("/:id/share", async (c) => {
 
   try {
     const data = await service.disableSharing(userId, crawlId);
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /:id/share — Update share settings (level, expiry)
+// ---------------------------------------------------------------------------
+
+crawlRoutes.patch("/:id/share", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId = c.req.param("id");
+  const body = await c.req.json();
+
+  const service = createCrawlService({
+    crawls: createCrawlRepository(db),
+    projects: createProjectRepository(db),
+    users: createUserRepository(db),
+    scores: createScoreRepository(db),
+  });
+
+  try {
+    const data = await service.updateShareSettings(userId, crawlId, {
+      level: body.level,
+      expiresAt:
+        body.expiresAt === null
+          ? null
+          : body.expiresAt
+            ? new Date(body.expiresAt)
+            : undefined,
+    });
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);

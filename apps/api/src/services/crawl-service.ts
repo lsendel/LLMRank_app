@@ -268,7 +268,14 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       });
     },
 
-    async enableSharing(userId: string, crawlId: string) {
+    async enableSharing(
+      userId: string,
+      crawlId: string,
+      options?: {
+        level?: "summary" | "issues" | "full";
+        expiresAt?: Date | null;
+      },
+    ) {
       const crawlJob = await deps.crawls.getById(crawlId);
       if (!crawlJob) {
         const err = ERROR_CODES.NOT_FOUND;
@@ -276,15 +283,57 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       }
       await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
       if (crawlJob.shareToken && crawlJob.shareEnabled) {
+        if (options?.level || options?.expiresAt !== undefined) {
+          await deps.crawls.updateShareSettings(crawlId, {
+            level: options.level,
+            expiresAt: options.expiresAt,
+          });
+        }
         return {
           shareToken: crawlJob.shareToken,
-          shareUrl: `/report/${crawlJob.shareToken}`,
+          shareUrl: `/share/${crawlJob.shareToken}`,
+          badgeUrl: `/api/public/badge/${crawlJob.shareToken}.svg`,
+          level: options?.level ?? crawlJob.shareLevel ?? "summary",
+          expiresAt: options?.expiresAt ?? crawlJob.shareExpiresAt,
         };
       }
-      const updated = await deps.crawls.generateShareToken(crawlId);
+      const updated = await deps.crawls.generateShareToken(crawlId, options);
       return {
         shareToken: updated.shareToken,
-        shareUrl: `/report/${updated.shareToken}`,
+        shareUrl: `/share/${updated.shareToken}`,
+        badgeUrl: `/api/public/badge/${updated.shareToken}.svg`,
+        level: updated.shareLevel ?? "summary",
+        expiresAt: updated.shareExpiresAt,
+      };
+    },
+
+    async updateShareSettings(
+      userId: string,
+      crawlId: string,
+      settings: {
+        level?: "summary" | "issues" | "full";
+        expiresAt?: Date | null;
+      },
+    ) {
+      const crawlJob = await deps.crawls.getById(crawlId);
+      if (!crawlJob) {
+        throw new ServiceError("NOT_FOUND", 404, "Crawl not found");
+      }
+      await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
+      if (!crawlJob.shareEnabled || !crawlJob.shareToken) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          400,
+          "Sharing is not enabled for this crawl",
+        );
+      }
+      const updated = await deps.crawls.updateShareSettings(crawlId, settings);
+      return {
+        shareToken: updated.shareToken,
+        shareUrl: `/share/${updated.shareToken}`,
+        badgeUrl: `/api/public/badge/${updated.shareToken}.svg`,
+        level: updated.shareLevel ?? "summary",
+        expiresAt: updated.shareExpiresAt,
       };
     },
 
