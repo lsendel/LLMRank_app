@@ -16,6 +16,8 @@ export * from "./domain/log-analysis";
 export * from "./domain/plan-enforcer";
 export { Plan } from "./domain/plan";
 export { Score } from "./domain/score";
+export { CrawlStatus } from "./domain/crawl-status";
+export * from "./domain/branded-ids";
 export * from "./domain/llms-txt";
 export * from "./domain/permissions";
 export * from "./schemas/report";
