@@ -23,6 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
+import { useProject } from "@/hooks/use-project";
+import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
 import { PagesTab } from "@/components/tabs/pages-tab";
 import { IssuesTab } from "@/components/tabs/issues-tab";
@@ -79,17 +81,11 @@ export default function ProjectPage() {
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [crawlError, setCrawlError] = useState<string | null>(null);
 
-  const { data: project, isLoading: projectLoading } = useApiSWR(
-    `project-${params.id}`,
-    useCallback(() => api.projects.get(params.id), [params.id]),
-  );
+  const { data: project, isLoading: projectLoading } = useProject(params.id);
 
   const latestCrawlId = project?.latestCrawl?.id;
 
-  const { data: crawlHistoryData } = useApiSWR(
-    `crawl-history-${params.id}`,
-    useCallback(() => api.crawls.list(params.id), [params.id]),
-  );
+  const { data: crawlHistoryData } = useCrawlHistory(params.id);
 
   const { data: pagesData } = useApiSWR(
     latestCrawlId ? `pages-${latestCrawlId}` : null,
