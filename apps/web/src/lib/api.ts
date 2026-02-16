@@ -922,8 +922,11 @@ export interface TeamMember {
   id: string;
   teamId: string;
   userId: string;
+  name: string | null;
+  email: string;
   role: string;
   joinedAt: string;
+  _debug?: boolean;
 }
 
 export interface TeamDetail extends Omit<Team, "role"> {
@@ -1636,6 +1639,29 @@ export const api = {
       );
       return res.data;
     },
+
+    async leaderboard(): Promise<
+      {
+        projectId: string;
+        domain: string;
+        overallScore: number;
+        grade: string;
+        aiReadinessScore: number;
+      }[]
+    > {
+      const res = await apiClient.get<
+        ApiEnvelope<
+          {
+            projectId: string;
+            domain: string;
+            overallScore: number;
+            grade: string;
+            aiReadinessScore: number;
+          }[]
+        >
+      >("/api/public/leaderboard");
+      return res.data;
+    },
   },
 
   // ── Reports ─────────────────────────────────────────────────────
@@ -1999,51 +2025,6 @@ export const api = {
     },
   },
 
-  // ── Benchmarks ───────────────────────────────────────────────
-  benchmarks: {
-    async trigger(data: { projectId: string; competitorDomain: string }) {
-      const res = await apiClient.post<ApiEnvelope<any>>(
-        "/api/competitors/benchmark",
-        data,
-      );
-      return res.data;
-    },
-    async list(projectId: string) {
-      const res = await apiClient.get<
-        ApiEnvelope<{
-          projectScores: {
-            overall: number;
-            technical: number;
-            content: number;
-            aiReadiness: number;
-            performance: number;
-            letterGrade: string;
-          };
-          competitors: Array<{
-            competitorDomain: string;
-            scores: {
-              overall: number | null;
-              technical: number | null;
-              content: number | null;
-              aiReadiness: number | null;
-              performance: number | null;
-              letterGrade: string | null;
-            };
-            comparison: {
-              overall: number;
-              technical: number;
-              content: number;
-              aiReadiness: number;
-              performance: number;
-            };
-            crawledAt: string;
-          }>;
-        }>
-      >(`/api/competitors?projectId=${projectId}`);
-      return res.data;
-    },
-  },
-
   // ── Trends ─────────────────────────────────────────────────────
   trends: {
     async get(projectId: string, period = "90d") {
@@ -2274,13 +2255,43 @@ export const api = {
     },
   },
 
-  // ── Public Benchmarks ───────────────────────────────────────
+  // ── Benchmarks ──────────────────────────────────────────────
   benchmarks: {
     async get(): Promise<Benchmarks | null> {
       const res = await apiClient.get<ApiEnvelope<Benchmarks | null>>(
         "/api/public/benchmarks",
       );
       return res.data;
+    },
+    async list(projectId: string): Promise<{
+      projectScores: Record<string, number>;
+      competitors: Array<{
+        competitorDomain: string;
+        scores: Record<string, number>;
+        comparison: Record<string, number>;
+        crawledAt: string;
+      }>;
+    }> {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          projectScores: Record<string, number>;
+          competitors: Array<{
+            competitorDomain: string;
+            scores: Record<string, number>;
+            comparison: Record<string, number>;
+            crawledAt: string;
+          }>;
+        }>
+      >(`/api/projects/${projectId}/benchmarks`);
+      return res.data;
+    },
+    async trigger(data: {
+      projectId: string;
+      competitorDomain: string;
+    }): Promise<void> {
+      await apiClient.post(`/api/projects/${data.projectId}/benchmarks`, {
+        competitorDomain: data.competitorDomain,
+      });
     },
   },
 };
