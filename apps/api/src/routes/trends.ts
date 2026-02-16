@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { projectQueries, crawlQueries } from "@llm-boost/db";
+import { createRegressionService } from "../services/regression-service";
+import { createCrawlRepository } from "../repositories";
 
 export const trendRoutes = new Hono<AppEnv>();
 trendRoutes.use("*", authMiddleware);
@@ -95,4 +97,27 @@ trendRoutes.get("/:projectId", async (c) => {
       points: withDeltas,
     },
   });
+});
+
+// GET /api/trends/:projectId/regressions — Detect regressions for a project
+trendRoutes.get("/:projectId/regressions", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const svc = createRegressionService({
+    crawls: createCrawlRepository(db),
+    notifications: { create: async () => ({}) },
+  });
+
+  const regressions = await svc.detectRegressions({ projectId });
+  return c.json({ data: regressions });
 });

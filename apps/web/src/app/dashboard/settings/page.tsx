@@ -62,6 +62,7 @@ import {
   type SubscriptionInfo,
   type PaymentRecord,
   type NotificationPreferences,
+  type DigestPreferences,
   type NotificationChannel,
   type NotificationChannelType,
   type NotificationEventType,
@@ -162,6 +163,11 @@ export default function SettingsPage() {
       "account-notifications",
       useCallback(() => api.account.getNotifications(), []),
     );
+  const { data: _digestPrefs, mutate: _mutateDigest } =
+    useApiSWR<DigestPreferences>(
+      "account-digest",
+      useCallback(() => api.account.getDigestPreferences(), []),
+    );
   const { data: channels, mutate: mutateChannels } = useApiSWR<
     NotificationChannel[]
   >(
@@ -180,6 +186,7 @@ export default function SettingsPage() {
   const [savingNotification, setSavingNotification] = useState<string | null>(
     null,
   );
+  const [_savingDigest, _setSavingDigest] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [upgrading, setUpgrading] = useState<string | null>(null);

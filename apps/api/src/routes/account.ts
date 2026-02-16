@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { userQueries } from "@llm-boost/db";
+import { userQueries, digestPreferenceQueries } from "@llm-boost/db";
 import { UpdateProfileSchema } from "@llm-boost/shared";
 
 export const accountRoutes = new Hono<AppEnv>();
@@ -114,5 +114,73 @@ accountRoutes.put("/notifications", async (c) => {
   }
 
   const updated = await userQueries(db).updateNotifications(userId, data);
+  return c.json({ data: updated });
+});
+
+// ---------------------------------------------------------------------------
+// GET /digest — Get digest preferences
+// ---------------------------------------------------------------------------
+
+accountRoutes.get("/digest", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const prefs = await digestPreferenceQueries(db).getPreferences(userId);
+  if (!prefs) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+  return c.json({ data: prefs });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /digest — Update digest preferences
+// ---------------------------------------------------------------------------
+
+const VALID_FREQUENCIES = ["off", "weekly", "monthly"] as const;
+
+accountRoutes.put("/digest", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const update: { digestFrequency?: string; digestDay?: number } = {};
+
+  if ("digestFrequency" in body) {
+    if (!VALID_FREQUENCIES.includes(body.digestFrequency)) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `digestFrequency must be one of: ${VALID_FREQUENCIES.join(", ")}`,
+          },
+        },
+        422,
+      );
+    }
+    update.digestFrequency = body.digestFrequency;
+  }
+
+  if ("digestDay" in body) {
+    const day = Number(body.digestDay);
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "digestDay must be an integer 0-6 (0=Sunday, 6=Saturday)",
+          },
+        },
+        422,
+      );
+    }
+    update.digestDay = day;
+  }
+
+  const updated = await digestPreferenceQueries(db).updatePreferences(
+    userId,
+    update,
+  );
   return c.json({ data: updated });
 });

@@ -244,6 +244,7 @@ import {
   leadQueries,
 } from "@llm-boost/db";
 import { trackServer } from "./lib/telemetry";
+import { createDigestService } from "./services/digest-service";
 
 // ... existing code ...
 
@@ -508,6 +509,20 @@ export default withSentry(
         await processScheduledVisibilityChecks(env);
       } else if (controller.cron === "0 3 * * *") {
         await cleanupExpiredData(env);
+      } else if (controller.cron === "0 9 * * 1") {
+        // Weekly digest — Mondays at 9 AM UTC
+        const db = createDb(env.DATABASE_URL);
+        const digest = createDigestService(db, env.RESEND_API_KEY, {
+          appBaseUrl: env.APP_BASE_URL,
+        });
+        await digest.processWeeklyDigests();
+      } else if (controller.cron === "0 9 1 * *") {
+        // Monthly digest — 1st of month at 9 AM UTC
+        const db = createDb(env.DATABASE_URL);
+        const digest = createDigestService(db, env.RESEND_API_KEY, {
+          appBaseUrl: env.APP_BASE_URL,
+        });
+        await digest.processMonthlyDigests();
       } else {
         await runScheduledTasks(env);
       }

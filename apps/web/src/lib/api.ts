@@ -281,6 +281,12 @@ export interface NotificationPreferences {
   webhookUrl: string | null;
 }
 
+export interface DigestPreferences {
+  digestFrequency: string;
+  digestDay: number;
+  lastDigestSentAt: string | null;
+}
+
 export interface BillingInfo {
   plan: "free" | "starter" | "pro" | "agency";
   crawlCreditsRemaining: number;
@@ -1360,6 +1366,23 @@ export const api = {
     ): Promise<NotificationPreferences> {
       const res = await apiClient.put<ApiEnvelope<NotificationPreferences>>(
         "/api/account/notifications",
+        data,
+      );
+      return res.data;
+    },
+
+    async getDigestPreferences(): Promise<DigestPreferences> {
+      const res = await apiClient.get<ApiEnvelope<DigestPreferences>>(
+        "/api/account/digest",
+      );
+      return res.data;
+    },
+
+    async updateDigestPreferences(
+      data: Partial<DigestPreferences>,
+    ): Promise<DigestPreferences> {
+      const res = await apiClient.put<ApiEnvelope<DigestPreferences>>(
+        "/api/account/digest",
         data,
       );
       return res.data;

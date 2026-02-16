@@ -26,8 +26,9 @@ import {
   type SummaryInput,
 } from "./summary";
 import { createNotificationService } from "./notification-service";
+import { createRegressionService } from "./regression-service";
 import { createFrontierService } from "./frontier-service";
-import { createDb } from "@llm-boost/db";
+import { createDb, outboxEvents } from "@llm-boost/db";
 
 export interface IngestServiceDeps {
   crawls: CrawlRepository;
@@ -322,6 +323,28 @@ export function createIngestService(deps: IngestServiceDeps) {
             projectId,
             projectName: project.name,
             jobId: crawlJobId,
+          }),
+        );
+
+        // Regression detection — fire-and-forget after crawl completion
+        const regressionSvc = createRegressionService({
+          crawls: { listByProject: (pid) => deps.crawls.listByProject(pid) },
+          notifications: {
+            create: (data) =>
+              db.insert(outboxEvents).values({
+                type: "notification",
+                eventType: data.type,
+                userId: data.userId,
+                projectId,
+                payload: data.data,
+                status: "pending",
+              }),
+          },
+        });
+        args.executionCtx.waitUntil(
+          regressionSvc.checkAndNotify({
+            projectId,
+            userId: project.userId,
           }),
         );
       }
