@@ -4,6 +4,7 @@ import { useReducer, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-hooks";
 import { api, ApiError } from "@/lib/api";
+import { track } from "@/lib/telemetry";
 import { isActiveCrawlStatus } from "@/components/crawl-progress";
 import type { CrawlStatus } from "@/components/crawl-progress";
 
@@ -39,6 +40,8 @@ export interface WizardState {
   // Step 0
   name: string;
   nameError: string | null;
+  workStyle: string | null;
+  teamSize: string | null;
   // Step 1
   domain: string;
   projectName: string;
@@ -59,6 +62,8 @@ const initialState: WizardState = {
   step: 0,
   name: "",
   nameError: null,
+  workStyle: null,
+  teamSize: null,
   domain: "",
   projectName: "",
   submitting: false,
@@ -80,6 +85,8 @@ export type Action =
   | { type: "SET_STEP"; step: number }
   | { type: "SET_NAME"; name: string }
   | { type: "SET_NAME_ERROR"; error: string | null }
+  | { type: "SET_WORK_STYLE"; workStyle: string | null }
+  | { type: "SET_TEAM_SIZE"; teamSize: string | null }
   | { type: "SET_DOMAIN"; domain: string }
   | { type: "SET_PROJECT_NAME"; projectName: string }
   | { type: "SET_SUBMITTING"; submitting: boolean }
@@ -114,6 +121,10 @@ export function reducer(state: WizardState, action: Action): WizardState {
       return { ...state, name: action.name };
     case "SET_NAME_ERROR":
       return { ...state, nameError: action.error };
+    case "SET_WORK_STYLE":
+      return { ...state, workStyle: action.workStyle };
+    case "SET_TEAM_SIZE":
+      return { ...state, teamSize: action.teamSize };
     case "SET_DOMAIN":
       return { ...state, domain: action.domain };
     case "SET_PROJECT_NAME":
@@ -352,12 +363,6 @@ export function useOnboardingWizard(tipsLength: number) {
 
     dispatch({ type: "SUBMIT_START" });
     try {
-      // Update profile with name and mark onboarding complete
-      await api.account.updateProfile({
-        name: state.name.trim(),
-        onboardingComplete: true,
-      });
-
       // Normalize domain
       let normalizedDomain = state.domain.trim();
       if (
@@ -367,12 +372,47 @@ export function useOnboardingWizard(tipsLength: number) {
         normalizedDomain = `https://${normalizedDomain}`;
       }
 
-      // Create project
-      const project = await api.projects.create({
-        name: state.projectName.trim(),
-        domain: normalizedDomain,
-      });
+      // Fire profile update + project creation + optional persona classification
+      // Persona is best-effort — use allSettled so it never blocks onboarding
+      const promises: Promise<unknown>[] = [
+        api.account.updateProfile({
+          name: state.name.trim(),
+          onboardingComplete: true,
+        }),
+        api.projects.create({
+          name: state.projectName.trim(),
+          domain: normalizedDomain,
+        }),
+      ];
 
+      if (state.workStyle) {
+        promises.push(
+          api.account
+            .classifyPersona({
+              teamSize: state.teamSize ?? "solo",
+              primaryGoal: state.workStyle,
+              domain: normalizedDomain,
+            })
+            .then((result) => {
+              track("persona_classified", {
+                persona: result.persona,
+                source: "onboarding",
+                confidence: result.confidence,
+              });
+            }),
+        );
+      }
+
+      const results = await Promise.allSettled(promises);
+
+      // Profile update (index 0) — if it failed, we can still continue
+      // Project creation (index 1) — must succeed to advance
+      const projectResult = results[1];
+      if (projectResult.status === "rejected") {
+        throw projectResult.reason;
+      }
+
+      const project = projectResult.value as { id: string };
       dispatch({ type: "SUBMIT_SUCCESS", projectId: project.id });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -384,7 +424,13 @@ export function useOnboardingWizard(tipsLength: number) {
         });
       }
     }
-  }, [state.domain, state.projectName, state.name]);
+  }, [
+    state.domain,
+    state.projectName,
+    state.name,
+    state.workStyle,
+    state.teamSize,
+  ]);
 
   const handleRetry = useCallback(() => {
     if (!state.projectId) return;
