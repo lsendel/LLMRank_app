@@ -43,7 +43,10 @@ export function userQueries(db: Database) {
       return user;
     },
 
-    async updateProfile(id: string, data: { name?: string; phone?: string }) {
+    async updateProfile(
+      id: string,
+      data: { name?: string; phone?: string; onboardingComplete?: boolean },
+    ) {
       const [updated] = await db
         .update(users)
         .set({ ...data, updatedAt: new Date() })

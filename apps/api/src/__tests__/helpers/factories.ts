@@ -78,6 +78,7 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
     notifyOnScoreDrop: true,
     webhookUrl: null,
     isAdmin: false,
+    onboardingComplete: false,
     lastSignedIn: null,
     digestFrequency: "off",
     digestDay: 1,

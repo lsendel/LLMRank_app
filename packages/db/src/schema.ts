@@ -149,6 +149,7 @@ export const users = pgTable("users", {
   notifyOnScoreDrop: boolean("notify_on_score_drop").notNull().default(true),
   webhookUrl: text("webhook_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  onboardingComplete: boolean("onboarding_complete").notNull().default(false),
   digestFrequency: text("digest_frequency").notNull().default("off"),
   digestDay: integer("digest_day").notNull().default(1),
   lastDigestSentAt: timestamp("last_digest_sent_at"),

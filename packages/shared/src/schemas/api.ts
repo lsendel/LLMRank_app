@@ -33,9 +33,9 @@ export const UpdateProfileSchema = z.object({
     .string()
     .min(1, "Phone number is required")
     .transform((p) => p.replace(/[\s\-().]/g, ""))
-    .pipe(
-      z.string().regex(/^\+?[1-9]\d{6,14}$/, "Invalid phone number format"),
-    ),
+    .pipe(z.string().regex(/^\+?[1-9]\d{6,14}$/, "Invalid phone number format"))
+    .optional(),
+  onboardingComplete: z.boolean().optional(),
 });
 
 export type UpdateProfile = z.infer<typeof UpdateProfileSchema>;
