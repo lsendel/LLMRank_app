@@ -179,8 +179,11 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
     try {
       const list = await api.reports.schedules.list(projectId);
       setSchedules(list);
-    } catch {
-      // May fail on free plan — that's fine
+    } catch (err) {
+      // 403 = free plan (expected), but log unexpected errors
+      if (err instanceof Error && !err.message.includes("403")) {
+        console.warn("[fetchSchedules]", err.message);
+      }
     } finally {
       setLoading(false);
     }

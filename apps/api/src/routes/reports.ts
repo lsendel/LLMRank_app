@@ -227,6 +227,48 @@ reportRoutes.post("/schedules", async (c) => {
     );
   }
 
+  // Validate email format
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.recipientEmail)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "recipientEmail must be a valid email address",
+        },
+      },
+      422,
+    );
+  }
+
+  // Validate format and type
+  const VALID_FORMATS = ["pdf", "docx"] as const;
+  const VALID_TYPES = ["summary", "detailed"] as const;
+  const format = body.format ?? "pdf";
+  const type = body.type ?? "summary";
+
+  if (!VALID_FORMATS.includes(format as (typeof VALID_FORMATS)[number])) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `format must be one of: ${VALID_FORMATS.join(", ")}`,
+        },
+      },
+      422,
+    );
+  }
+  if (!VALID_TYPES.includes(type as (typeof VALID_TYPES)[number])) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `type must be one of: ${VALID_TYPES.join(", ")}`,
+        },
+      },
+      422,
+    );
+  }
+
   // Plan gate: Pro+ only
   const user = await userQueries(db).getById(userId);
   if (!user || (user.plan !== "pro" && user.plan !== "agency")) {
@@ -249,14 +291,27 @@ reportRoutes.post("/schedules", async (c) => {
     );
   }
 
-  const schedule = await reportScheduleQueries(db).create({
-    projectId: body.projectId,
-    format: (body.format as "pdf" | "docx") || "pdf",
-    type: (body.type as "summary" | "detailed") || "summary",
-    recipientEmail: body.recipientEmail,
-  });
+  try {
+    const schedule = await reportScheduleQueries(db).create({
+      projectId: body.projectId,
+      format: format as "pdf" | "docx",
+      type: type as "summary" | "detailed",
+      recipientEmail: body.recipientEmail,
+    });
 
-  return c.json({ data: schedule }, 201);
+    return c.json({ data: schedule }, 201);
+  } catch (err) {
+    console.error(`[schedules] Failed to create schedule:`, err);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to create report schedule",
+        },
+      },
+      500,
+    );
+  }
 });
 
 // GET /api/reports/schedules?projectId=xxx — List schedules for a project
@@ -285,8 +340,21 @@ reportRoutes.get("/schedules", async (c) => {
     );
   }
 
-  const schedules = await reportScheduleQueries(db).listByProject(projectId);
-  return c.json({ data: schedules });
+  try {
+    const schedules = await reportScheduleQueries(db).listByProject(projectId);
+    return c.json({ data: schedules });
+  } catch (err) {
+    console.error(`[schedules] Failed to list schedules:`, err);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to list report schedules",
+        },
+      },
+      500,
+    );
+  }
 });
 
 // PATCH /api/reports/schedules/:id — Update a schedule
@@ -318,14 +386,51 @@ reportRoutes.patch("/schedules/:id", async (c) => {
     );
   }
 
-  const updated = await reportScheduleQueries(db).update(scheduleId, {
-    ...(body.format && { format: body.format as "pdf" | "docx" }),
-    ...(body.type && { type: body.type as "summary" | "detailed" }),
-    ...(body.recipientEmail && { recipientEmail: body.recipientEmail }),
-    ...(body.enabled !== undefined && { enabled: body.enabled }),
-  });
+  // Validate format/type if provided
+  if (body.format && !["pdf", "docx"].includes(body.format)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "format must be one of: pdf, docx",
+        },
+      },
+      422,
+    );
+  }
+  if (body.type && !["summary", "detailed"].includes(body.type)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "type must be one of: summary, detailed",
+        },
+      },
+      422,
+    );
+  }
 
-  return c.json({ data: updated });
+  try {
+    const updated = await reportScheduleQueries(db).update(scheduleId, {
+      ...(body.format && { format: body.format as "pdf" | "docx" }),
+      ...(body.type && { type: body.type as "summary" | "detailed" }),
+      ...(body.recipientEmail && { recipientEmail: body.recipientEmail }),
+      ...(body.enabled !== undefined && { enabled: body.enabled }),
+    });
+
+    return c.json({ data: updated });
+  } catch (err) {
+    console.error(`[schedules] Failed to update schedule ${scheduleId}:`, err);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to update report schedule",
+        },
+      },
+      500,
+    );
+  }
 });
 
 // DELETE /api/reports/schedules/:id — Delete a schedule
@@ -350,6 +455,19 @@ reportRoutes.delete("/schedules/:id", async (c) => {
     );
   }
 
-  await reportScheduleQueries(db).delete(scheduleId);
-  return c.json({ data: { deleted: true } });
+  try {
+    await reportScheduleQueries(db).delete(scheduleId);
+    return c.json({ data: { deleted: true } });
+  } catch (err) {
+    console.error(`[schedules] Failed to delete schedule ${scheduleId}:`, err);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to delete report schedule",
+        },
+      },
+      500,
+    );
+  }
 });

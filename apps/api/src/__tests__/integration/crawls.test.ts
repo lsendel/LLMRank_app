@@ -131,6 +131,7 @@ describe("Crawl Routes", () => {
       mockUserRepo.getById.mockResolvedValue(
         buildUser({ id: "test-user-id", crawlCreditsRemaining: 0 }),
       );
+      mockUserRepo.decrementCrawlCredits.mockResolvedValue(false);
 
       const res = await request("/api/crawls", {
         method: "POST",

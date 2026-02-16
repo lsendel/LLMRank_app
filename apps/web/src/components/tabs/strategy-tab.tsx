@@ -13,17 +13,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
-import { api, type StrategyPersona, type StrategyCompetitor } from "@/lib/api";
+import { api } from "@/lib/api";
+import { useCompetitors, usePersonas } from "@/hooks/use-strategy";
 import { TopicClusterGraph } from "../strategy/topic-cluster-graph";
 import { CrawlerTimelineChart } from "@/components/charts/crawler-timeline-chart";
 
 export function StrategyTab({ projectId }: { projectId: string }) {
-  const { withAuth } = useApi();
   const { toast } = useToast();
-  const [generating, setGenerating] = useState(false);
-  const [personas, setPersonas] = useState<StrategyPersona[]>([]);
   const [addingComp, setAddingComp] = useState(false);
   const [newCompDomain, setNewCompDomain] = useState("");
 
@@ -32,29 +29,24 @@ export function StrategyTab({ projectId }: { projectId: string }) {
     useCallback(() => api.strategy.getTopicMap(projectId), [projectId]),
   );
 
-  const { data: competitors, mutate: mutateComps } = useApiSWR<
-    StrategyCompetitor[]
-  >(
-    `competitors-${projectId}`,
-    useCallback(() => api.strategy.getCompetitors(projectId), [projectId]),
-  );
+  const { competitors, addCompetitor, removeCompetitor } =
+    useCompetitors(projectId);
+  const {
+    personas,
+    generating,
+    error: personaError,
+    generatePersonas,
+  } = usePersonas(projectId);
 
   async function handleGeneratePersonas() {
-    setGenerating(true);
     try {
-      const data = await withAuth(() =>
-        api.strategy.generatePersonas(projectId, {
-          niche: "AI SEO and Content Optimization",
-        }),
-      );
-      setPersonas(data as StrategyPersona[]);
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to generate personas";
-      setError(msg);
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setGenerating(false);
+      await generatePersonas("AI SEO and Content Optimization");
+    } catch {
+      toast({
+        title: "Error",
+        description: personaError ?? "Failed to generate personas",
+        variant: "destructive",
+      });
     }
   }
 
@@ -62,11 +54,8 @@ export function StrategyTab({ projectId }: { projectId: string }) {
     if (!newCompDomain) return;
     setAddingComp(true);
     try {
-      await withAuth(() =>
-        api.strategy.addCompetitor(projectId, newCompDomain),
-      );
+      await addCompetitor(newCompDomain);
       setNewCompDomain("");
-      mutateComps();
     } catch (err) {
       console.error(err);
     } finally {
@@ -76,8 +65,7 @@ export function StrategyTab({ projectId }: { projectId: string }) {
 
   async function handleRemoveCompetitor(id: string) {
     try {
-      await withAuth(() => api.strategy.removeCompetitor(id));
-      mutateComps();
+      await removeCompetitor(id);
     } catch (err) {
       console.error(err);
     }

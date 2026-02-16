@@ -13,6 +13,7 @@ import { rateLimit } from "../middleware/rate-limit";
 import {
   crawlQueries,
   pageQueries,
+  projectQueries,
   scoreQueries,
   userQueries,
 } from "@llm-boost/db";
@@ -194,12 +195,35 @@ crawlRoutes.get("/:id/export", async (c) => {
     );
   }
 
+  // IDOR check: verify crawl belongs to a project owned by the authenticated user
+  const project = await projectQueries(db).getById(crawl.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
   // Fetch pages and scores
-  const [crawledPages, scores, allIssues] = await Promise.all([
-    pageQueries(db).listByJob(crawlId),
-    scoreQueries(db).listByJob(crawlId),
-    scoreQueries(db).getIssuesByJob(crawlId),
-  ]);
+  let crawledPages, scores, allIssues;
+  try {
+    [crawledPages, scores, allIssues] = await Promise.all([
+      pageQueries(db).listByJob(crawlId),
+      scoreQueries(db).listByJob(crawlId),
+      scoreQueries(db).getIssuesByJob(crawlId),
+    ]);
+  } catch (err) {
+    console.error(`[export] Failed to fetch data for crawl ${crawlId}:`, err);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch crawl data",
+        },
+      },
+      500,
+    );
+  }
 
   // Build score and issue lookups by pageId
   const scoreMap = new Map(scores.map((s) => [s.pageId, s]));
@@ -264,8 +288,11 @@ crawlRoutes.get("/:id/export", async (c) => {
           const val = row[h as keyof typeof row];
           if (val == null) return "";
           const str = String(val);
-          // Escape CSV fields with commas or quotes
-          return str.includes(",") || str.includes('"')
+          // Escape CSV fields with commas, quotes, or newlines
+          return str.includes(",") ||
+            str.includes('"') ||
+            str.includes("\n") ||
+            str.includes("\r")
             ? `"${str.replace(/"/g, '""')}"`
             : str;
         })

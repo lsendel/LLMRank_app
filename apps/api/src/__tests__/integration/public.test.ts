@@ -543,6 +543,7 @@ describe("Public Routes", () => {
       mockLeadGetById.mockResolvedValue({
         id: "lead-1",
         email: "test@example.com",
+        scanResultId: "scan-result-1",
       });
 
       const res = await request(

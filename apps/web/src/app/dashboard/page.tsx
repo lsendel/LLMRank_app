@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
 import {
@@ -33,36 +33,15 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, gradeColor } from "@/lib/utils";
-import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
 import { Progress } from "@/components/ui/progress";
 import { NextStepsCard } from "@/components/cards/next-steps-card";
 import { usePersonaLayout } from "@/hooks/use-persona-layout";
+import { useDashboardStats, useRecentActivity } from "@/hooks/use-dashboard";
 import { track } from "@/lib/telemetry";
+import { formatRelativeTime } from "@/lib/format";
+import { getStatusBadgeVariant } from "@/lib/status";
 import type { DashboardWidgetId } from "@llm-boost/shared";
-
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
-function getStatusBadgeVariant(
-  status: string,
-): "success" | "destructive" | "warning" | "secondary" {
-  if (status === "complete") return "success";
-  if (status === "failed") return "destructive";
-  if (status === "crawling" || status === "scoring") return "warning";
-  return "secondary";
-}
 
 function formatDashboardDelta(delta: number) {
   if (delta > 0)
@@ -86,15 +65,8 @@ export default function DashboardPage() {
     return localStorage.getItem("ai-features-banner-dismissed") === "1";
   });
 
-  const { data: stats, isLoading: statsLoading } = useApiSWR(
-    "dashboard-stats",
-    useCallback(() => api.dashboard.getStats(), []),
-  );
-
-  const { data: activity, isLoading: activityLoading } = useApiSWR(
-    "dashboard-activity",
-    useCallback(() => api.dashboard.getRecentActivity(), []),
-  );
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: activity, isLoading: activityLoading } = useRecentActivity();
 
   // Persona discovery modal for existing users without a persona
   const [personaDismissed, setPersonaDismissed] = useState(false);

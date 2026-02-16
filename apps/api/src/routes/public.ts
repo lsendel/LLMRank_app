@@ -213,16 +213,19 @@ publicRoutes.post("/scan", async (c) => {
           urlCited: probeResult.urlCited,
         };
       }
-    } catch {
-      // Visibility probe is best-effort; swallow errors
+    } catch (err) {
+      console.error(
+        `[public-scan] Visibility probe failed for domain="${domain}":`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 
   // Persist scan result to DB
   const db = c.get("db");
   const ipBytes = new TextEncoder().encode(ip);
-  const ipHashBuffer = await crypto.subtle.digest("SHA-256", ipBytes);
-  const ipHash = Array.from(new Uint8Array(ipHashBuffer))
+  const ipHashBuf = await crypto.subtle.digest("SHA-256", ipBytes);
+  const ipHash = Array.from(new Uint8Array(ipHashBuf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 

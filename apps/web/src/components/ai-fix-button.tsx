@@ -50,9 +50,20 @@ export function AiFixButton({
 
   function handleCopy() {
     if (fix) {
-      navigator.clipboard.writeText(fix);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard.writeText(fix).then(
+        () => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        },
+        () => {
+          toast({
+            title: "Copy failed",
+            description:
+              "Could not copy to clipboard. Try selecting and copying manually.",
+            variant: "destructive",
+          });
+        },
+      );
     }
   }
 

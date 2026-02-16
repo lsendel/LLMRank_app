@@ -158,9 +158,20 @@ fixRoutes.post("/generate-batch", async (c) => {
     }
 
     // Get quick wins from the crawl's summary data
-    const summaryData = crawl.summaryData as any;
-    const quickWins: Array<{ code: string; message: string }> =
-      summaryData?.quickWins ?? [];
+    const summaryData =
+      crawl.summaryData && typeof crawl.summaryData === "object"
+        ? (crawl.summaryData as Record<string, unknown>)
+        : {};
+    const rawWins = Array.isArray(summaryData.quickWins)
+      ? summaryData.quickWins
+      : [];
+    const quickWins: Array<{ code: string; message: string }> = rawWins.filter(
+      (w: unknown): w is { code: string; message: string } =>
+        typeof w === "object" &&
+        w !== null &&
+        typeof (w as Record<string, unknown>).code === "string" &&
+        typeof (w as Record<string, unknown>).message === "string",
+    );
 
     // Filter to supported codes, deduplicate
     const seen = new Set<string>();
@@ -198,7 +209,11 @@ fixRoutes.post("/generate-batch", async (c) => {
       }
     }
 
-    return c.json({ data: results }, 201);
+    const allFailed =
+      results.length > 0 && results.every((r) => r.fix === null);
+    const someFailed = results.some((r) => r.fix === null);
+    const status = allFailed ? 500 : someFailed ? 207 : 201;
+    return c.json({ data: results }, status);
   } catch (error) {
     return handleServiceError(c, error);
   }

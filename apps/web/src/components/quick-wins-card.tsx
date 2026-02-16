@@ -201,9 +201,20 @@ export function QuickWinsCard({
                       variant="ghost"
                       className="gap-1"
                       onClick={() => {
-                        navigator.clipboard.writeText(result.fix!.generatedFix);
-                        setCopiedCode(result.code);
-                        setTimeout(() => setCopiedCode(null), 2000);
+                        navigator.clipboard
+                          .writeText(result.fix!.generatedFix)
+                          .then(() => {
+                            setCopiedCode(result.code);
+                            setTimeout(() => setCopiedCode(null), 2000);
+                          })
+                          .catch(() => {
+                            toast({
+                              title: "Copy failed",
+                              description:
+                                "Could not copy to clipboard. Try selecting and copying manually.",
+                              variant: "destructive",
+                            });
+                          });
                       }}
                     >
                       {copiedCode === result.code ? (

@@ -75,12 +75,25 @@ accountRoutes.post("/classify-persona", async (c) => {
     );
   }
 
-  const result = classifyPersona(parsed.data);
+  try {
+    const result = classifyPersona(parsed.data);
 
-  // Persist the classified persona to the user record
-  await userQueries(db).updateProfile(userId, { persona: result.persona });
+    // Persist the classified persona to the user record
+    await userQueries(db).updateProfile(userId, { persona: result.persona });
 
-  return c.json({ data: result });
+    return c.json({ data: result });
+  } catch (error) {
+    console.error(`[classify-persona] Failed for user ${userId}:`, error);
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to classify persona",
+        },
+      },
+      500,
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------
