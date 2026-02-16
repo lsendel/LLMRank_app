@@ -30,7 +30,6 @@ export async function truncateAll(): Promise<void> {
   const sql = getRawSql();
   await sql`TRUNCATE
     admin_audit_logs,
-    page_facts,
     outbox_events,
     page_enrichments,
     project_integrations,

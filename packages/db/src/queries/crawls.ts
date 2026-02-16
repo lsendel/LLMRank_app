@@ -67,27 +67,63 @@ export function crawlQueries(db: Database) {
       });
     },
 
-    async generateShareToken(id: string) {
+    async generateShareToken(
+      id: string,
+      options?: {
+        level?: "summary" | "issues" | "full";
+        expiresAt?: Date | null;
+      },
+    ) {
       const token = crypto.randomUUID();
       const [updated] = await db
         .update(crawlJobs)
-        .set({ shareToken: token, shareEnabled: true, sharedAt: new Date() })
+        .set({
+          shareToken: token,
+          shareEnabled: true,
+          sharedAt: new Date(),
+          shareLevel: options?.level ?? "summary",
+          shareExpiresAt: options?.expiresAt ?? null,
+        })
         .where(eq(crawlJobs.id, id))
         .returning();
       return updated;
     },
 
     async getByShareToken(token: string) {
-      return db.query.crawlJobs.findFirst({
+      const job = await db.query.crawlJobs.findFirst({
         where: (fields, { and, eq: eq_ }) =>
           and(eq_(fields.shareToken, token), eq_(fields.shareEnabled, true)),
       });
+      if (!job) return null;
+      if (job.shareExpiresAt && new Date(job.shareExpiresAt) < new Date()) {
+        return null;
+      }
+      return job;
     },
 
     async disableSharing(id: string) {
       const [updated] = await db
         .update(crawlJobs)
         .set({ shareEnabled: false })
+        .where(eq(crawlJobs.id, id))
+        .returning();
+      return updated;
+    },
+
+    async updateShareSettings(
+      id: string,
+      settings: {
+        level?: "summary" | "issues" | "full";
+        expiresAt?: Date | null;
+      },
+    ) {
+      const update: Record<string, unknown> = {};
+      if (settings.level !== undefined) update.shareLevel = settings.level;
+      if (settings.expiresAt !== undefined)
+        update.shareExpiresAt = settings.expiresAt;
+      const [updated] = await db
+        .update(crawlJobs)
+        .set(update)
         .where(eq(crawlJobs.id, id))
         .returning();
       return updated;

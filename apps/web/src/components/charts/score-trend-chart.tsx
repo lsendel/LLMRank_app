@@ -79,7 +79,7 @@ export function ScoreTrendChart({ projectId }: ScoreTrendChartProps) {
     );
   }
 
-  if (!trendData || trendData.length === 0) {
+  if (!trendData || !Array.isArray(trendData) || trendData.length === 0) {
     return (
       <Card>
         <CardHeader>

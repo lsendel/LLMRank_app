@@ -67,6 +67,7 @@ export type Bindings = {
   BETTER_AUTH_URL: string;
   APP_BASE_URL: string;
   POSTHOG_API_KEY: string;
+  BING_API_KEY: string;
   ADMIN_ALERT_EMAIL?: string;
   SLACK_ALERT_WEBHOOK_URL?: string;
 };
@@ -442,6 +443,7 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
           claude: env.ANTHROPIC_API_KEY,
           perplexity: env.PERPLEXITY_API_KEY,
           gemini: env.GOOGLE_API_KEY,
+          copilot: env.BING_API_KEY,
         },
       });
 

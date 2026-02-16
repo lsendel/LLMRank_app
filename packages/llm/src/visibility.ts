@@ -2,6 +2,7 @@ import { checkChatGPT } from "./providers/chatgpt";
 import { checkClaude } from "./providers/claude";
 import { checkPerplexity } from "./providers/perplexity";
 import { checkGemini } from "./providers/gemini";
+import { checkCopilot } from "./providers/copilot";
 
 export interface VisibilityCheckResult {
   provider: string;
@@ -37,6 +38,7 @@ const PROVIDER_MAP: Record<string, ProviderCheckFn> = {
   claude: checkClaude,
   perplexity: checkPerplexity,
   gemini: checkGemini,
+  copilot: checkCopilot,
 };
 
 export class VisibilityChecker {

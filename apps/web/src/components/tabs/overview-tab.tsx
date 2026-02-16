@@ -21,6 +21,7 @@ import { IntegrationInsightsCards } from "@/components/integration-insights-card
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { PlatformOpportunityCards } from "@/components/platform-opportunity-cards";
 import { ScoreTrendChart } from "@/components/charts/score-trend-chart";
+import { ProjectProgressCard } from "@/components/cards/project-progress-card";
 
 export function OverviewTab({
   latestCrawl,
@@ -145,6 +146,9 @@ export function OverviewTab({
 
       {/* Score Trends */}
       <ScoreTrendChart projectId={projectId} />
+
+      {/* Progress Since Last Crawl */}
+      <ProjectProgressCard projectId={projectId} />
 
       {/* Integration Insights */}
       <IntegrationInsightsCards projectId={projectId} />

@@ -101,10 +101,21 @@ export interface CrawlRepository {
   ): ReturnType<ReturnType<typeof crawlQueries>["updateStatus"]>;
   generateShareToken(
     id: string,
+    options?: {
+      level?: "summary" | "issues" | "full";
+      expiresAt?: Date | null;
+    },
   ): ReturnType<ReturnType<typeof crawlQueries>["generateShareToken"]>;
   disableSharing(
     id: string,
   ): ReturnType<ReturnType<typeof crawlQueries>["disableSharing"]>;
+  updateShareSettings(
+    id: string,
+    settings: {
+      level?: "summary" | "issues" | "full";
+      expiresAt?: Date | null;
+    },
+  ): ReturnType<ReturnType<typeof crawlQueries>["updateShareSettings"]>;
 }
 
 export function createCrawlRepository(db: Database): CrawlRepository {
@@ -115,8 +126,11 @@ export function createCrawlRepository(db: Database): CrawlRepository {
     getLatestByProject: (projectId) => queries.getLatestByProject(projectId),
     listByProject: (projectId) => queries.listByProject(projectId),
     updateStatus: (id, update) => queries.updateStatus(id, update),
-    generateShareToken: (id) => queries.generateShareToken(id),
+    generateShareToken: (id, options) =>
+      queries.generateShareToken(id, options),
     disableSharing: (id) => queries.disableSharing(id),
+    updateShareSettings: (id, settings) =>
+      queries.updateShareSettings(id, settings),
   };
 }
 

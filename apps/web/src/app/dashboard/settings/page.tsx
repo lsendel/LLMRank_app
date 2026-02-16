@@ -46,7 +46,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -1231,26 +1230,36 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="branding" className="pt-4">
-          <BrandingSettingsForm
-            projectId="" // TODO: This page is global settings, but branding is per-project.
-            // We should either move branding to Project Settings OR make this a user-level setting.
-            // Requirement was: "Agency creates white-label reports".
-            // If Agency plan is per-user, they might want global branding.
-            // But Schema is on Project.
-            // Let's assume for now this page is actually ACCOUNT settings, and branding is PROJECT settings.
-            // But the prompt implies "Report Branding" here.
-            // Let's just put a placeholder or redirect to projects.
-            // Actually, the previous implementation attempt passed `params.id` which is undefined here.
-            // Let's change this to "Default Branding" or handle it in Project Settings.
-            // Correct approach: Branding should be in Project Settings [id]/settings.
-            // But user asked to "Add BrandingSettingsForm to Settings page".
-            // I'll put a note here.
-            initialBranding={undefined}
-          />
-          <p className="mt-4 text-sm text-muted-foreground text-center">
-            Note: Branding settings are currently configured per-project in the
-            Project Settings tab.
-          </p>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Report Branding</CardTitle>
+              <CardDescription>
+                Branding is configured per-project to support multiple clients.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                To customize your report branding (logo, company name, colors),
+                go to any project and open its <strong>Settings</strong> tab.
+              </p>
+              {projectsData?.data && projectsData.data.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {projectsData.data.slice(0, 5).map((p) => (
+                    <a
+                      key={p.id}
+                      href={`/dashboard/projects/${p.id}?tab=settings`}
+                      className="block rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                    >
+                      {p.name}{" "}
+                      <span className="text-muted-foreground">
+                        &rarr; Settings
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── Notifications Tab ──────────────────────────────────────── */}

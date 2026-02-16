@@ -1757,7 +1757,16 @@ export const api = {
       const res = await apiClient.get<ApiEnvelope<any>>(
         `/api/trends/${projectId}?period=${period}`,
       );
-      return res.data;
+      const points = res.data?.points ?? [];
+      return points.map((p: any) => ({
+        date: p.date,
+        overall: p.overall ?? 0,
+        technical: p.technical ?? 0,
+        content: p.content ?? 0,
+        aiReadiness: p.aiReadiness ?? 0,
+        performance: p.performance ?? 0,
+        delta: p.deltas?.overall ?? undefined,
+      }));
     },
   },
 
