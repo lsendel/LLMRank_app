@@ -3,10 +3,16 @@ import Link from "next/link";
 import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Terms of Service",
+  title: "Terms of Service — LLM Boost AI-Readiness Platform",
   description:
     "LLM Boost terms of service covering account usage, billing, data handling, and acceptable use of the AI-readiness platform.",
   alternates: { canonical: "/terms" },
+  openGraph: {
+    title: "Terms of Service | LLM Boost",
+    description:
+      "Terms of service for LLM Boost, the AI-readiness SEO platform covering account usage, billing, and data handling.",
+    url: "https://llmrank.app/terms",
+  },
 };
 
 export default function TermsPage() {

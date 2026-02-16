@@ -10,6 +10,13 @@ import { buildCrawlJob, buildScore } from "../helpers/factories";
 const mockGetByShareToken = vi.fn().mockResolvedValue(null);
 const mockListByJobWithPages = vi.fn().mockResolvedValue([]);
 const mockGetIssuesByJob = vi.fn().mockResolvedValue([]);
+
+const reporterMocks = vi.hoisted(() => ({
+  fetchReportData: vi.fn(),
+  aggregateReportData: vi.fn(),
+}));
+
+vi.mock("@llm-boost/reports", () => reporterMocks);
 const mockScanResultCreate = vi.fn().mockResolvedValue({
   id: "scan-result-1",
   domain: "example.com",
@@ -41,6 +48,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
     projectQueries: () => ({
       getById: vi.fn().mockResolvedValue({
         id: "proj-1",
+        userId: "user-1",
         name: "Test Project",
         domain: "test.com",
         branding: { primaryColor: "#000" },
@@ -136,6 +144,66 @@ describe("Public Routes", () => {
       email: "test@example.com",
       createdAt: new Date(),
     });
+    reporterMocks.fetchReportData.mockResolvedValue({} as any);
+    reporterMocks.aggregateReportData.mockReturnValue({
+      crawl: { id: "crawl-1" },
+      scores: {
+        overall: 85,
+        technical: 80,
+        content: 82,
+        aiReadiness: 84,
+        performance: 90,
+        letterGrade: "B",
+      },
+      pages: [
+        {
+          url: "https://example.com",
+          title: "Home",
+          overall: 80,
+          technical: 78,
+          content: 82,
+          aiReadiness: 75,
+          performance: 90,
+          grade: "B",
+          issueCount: 3,
+        },
+      ],
+      issues: { total: 5, items: [] },
+      readinessCoverage: [
+        {
+          code: "MISSING_TITLE",
+          label: "Title Tags",
+          description: "Title coverage",
+          pillar: "technical",
+          coveragePercent: 60,
+          affectedPages: 2,
+          totalPages: 5,
+        },
+      ],
+      scoreDeltas: {
+        overall: 2,
+        technical: 1,
+        content: -1,
+        aiReadiness: 0,
+        performance: 3,
+      },
+      quickWins: [
+        {
+          code: "MISSING_TITLE",
+          category: "technical",
+          severity: "critical",
+          message: "Fix titles",
+          recommendation: "Add titles",
+          effort: "low",
+          affectedPages: 2,
+          scoreImpact: 8,
+          roi: null,
+          pillar: "technical",
+          owner: "SEO",
+          docsUrl: "https://example.com",
+        },
+      ],
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -199,6 +267,8 @@ describe("Public Routes", () => {
       expect(body.data).toHaveProperty("pages");
       expect(body.data.pages).toBeInstanceOf(Array);
       expect(body.data).toHaveProperty("quickWins");
+      expect(body.data.readinessCoverage).toBeInstanceOf(Array);
+      expect(body.data.scoreDeltas).toHaveProperty("overall");
     });
 
     it("returns report data without auth header (public endpoint)", async () => {

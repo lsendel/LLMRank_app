@@ -1,6 +1,6 @@
 import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
-import type { ReportData, ReportIssue } from "../../types";
+import type { ReportData, ReportIssue, ReportPillar } from "../../types";
 import { ReportHeader } from "../components/header";
 import { ReportFooter } from "../components/footer";
 import { Section } from "../components/section";
@@ -41,6 +41,10 @@ const styles = StyleSheet.create({
   },
   scoreLabel: { fontSize: 9, color: "#6b7280" },
   scoreValue: { fontSize: 16, fontFamily: "Helvetica-Bold" },
+  deltaText: {
+    fontSize: 8,
+    marginTop: 2,
+  },
   // Text
   summaryText: { fontSize: 10, lineHeight: 1.5, color: "#374151" },
   bodyText: { fontSize: 9, lineHeight: 1.4, color: "#374151" },
@@ -54,6 +58,15 @@ const styles = StyleSheet.create({
   quickWinTitle: { fontSize: 10, fontFamily: "Helvetica-Bold" },
   quickWinRec: { fontSize: 9, color: "#6b7280", marginTop: 2 },
   quickWinMeta: { fontSize: 8, color: "#4f46e5", marginTop: 2 },
+  quickWinPill: {
+    fontSize: 7,
+    color: "#111827",
+    backgroundColor: "#e0e7ff",
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    marginRight: 4,
+  },
   // Issues
   severityHeader: {
     fontSize: 11,
@@ -126,6 +139,31 @@ const styles = StyleSheet.create({
   },
   metricLabel: { fontSize: 9, color: "#6b7280" },
   metricValue: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1f2937" },
+  coverageRow: {
+    padding: 8,
+    backgroundColor: "#f9fafb",
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  coverageLabel: { fontSize: 10, fontFamily: "Helvetica-Bold" },
+  coverageMeta: { fontSize: 8, color: "#6b7280", marginTop: 2 },
+  coveragePercent: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    color: "#111827",
+    textAlign: "right",
+  },
+  coverageBarOuter: {
+    height: 4,
+    backgroundColor: "#e5e7eb",
+    borderRadius: 2,
+    marginTop: 4,
+    overflow: "hidden",
+  },
+  coverageBarInner: {
+    height: 4,
+    backgroundColor: "#4f46e5",
+  },
   // Competitor
   competitorRow: {
     padding: 6,
@@ -197,6 +235,26 @@ function truncateUrl(url: string, max: number = 50): string {
   return url.slice(0, max - 3) + "...";
 }
 
+const PILLAR_LABELS: Record<ReportPillar, string> = {
+  technical: "Technical SEO",
+  content: "Content",
+  ai_readiness: "AI Readiness",
+};
+
+function formatPillar(pillar: ReportPillar): string {
+  return PILLAR_LABELS[pillar] ?? pillar;
+}
+
+function formatDelta(delta: number): { label: string; color: string } {
+  if (delta > 0) {
+    return { label: `+${delta} vs last crawl`, color: "#16a34a" };
+  }
+  if (delta < 0) {
+    return { label: `${delta} vs last crawl`, color: "#dc2626" };
+  }
+  return { label: "No change", color: "#6b7280" };
+}
+
 function groupIssuesBySeverity(
   items: ReportIssue[],
 ): Record<string, ReportIssue[]> {
@@ -208,57 +266,41 @@ function groupIssuesBySeverity(
   return groups;
 }
 
-interface ActionTier {
-  title: string;
-  description: string;
-  items: ReportIssue[];
-}
-
-function buildActionPlan(issues: ReportIssue[]): ActionTier[] {
-  const critical = issues.filter((i) => i.severity === "critical");
-  // Split warnings into quick wins (high impact) and strategic
-  const warnings = issues.filter((i) => i.severity === "warning");
-  const quickWins = warnings.filter((i) => i.scoreImpact >= 3);
-  const strategic = warnings.filter((i) => i.scoreImpact < 3);
-  const info = issues.filter((i) => i.severity === "info");
-
-  return [
-    {
-      title: "Priority 1: Critical Fixes",
-      description:
-        "Address immediately - these issues significantly harm your AI visibility.",
-      items: critical,
-    },
-    {
-      title: "Priority 2: Quick Wins",
-      description: "High-impact changes that are relatively easy to implement.",
-      items: quickWins,
-    },
-    {
-      title: "Priority 3: Strategic Improvements",
-      description: "Medium-term improvements for sustained visibility gains.",
-      items: strategic,
-    },
-    {
-      title: "Priority 4: Long-term Optimization",
-      description: "Ongoing optimizations for marginal gains.",
-      items: info,
-    },
-  ].filter((tier) => tier.items.length > 0);
-}
-
 export function DetailedReportPdf({ data }: { data: ReportData }) {
   const brandColor = data.config.brandingColor ?? "#4f46e5";
   const brandName = data.project.branding?.companyName;
   const categories = [
-    { label: "Technical SEO", score: data.scores.technical },
-    { label: "Content Quality", score: data.scores.content },
-    { label: "AI Readiness", score: data.scores.aiReadiness },
-    { label: "Performance", score: data.scores.performance },
+    {
+      label: "Technical SEO",
+      score: data.scores.technical,
+      delta: data.scoreDeltas.technical,
+    },
+    {
+      label: "Content Quality",
+      score: data.scores.content,
+      delta: data.scoreDeltas.content,
+    },
+    {
+      label: "AI Readiness",
+      score: data.scores.aiReadiness,
+      delta: data.scoreDeltas.aiReadiness,
+    },
+    {
+      label: "Performance",
+      score: data.scores.performance,
+      delta: data.scoreDeltas.performance,
+    },
   ];
 
   const issueGroups = groupIssuesBySeverity(data.issues.items);
-  const actionPlan = buildActionPlan(data.issues.items);
+  const quickWinBuckets: Record<string, typeof data.quickWins> = {};
+  for (const win of data.quickWins) {
+    const key = win.pillar;
+    if (!quickWinBuckets[key]) quickWinBuckets[key] = [];
+    quickWinBuckets[key].push(win);
+  }
+  const quickWinEntries = Object.entries(quickWinBuckets);
+  const coverageHighlights = data.readinessCoverage.slice(0, 6);
   const worstPages = [...data.pages]
     .sort((a, b) => a.overall - b.overall)
     .slice(0, 20);
@@ -298,6 +340,16 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
               {categories.map((cat) => (
                 <View key={cat.label} style={styles.scoreCard}>
                   <Text style={styles.scoreLabel}>{cat.label}</Text>
+                  {(() => {
+                    const deltaMeta = formatDelta(cat.delta ?? 0);
+                    return (
+                      <Text
+                        style={[styles.deltaText, { color: deltaMeta.color }]}
+                      >
+                        {deltaMeta.label}
+                      </Text>
+                    );
+                  })()}
                   <Text
                     style={[
                       styles.scoreValue,
@@ -358,20 +410,83 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
           title="Quick Wins"
           subtitle="Top recommendations sorted by impact-to-effort ratio"
         >
-          {data.quickWins.slice(0, 10).map((win, i) => (
-            <View key={i} style={styles.quickWinRow}>
-              <Text style={styles.quickWinTitle}>
-                {i + 1}. {win.message}
+          {quickWinEntries.length === 0 && (
+            <Text style={styles.bodyText}>
+              All priority issues are resolved. Keep monitoring future crawls.
+            </Text>
+          )}
+          {quickWinEntries.map(([pillar, wins]) => (
+            <View key={pillar} wrap={false}>
+              <Text style={styles.severityHeader}>
+                {formatPillar(pillar as ReportPillar)}
               </Text>
-              <Text style={styles.quickWinRec}>{win.recommendation}</Text>
-              <Text style={styles.quickWinMeta}>
-                +{win.scoreImpact} pts | {win.affectedPages} pages | Effort:{" "}
-                {win.effort} | Visibility: {win.roi.visibilityImpact}
-                {win.roi.trafficEstimate ? ` | ${win.roi.trafficEstimate}` : ""}
-              </Text>
+              {wins.slice(0, 3).map((win, i) => (
+                <View key={`${pillar}-${i}`} style={styles.quickWinRow}>
+                  <Text style={styles.quickWinTitle}>{win.message}</Text>
+                  <Text style={styles.quickWinRec}>{win.recommendation}</Text>
+                  <View style={{ flexDirection: "row", marginTop: 4 }}>
+                    <Text style={styles.quickWinPill}>{win.owner}</Text>
+                    <Text style={styles.quickWinPill}>
+                      Effort: {win.effort}
+                    </Text>
+                    <Text style={styles.quickWinPill}>
+                      Visibility: {win.roi.visibilityImpact}
+                    </Text>
+                  </View>
+                  <Text style={styles.quickWinMeta}>
+                    +{win.scoreImpact} pts | {win.affectedPages} pages affected
+                    {win.roi.trafficEstimate
+                      ? ` | ${win.roi.trafficEstimate}`
+                      : ""}
+                  </Text>
+                  {win.docsUrl && (
+                    <Text style={styles.issueMeta}>
+                      Playbook: {win.docsUrl}
+                    </Text>
+                  )}
+                </View>
+              ))}
             </View>
           ))}
         </Section>
+
+        {coverageHighlights.length > 0 && (
+          <Section
+            title="Readiness Coverage"
+            subtitle="Share of pages meeting core technical and AI-readiness controls"
+          >
+            {coverageHighlights.map((metric) => (
+              <View key={metric.code} wrap={false}>
+                <View style={styles.coverageRow}>
+                  <View style={{ flex: 3 }}>
+                    <Text style={styles.coverageLabel}>{metric.label}</Text>
+                    <Text style={styles.coverageMeta}>
+                      {metric.description}
+                    </Text>
+                    <Text style={styles.coverageMeta}>
+                      Pillar: {formatPillar(metric.pillar)} · Compliant pages:{" "}
+                      {metric.totalPages - metric.affectedPages}/{" "}
+                      {metric.totalPages}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.coveragePercent}>
+                      {metric.coveragePercent}%
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.coverageBarOuter}>
+                  <View
+                    style={[
+                      styles.coverageBarInner,
+                      { width: `${metric.coveragePercent}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+            ))}
+          </Section>
+        )}
 
         <ReportFooter brandName={brandName} />
       </Page>
@@ -784,7 +899,7 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
           </Text>
         </Section>
 
-        {actionPlan.map((tier, ti) => (
+        {data.actionPlan.map((tier, ti) => (
           <View key={ti}>
             <Text style={styles.tierHeader}>{tier.title}</Text>
             <Text style={styles.tierDescription}>{tier.description}</Text>
@@ -799,7 +914,12 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
                   {item.roi?.trafficEstimate
                     ? ` | ${item.roi.trafficEstimate}`
                     : ""}
+                  {` | Owner: ${item.owner} (${item.effort} effort)`}
+                  {` | Pillar: ${formatPillar(item.pillar)}`}
                 </Text>
+                {item.docsUrl && (
+                  <Text style={styles.issueMeta}>Playbook: {item.docsUrl}</Text>
+                )}
               </View>
             ))}
             {tier.items.length > 10 && (

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Brain, ExternalLink, ShieldCheck } from "lucide-react";
@@ -16,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScoreCircle } from "@/components/score-circle";
+import { Progress } from "@/components/ui/progress";
 import { cn, gradeColor } from "@/lib/utils";
 import { api, ApiError, type SharedReport } from "@/lib/api";
 import { EmailCaptureGate } from "@/components/email-capture-gate";
@@ -65,9 +72,18 @@ export default function SharedReportPage() {
     );
   }
 
-  const { scores, pages, quickWins, project } = report;
+  const { scores, pages, quickWins, project, readinessCoverage, scoreDeltas } =
+    report;
   const isAgencyReport = !!project.branding?.companyName;
   const brandColor = project.branding?.primaryColor || "#4f46e5";
+  const coverageHighlights = (readinessCoverage ?? []).slice(0, 4);
+  const deltaRows = [
+    { label: "Overall", value: scoreDeltas.overall },
+    { label: "Technical", value: scoreDeltas.technical },
+    { label: "Content", value: scoreDeltas.content },
+    { label: "AI Readiness", value: scoreDeltas.aiReadiness },
+    { label: "Performance", value: scoreDeltas.performance },
+  ];
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-8">
@@ -188,6 +204,77 @@ export default function SharedReportPage() {
         </Card>
       )}
 
+      {(coverageHighlights.length > 0 ||
+        deltaRows.some((d) => d.value !== 0)) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Score Momentum</CardTitle>
+              <CardDescription>
+                Change since the previous completed crawl
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {deltaRows.map((row) => {
+                const delta = row.value;
+                const color =
+                  delta > 0
+                    ? "text-emerald-600"
+                    : delta < 0
+                      ? "text-red-600"
+                      : "text-muted-foreground";
+                const label =
+                  delta > 0
+                    ? `+${delta} vs last crawl`
+                    : delta < 0
+                      ? `${delta} vs last crawl`
+                      : "No change";
+                return (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between border-b border-dashed border-border/60 pb-2 last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{row.label}</p>
+                      <p className={cn("text-xs", color)}>{label}</p>
+                    </div>
+                    <p className={cn("text-lg font-semibold", color)}>
+                      {delta > 0 ? `+${delta}` : delta}
+                    </p>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {coverageHighlights.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Readiness Coverage</CardTitle>
+                <CardDescription>
+                  Share of pages compliant with critical technical controls
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {coverageHighlights.map((metric) => (
+                  <div key={metric.code} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm font-medium">
+                      <span>{metric.label}</span>
+                      <span>{metric.coveragePercent}%</span>
+                    </div>
+                    <Progress value={metric.coveragePercent} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {metric.totalPages - metric.affectedPages}/
+                      {metric.totalPages} pages compliant
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Gated sections: Quick Wins + Pages Table */}
       {emailCaptured ? (
         <>
@@ -218,13 +305,34 @@ export default function SharedReportPage() {
                           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                             {win.recommendation}
                           </p>
-                          <div className="mt-3">
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                            <span>Owner: {win.owner ?? "SEO"}</span>
+                            <span>Effort: {win.effort ?? win.effortLevel}</span>
+                            {win.pillar && <span>{win.pillar}</span>}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             <Badge
                               variant="outline"
                               className="text-[10px] uppercase font-semibold"
                             >
                               Impact: +{win.scoreImpact} pts
                             </Badge>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] uppercase"
+                            >
+                              {win.affectedPages} pages
+                            </Badge>
+                            {win.docsUrl && (
+                              <a
+                                href={win.docsUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-primary hover:underline"
+                              >
+                                Playbook ↗
+                              </a>
+                            )}
                           </div>
                         </div>
                       </div>

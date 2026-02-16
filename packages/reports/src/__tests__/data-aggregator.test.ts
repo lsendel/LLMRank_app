@@ -118,6 +118,7 @@ describe("aggregateReportData", () => {
     const result = aggregateReportData(makeRawResults(), { type: "summary" });
     expect(result.quickWins.length).toBeGreaterThan(0);
     expect(result.quickWins[0].roi).toBeDefined();
+    expect(result.quickWins[0].pillar).toBeDefined();
   });
 
   it("sorts pages worst-first", () => {
@@ -189,6 +190,15 @@ describe("aggregateReportData", () => {
     expect(result.scores.overall).toBe(0);
     expect(result.scores.letterGrade).toBe("F");
     expect(result.pages).toHaveLength(0);
+    expect(
+      result.readinessCoverage.every((m) => m.coveragePercent === 100),
+    ).toBe(true);
+  });
+
+  it("computes readiness coverage and action plan tiers", () => {
+    const result = aggregateReportData(makeRawResults(), { type: "summary" });
+    expect(result.readinessCoverage.length).toBeGreaterThan(0);
+    expect(result.actionPlan.length).toBeGreaterThan(0);
   });
 
   it("includes history crawls", () => {
@@ -205,11 +215,22 @@ describe("aggregateReportData", () => {
             avgAiReadiness: 62,
             avgPerformance: 58,
           },
+          {
+            id: "new-1",
+            completedAt: "2026-01-01T00:00:00Z",
+            pagesScored: 5,
+            avgOverall: 80,
+            avgTechnical: 78,
+            avgContent: 75,
+            avgAiReadiness: 82,
+            avgPerformance: 84,
+          },
         ],
       }),
       { type: "detailed" },
     );
-    expect(result.history).toHaveLength(1);
+    expect(result.history).toHaveLength(2);
     expect(result.history[0].overall).toBe(60);
+    expect(result.scoreDeltas.overall).toBeGreaterThanOrEqual(0);
   });
 });

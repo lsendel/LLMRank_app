@@ -12,6 +12,16 @@ vi.mock("../../middleware/auth", () => ({
   }),
 }));
 
+const reporterMocks = vi.hoisted(() => ({
+  fetchReportData: vi.fn(),
+  aggregateReportData: vi.fn(),
+}));
+
+vi.mock("@llm-boost/reports", () => ({
+  fetchReportData: reporterMocks.fetchReportData,
+  aggregateReportData: reporterMocks.aggregateReportData,
+}));
+
 // ---------------------------------------------------------------------------
 // Stable mock functions for @llm-boost/db query helpers used directly
 // by the dashboard route (not through the repository layer).
@@ -80,6 +90,18 @@ describe("Dashboard Routes", () => {
         createdAt: new Date("2024-01-01"),
       },
     ]);
+    reporterMocks.fetchReportData.mockResolvedValue({} as any);
+    reporterMocks.aggregateReportData.mockReturnValue({
+      quickWins: [],
+      readinessCoverage: [],
+      scoreDeltas: {
+        overall: 0,
+        technical: 0,
+        content: 0,
+        aiReadiness: 0,
+        performance: 0,
+      },
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -97,6 +119,7 @@ describe("Dashboard Routes", () => {
       expect(body.data).toHaveProperty("avgScore");
       expect(body.data).toHaveProperty("creditsRemaining");
       expect(body.data).toHaveProperty("creditsTotal");
+      expect(body.data).toHaveProperty("latestInsights");
     });
   });
 

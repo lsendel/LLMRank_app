@@ -6,6 +6,10 @@ import type {
   ReportHistoryPoint,
   ReportVisibility,
   ReportContentHealth,
+  ReportCoverageMetric,
+  ReportActionPlanTier,
+  ReportPillar,
+  ReportScoreDeltas,
 } from "./types";
 import type { ReportConfig } from "@llm-boost/shared";
 import { estimateIssueROI } from "./roi";
@@ -107,6 +111,152 @@ function average(nums: (number | null | undefined)[]): number {
   );
 }
 
+type IssueMetadata = {
+  label: string;
+  pillar: ReportPillar;
+  owner: string;
+  effort: "low" | "medium" | "high";
+  docsUrl?: string;
+  coverageDescription?: string;
+  includeInCoverage?: boolean;
+};
+
+const DEFAULT_ISSUE_METADATA: IssueMetadata = {
+  label: "Site hygiene",
+  pillar: "technical",
+  owner: "SEO",
+  effort: "medium",
+};
+
+const ISSUE_METADATA: Record<string, IssueMetadata> = {
+  MISSING_TITLE: {
+    label: "Title Tags",
+    pillar: "technical",
+    owner: "SEO",
+    effort: "low",
+    docsUrl: "https://developers.google.com/search/docs/appearance/title-link",
+    coverageDescription: "Pages with descriptive 30-60 character titles",
+    includeInCoverage: true,
+  },
+  MISSING_META_DESC: {
+    label: "Meta Descriptions",
+    pillar: "technical",
+    owner: "SEO",
+    effort: "medium",
+    docsUrl: "https://developers.google.com/search/docs/appearance/snippet",
+    coverageDescription: "Pages with 120-160 character meta descriptions",
+    includeInCoverage: true,
+  },
+  MISSING_CANONICAL: {
+    label: "Canonical Tags",
+    pillar: "technical",
+    owner: "Engineering",
+    effort: "medium",
+    docsUrl:
+      "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
+    coverageDescription: "Pages that declare a canonical URL",
+    includeInCoverage: true,
+  },
+  THIN_CONTENT: {
+    label: "Content Depth",
+    pillar: "content",
+    owner: "Content",
+    effort: "high",
+    docsUrl:
+      "https://developers.google.com/search/blog/2022/08/helpful-content-update",
+    coverageDescription: "Pages meeting the 500-word threshold",
+    includeInCoverage: true,
+  },
+  NO_STRUCTURED_DATA: {
+    label: "Structured Data",
+    pillar: "ai_readiness",
+    owner: "Engineering",
+    effort: "medium",
+    docsUrl:
+      "https://developers.google.com/search/docs/appearance/structured-data",
+    coverageDescription: "Pages with JSON-LD schema",
+    includeInCoverage: true,
+  },
+  MISSING_H1: {
+    label: "H1 Usage",
+    pillar: "technical",
+    owner: "Content",
+    effort: "low",
+    coverageDescription: "Pages with a single descriptive H1",
+    includeInCoverage: true,
+  },
+  NO_INTERNAL_LINKS: {
+    label: "Internal Links",
+    pillar: "content",
+    owner: "SEO",
+    effort: "medium",
+    coverageDescription: "Pages referencing 2+ internal resources",
+    includeInCoverage: true,
+  },
+  MISSING_OG_TAGS: {
+    label: "Open Graph Tags",
+    pillar: "ai_readiness",
+    owner: "Marketing",
+    effort: "low",
+    coverageDescription: "Pages with og:title/description/image",
+    includeInCoverage: true,
+  },
+  MISSING_AUTHORITATIVE_CITATIONS: {
+    label: "Authoritative Citations",
+    pillar: "ai_readiness",
+    owner: "Content",
+    effort: "medium",
+    coverageDescription: "Pages citing high-trust sources",
+    includeInCoverage: true,
+  },
+  MISSING_LLMS_TXT: {
+    label: "llms.txt",
+    pillar: "ai_readiness",
+    owner: "Engineering",
+    effort: "low",
+    docsUrl: "https://llmspecs.com/llms-txt",
+  },
+};
+
+const COVERAGE_CODES = Object.entries(ISSUE_METADATA)
+  .filter(([, meta]) => meta.includeInCoverage)
+  .map(([code]) => code);
+
+function buildActionPlanTiers(issues: ReportIssue[]): ReportActionPlanTier[] {
+  const critical = issues.filter((i) => i.severity === "critical");
+  const warning = issues.filter((i) => i.severity === "warning");
+  const quickWins = warning.filter((i) => i.scoreImpact >= 3);
+  const strategic = warning.filter((i) => i.scoreImpact < 3);
+  const info = issues.filter((i) => i.severity === "info");
+
+  return [
+    {
+      title: "Priority 1: Critical Fixes",
+      description:
+        "Address immediately — these items block AI visibility or create crawl errors.",
+      items: critical,
+    },
+    {
+      title: "Priority 2: Quick Wins",
+      description:
+        "High-impact changes that require light engineering/content effort.",
+      items: quickWins,
+    },
+    {
+      title: "Priority 3: Strategic Improvements",
+      description:
+        "Medium-term improvements that compound over subsequent crawls.",
+      items: strategic,
+    },
+    {
+      title: "Priority 4: Long-term Optimization",
+      description:
+        "Nice-to-have improvements that polish experience and trust signals.",
+      items: info,
+    },
+  ].filter((tier) => tier.items.length > 0);
+}
+
 // ---------------------------------------------------------------------------
 // Main aggregator
 // ---------------------------------------------------------------------------
@@ -175,6 +325,7 @@ export function aggregateReportData(
           : issue.severity === "warning"
             ? 4
             : 2;
+      const metadata = ISSUE_METADATA[code] ?? DEFAULT_ISSUE_METADATA;
       const roi = estimateIssueROI({
         code,
         severity: issue.severity as "critical" | "warning" | "info",
@@ -192,6 +343,11 @@ export function aggregateReportData(
         affectedPages: count,
         scoreImpact: deduction,
         roi,
+        pillar: metadata.pillar,
+        owner: metadata.owner,
+        effort: metadata.effort,
+        docsUrl: metadata.docsUrl,
+        label: metadata.label,
       };
     })
     .sort((a, b) => {
@@ -211,6 +367,8 @@ export function aggregateReportData(
     .slice(0, 10)
     .map((i) => ({
       code: i.code,
+      category: i.category,
+      severity: i.severity,
       message: i.message,
       recommendation: i.recommendation,
       effort:
@@ -218,7 +376,33 @@ export function aggregateReportData(
       affectedPages: i.affectedPages,
       scoreImpact: i.scoreImpact,
       roi: i.roi!,
+      pillar: i.pillar,
+      owner: i.owner,
+      docsUrl: i.docsUrl,
     }));
+
+  const totalPages = Math.max(pageScores.length, 1);
+  const readinessCoverage: ReportCoverageMetric[] = COVERAGE_CODES.map(
+    (code) => {
+      const issue = reportIssues.find((i) => i.code === code);
+      const meta = ISSUE_METADATA[code] ?? DEFAULT_ISSUE_METADATA;
+      const affected = issue?.affectedPages ?? 0;
+      const coveragePercent = Math.max(
+        0,
+        Math.round(((totalPages - affected) / totalPages) * 100),
+      );
+      return {
+        code,
+        label: meta.label,
+        description:
+          meta.coverageDescription ?? `${meta.label} coverage across pages`,
+        pillar: meta.pillar,
+        coveragePercent,
+        affectedPages: affected,
+        totalPages,
+      };
+    },
+  ).sort((a, b) => a.coveragePercent - b.coveragePercent);
 
   // Pages (sorted worst-first)
   const reportPages: ReportPageScore[] = pageScores
@@ -251,6 +435,22 @@ export function aggregateReportData(
     performance: c.avgPerformance,
     pagesScored: c.pagesScored ?? 0,
   }));
+
+  const scoreDeltas: ReportScoreDeltas = {
+    overall: 0,
+    technical: 0,
+    content: 0,
+    aiReadiness: 0,
+    performance: 0,
+  };
+  if (history.length >= 2) {
+    const previous = history[history.length - 2];
+    scoreDeltas.overall = Math.round(overall - previous.overall);
+    scoreDeltas.technical = Math.round(technical - previous.technical);
+    scoreDeltas.content = Math.round(content - previous.content);
+    scoreDeltas.aiReadiness = Math.round(aiReadiness - previous.aiReadiness);
+    scoreDeltas.performance = Math.round(performanceAvg - previous.performance);
+  }
 
   // Visibility
   let visibility: ReportVisibility | null = null;
@@ -329,6 +529,8 @@ export function aggregateReportData(
     };
   }
 
+  const actionPlan = buildActionPlanTiers(reportIssues);
+
   return {
     project: {
       name: project.name,
@@ -366,8 +568,10 @@ export function aggregateReportData(
     },
     gradeDistribution,
     quickWins,
+    readinessCoverage,
     pages: reportPages,
     history,
+    scoreDeltas,
     visibility,
     competitors,
     gapQueries,
@@ -376,6 +580,7 @@ export function aggregateReportData(
     integrations: raw.enrichments
       ? aggregateIntegrations(raw.enrichments)
       : null,
+    actionPlan,
     config: options.config ?? {},
     isPublic: options.isPublic,
   };

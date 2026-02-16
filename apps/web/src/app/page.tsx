@@ -6,8 +6,14 @@ import { JsonLd, softwareApplicationSchema } from "@/components/seo/json-ld";
 export const metadata: Metadata = {
   title: "LLM Boost - AI-Readiness SEO Platform",
   description:
-    "Audit your website for AI search engine visibility. LLM Boost scores pages across 37 factors and gives actionable fixes for ChatGPT, Claude, Perplexity, and Gemini.",
+    "Audit your website for AI search visibility. LLM Boost scores pages across 37 factors and gives actionable fixes for ChatGPT, Claude, Perplexity, and Gemini.",
   alternates: { canonical: "/" },
+  openGraph: {
+    title: "LLM Boost - AI-Readiness SEO Platform",
+    description:
+      "Score your pages across 37 AI-readiness factors. Get actionable fixes for ChatGPT, Claude, Perplexity, and Gemini visibility.",
+    url: "https://llmrank.app",
+  },
 };
 
 const STEPS = [

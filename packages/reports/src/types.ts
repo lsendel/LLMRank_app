@@ -3,6 +3,8 @@ import type { ReportConfig } from "@llm-boost/shared";
 export type ReportType = "summary" | "detailed";
 export type ReportFormat = "pdf" | "docx";
 
+export type ReportPillar = "technical" | "content" | "ai_readiness";
+
 export interface ReportData {
   project: {
     name: string;
@@ -45,6 +47,9 @@ export interface ReportData {
   contentHealth: ReportContentHealth | null;
   platformOpportunities: ReportPlatformOpportunity[] | null;
   integrations: ReportIntegrationData | null;
+  readinessCoverage: ReportCoverageMetric[];
+  actionPlan: ReportActionPlanTier[];
+  scoreDeltas: ReportScoreDeltas;
   config: ReportConfig;
   isPublic?: boolean;
 }
@@ -58,6 +63,11 @@ export interface ReportIssue {
   affectedPages: number;
   scoreImpact: number;
   roi: ReportROI | null;
+  pillar: ReportPillar;
+  owner: string;
+  effort: "low" | "medium" | "high";
+  docsUrl?: string;
+  label?: string;
 }
 
 export interface ReportROI {
@@ -69,12 +79,17 @@ export interface ReportROI {
 
 export interface ReportQuickWin {
   code: string;
+  category: string;
+  severity: string;
   message: string;
   recommendation: string;
   effort: "low" | "medium" | "high";
   affectedPages: number;
   scoreImpact: number;
   roi: ReportROI;
+  pillar: ReportPillar;
+  owner: string;
+  docsUrl?: string;
 }
 
 export interface ReportPageScore {
@@ -108,6 +123,30 @@ export interface ReportVisibility {
     avgPosition: number | null;
     checksCount: number;
   }[];
+}
+
+export interface ReportScoreDeltas {
+  overall: number;
+  technical: number;
+  content: number;
+  aiReadiness: number;
+  performance: number;
+}
+
+export interface ReportCoverageMetric {
+  code: string;
+  label: string;
+  description: string;
+  pillar: ReportPillar;
+  coveragePercent: number;
+  affectedPages: number;
+  totalPages: number;
+}
+
+export interface ReportActionPlanTier {
+  title: string;
+  description: string;
+  items: ReportIssue[];
 }
 
 export interface ReportCompetitor {

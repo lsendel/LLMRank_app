@@ -380,6 +380,10 @@ export interface QuickWin {
   implementationSnippet?: string;
   priority: number;
   affectedPages: number;
+  owner?: string;
+  pillar?: string;
+  docsUrl?: string;
+  effort?: "low" | "medium" | "high";
 }
 
 export interface PublicScanResult {
@@ -414,6 +418,7 @@ export interface SharedReport {
   completedAt: string | null;
   pagesScored: number;
   summary: string | null;
+  summaryData?: unknown;
   project: {
     name: string;
     domain: string;
@@ -442,6 +447,8 @@ export interface SharedReport {
   }[];
   issueCount: number;
   quickWins: QuickWin[];
+  readinessCoverage: DashboardCoverageMetric[];
+  scoreDeltas: DashboardScoreDeltas;
 }
 
 export interface PlatformReadinessResult {
@@ -632,6 +639,42 @@ export interface DashboardStats {
   avgScore: number;
   creditsRemaining: number;
   creditsTotal: number;
+  latestInsights: DashboardInsightSummary | null;
+}
+
+export interface DashboardInsightSummary {
+  quickWins: DashboardQuickWin[];
+  coverage: DashboardCoverageMetric[];
+  scoreDeltas: DashboardScoreDeltas;
+}
+
+export interface DashboardScoreDeltas {
+  overall: number;
+  technical: number;
+  content: number;
+  aiReadiness: number;
+  performance: number;
+}
+
+export interface DashboardQuickWin {
+  code: string;
+  message: string;
+  recommendation: string;
+  pillar: string;
+  owner: string;
+  effort: string;
+  scoreImpact: number;
+  affectedPages: number;
+}
+
+export interface DashboardCoverageMetric {
+  code: string;
+  label: string;
+  description: string;
+  pillar: string;
+  coveragePercent: number;
+  affectedPages: number;
+  totalPages: number;
 }
 
 export interface DashboardActivity extends CrawlJob {

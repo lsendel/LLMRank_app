@@ -3,15 +3,15 @@ import type { AppEnv } from "../index";
 import { parseHtml } from "../lib/html-parser";
 import { analyzeSitemap } from "../lib/sitemap";
 import { scorePage, type PageData } from "@llm-boost/scoring";
-import { getQuickWins, aggregatePageScores } from "@llm-boost/shared";
+import { aggregateReportData, fetchReportData } from "@llm-boost/reports";
+import type { GenerateReportJob } from "@llm-boost/reports";
+import { getQuickWins } from "@llm-boost/shared";
 import {
   crawlQueries,
-  scoreQueries,
   projectQueries,
   leadQueries,
   scanResultQueries,
 } from "@llm-boost/db";
-import { toAggregateInput } from "../services/score-helpers";
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -257,14 +257,20 @@ publicRoutes.get("/reports/:token", async (c) => {
     );
   }
 
-  // Fetch scores and issues for this crawl
-  const [pageScores, issues] = await Promise.all([
-    scoreQueries(db).listByJobWithPages(crawlJob.id),
-    scoreQueries(db).getIssuesByJob(crawlJob.id),
-  ]);
+  const job: GenerateReportJob = {
+    reportId: crawlJob.id,
+    projectId: project.id,
+    crawlJobId: crawlJob.id,
+    userId: project.userId,
+    type: "detailed",
+    format: "pdf",
+    config: {} as any,
+    databaseUrl: "",
+  };
 
-  const agg = aggregatePageScores(toAggregateInput(pageScores));
-  const quickWins = getQuickWins(issues);
+  const raw = await fetchReportData(db, job);
+  const aggregated = aggregateReportData(raw, { type: "detailed" });
+  const quickWins = aggregated.quickWins.slice(0, 5);
 
   c.header("Cache-Control", "public, max-age=3600");
   return c.json({
@@ -281,24 +287,40 @@ publicRoutes.get("/reports/:token", async (c) => {
         branding: (project.branding as any) ?? null,
       },
       scores: {
-        overall: agg.overallScore,
-        technical: agg.scores.technical,
-        content: agg.scores.content,
-        aiReadiness: agg.scores.aiReadiness,
-        performance: agg.scores.performance,
-        letterGrade: agg.letterGrade,
+        overall: aggregated.scores.overall,
+        technical: aggregated.scores.technical,
+        content: aggregated.scores.content,
+        aiReadiness: aggregated.scores.aiReadiness,
+        performance: aggregated.scores.performance,
+        letterGrade: aggregated.scores.letterGrade,
       },
-      pages: pageScores.map((s) => ({
-        url: s.page?.url ?? "unknown",
-        title: s.page?.title ?? null,
-        overallScore: s.overallScore,
-        technicalScore: s.technicalScore,
-        contentScore: s.contentScore,
-        aiReadinessScore: s.aiReadinessScore,
-        issueCount: s.issueCount,
+      pages: aggregated.pages.map((p) => ({
+        url: p.url,
+        title: p.title,
+        overallScore: p.overall,
+        technicalScore: p.technical,
+        contentScore: p.content,
+        aiReadinessScore: p.aiReadiness,
+        issueCount: p.issueCount,
       })),
-      issueCount: issues.length,
-      quickWins,
+      issueCount: aggregated.issues.total,
+      readinessCoverage: aggregated.readinessCoverage,
+      scoreDeltas: aggregated.scoreDeltas,
+      quickWins: quickWins.map((win) => ({
+        code: win.code,
+        category: win.category,
+        severity: win.severity,
+        scoreImpact: win.scoreImpact,
+        effortLevel: win.effort,
+        effort: win.effort,
+        message: win.message,
+        recommendation: win.recommendation,
+        priority: win.scoreImpact,
+        affectedPages: win.affectedPages,
+        owner: win.owner,
+        pillar: win.pillar,
+        docsUrl: win.docsUrl,
+      })),
     },
   });
 });

@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn, gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
+import { Progress } from "@/components/ui/progress";
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -50,6 +51,20 @@ function getStatusBadgeVariant(
   if (status === "crawling" || status === "scoring") return "warning";
   return "secondary";
 }
+
+function formatDashboardDelta(delta: number) {
+  if (delta > 0)
+    return { label: `+${delta} vs last crawl`, className: "text-emerald-600" };
+  if (delta < 0)
+    return { label: `${delta} vs last crawl`, className: "text-red-600" };
+  return { label: "No change", className: "text-muted-foreground" };
+}
+
+const pillarLabels: Record<string, string> = {
+  technical: "Technical",
+  content: "Content",
+  ai_readiness: "AI Readiness",
+};
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -84,6 +99,8 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const insights = stats.latestInsights;
 
   return (
     <div className="space-y-8">
@@ -185,6 +202,115 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {insights && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>Score Momentum</CardTitle>
+              <CardDescription>
+                Delta against your previous completed crawl
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { label: "Overall", value: insights.scoreDeltas.overall },
+                { label: "Technical", value: insights.scoreDeltas.technical },
+                { label: "Content", value: insights.scoreDeltas.content },
+                {
+                  label: "AI Readiness",
+                  value: insights.scoreDeltas.aiReadiness,
+                },
+                {
+                  label: "Performance",
+                  value: insights.scoreDeltas.performance,
+                },
+              ].map((row) => {
+                const meta = formatDashboardDelta(row.value);
+                return (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between border-b border-border/50 pb-2 last:border-none"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{row.label}</p>
+                      <p className={cn("text-xs", meta.className)}>
+                        {meta.label}
+                      </p>
+                    </div>
+                    <p className={cn("text-lg font-semibold", meta.className)}>
+                      {row.value > 0 ? `+${row.value}` : row.value}
+                    </p>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Quick Wins</CardTitle>
+              <CardDescription>
+                High-impact fixes pulled from your latest crawl
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {insights.quickWins.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No outstanding issues detected. Great job!
+                </p>
+              )}
+              {insights.quickWins.map((win) => (
+                <div
+                  key={win.code}
+                  className="rounded-md border border-border/60 p-3"
+                >
+                  <p className="text-sm font-medium">{win.message}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {win.recommendation}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span>Owner: {win.owner}</span>
+                    <span>Effort: {win.effort}</span>
+                    <span>+{win.scoreImpact} pts</span>
+                    <span>{win.affectedPages} pages</span>
+                    <span>{pillarLabels[win.pillar] ?? win.pillar}</span>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Readiness Coverage</CardTitle>
+              <CardDescription>
+                Share of pages meeting critical technical controls
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {insights.coverage.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Coverage metrics will appear after your next crawl.
+                </p>
+              )}
+              {insights.coverage.map((metric) => (
+                <div key={metric.code} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm font-medium">
+                    <span>{metric.label}</span>
+                    <span>{metric.coveragePercent}%</span>
+                  </div>
+                  <Progress value={metric.coveragePercent} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {metric.totalPages - metric.affectedPages}/
+                    {metric.totalPages} pages compliant
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quick actions (mobile) */}
       <div className="flex gap-2 sm:hidden">
