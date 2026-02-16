@@ -221,8 +221,8 @@ publicRoutes.post("/scan", async (c) => {
   // Persist scan result to DB
   const db = c.get("db");
   const ipBytes = new TextEncoder().encode(ip);
-  const ipHashBuffer = await crypto.subtle.digest("SHA-256", ipBytes);
-  const ipHash = Array.from(new Uint8Array(ipHashBuffer))
+  const ipHashBuf = await crypto.subtle.digest("SHA-256", ipBytes);
+  const ipHash = Array.from(new Uint8Array(ipHashBuf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 

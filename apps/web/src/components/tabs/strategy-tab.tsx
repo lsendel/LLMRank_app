@@ -51,7 +51,6 @@ export function StrategyTab({ projectId }: { projectId: string }) {
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to generate personas";
-      setError(msg);
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setGenerating(false);

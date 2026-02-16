@@ -1,9 +1,12 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { projectQueries, crawlQueries } from "@llm-boost/db";
+import { projectQueries, crawlQueries, crawlJobs } from "@llm-boost/db";
+import { type InferSelectModel } from "drizzle-orm";
 import { createRegressionService } from "../services/regression-service";
 import { createCrawlRepository } from "../repositories";
+
+type CrawlJob = InferSelectModel<typeof crawlJobs>;
 
 export const trendRoutes = new Hono<AppEnv>();
 trendRoutes.use("*", authMiddleware);
@@ -30,7 +33,9 @@ trendRoutes.get("/:projectId", async (c) => {
   since.setDate(since.getDate() - days);
 
   // Get completed crawls in the period
-  const crawls = await crawlQueries(db).listByProject(projectId);
+  const crawls = (await crawlQueries(db).listByProject(
+    projectId,
+  )) as CrawlJob[];
   const completedCrawls = crawls
     .filter((cr) => cr.status === "complete" && cr.completedAt)
     .filter((cr) => new Date(cr.completedAt!).getTime() >= since.getTime())
@@ -54,12 +59,13 @@ trendRoutes.get("/:projectId", async (c) => {
   for (const crawl of completedCrawls) {
     if (crawl.summaryData) {
       const sd = crawl.summaryData as Record<string, unknown>;
-      const num = (key1: string, key2: string): number =>
-        (typeof sd[key1] === "number"
-          ? sd[key1]
-          : typeof sd[key2] === "number"
-            ? sd[key2]
-            : 0) as number;
+      const num = (key1: string, key2: string): number => {
+        const val1 = sd[key1];
+        const val2 = sd[key2];
+        if (typeof val1 === "number") return val1;
+        if (typeof val2 === "number") return val2;
+        return 0;
+      };
       trendPoints.push({
         crawlId: crawl.id,
         date: crawl.completedAt,

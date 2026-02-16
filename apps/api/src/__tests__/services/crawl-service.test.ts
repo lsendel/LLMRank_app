@@ -111,6 +111,7 @@ describe("CrawlService", () => {
 
     it("throws when crawl credits are exhausted", async () => {
       users.getById.mockResolvedValue(buildUser({ crawlCreditsRemaining: 0 }));
+      users.decrementCrawlCredits.mockResolvedValue(false);
       const service = createCrawlService({ crawls, projects, users, scores });
 
       await expect(
@@ -581,6 +582,7 @@ describe("CrawlService", () => {
           user: buildUser({ crawlCreditsRemaining: 0 }),
         },
       ]);
+      users.decrementCrawlCredits.mockResolvedValue(false);
       const service = createCrawlService({ crawls, projects, users, scores });
 
       await service.dispatchScheduledJobs(env);

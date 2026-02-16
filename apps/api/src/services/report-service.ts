@@ -9,7 +9,6 @@ import type {
   UserRepository,
   CrawlRepository,
 } from "../repositories";
-import type { Database } from "@llm-boost/db";
 
 interface Deps {
   reports: ReportRepository;
@@ -203,42 +202,6 @@ export function createReportService(deps: Deps) {
       }
 
       await deps.reports.delete(reportId);
-    },
-
-    /**
-     * Auto-generate reports for projects with active report schedules.
-     * Called after crawl completion.
-     */
-    async autoGenerate(db: Database, crawlJobId: string, env: DispatchEnv) {
-      const { reportScheduleQueries } = await import("@llm-boost/db");
-      const crawl = await deps.crawls.getById(crawlJobId);
-      if (!crawl || crawl.status !== "complete") return;
-
-      const project = await deps.projects.getById(crawl.projectId);
-      if (!project) return;
-
-      const schedules = await reportScheduleQueries(db).getActiveByProject(
-        crawl.projectId,
-      );
-      if (schedules.length === 0) return;
-
-      for (const schedule of schedules) {
-        try {
-          await this.generate(
-            project.userId,
-            {
-              projectId: crawl.projectId,
-              crawlJobId,
-              type: schedule.type as "summary" | "detailed",
-              format: schedule.format as "pdf" | "docx",
-            },
-            env,
-          );
-          // TODO: Queue email to schedule.recipientEmail via notification service
-        } catch {
-          // Best-effort — don't fail the crawl completion flow
-        }
-      }
     },
   };
 }
