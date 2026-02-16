@@ -4,6 +4,8 @@ import { logger } from "hono/logger";
 import { createDb, type Database, users, userQueries } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { requestIdMiddleware } from "./middleware/request-id";
+import { cacheMiddleware } from "./middleware/cache";
+import { compress } from "hono/compress";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
 import { createAuth } from "./lib/auth";
@@ -29,6 +31,7 @@ import { reportRoutes } from "./routes/reports";
 import { reportUploadRoutes } from "./routes/report-upload";
 import { fixRoutes } from "./routes/fixes";
 import { competitorRoutes } from "./routes/competitors";
+import { trendRoutes } from "./routes/trends";
 import { notificationChannelRoutes } from "./routes/notification-channels";
 import { visibilityScheduleRoutes } from "./routes/visibility-schedules";
 import { tokenRoutes } from "./routes/api-tokens";
@@ -112,6 +115,19 @@ app.use(
   }),
 );
 
+// Compression
+app.use("*", compress());
+
+// Cache public routes (5 minutes cache, 1 hour stale-while-revalidate)
+app.use(
+  "/api/public/*",
+  cacheMiddleware({
+    public: true,
+    maxAge: 300,
+    staleWhileRevalidate: 3600,
+  }),
+);
+
 // Sentry + Database + logger middleware
 app.use("*", async (c, next) => {
   initSentry(c.env);
@@ -159,6 +175,7 @@ app.route("/api/crawls", insightsRoutes);
 app.route("/api/reports", reportRoutes);
 app.route("/api/fixes", fixRoutes);
 app.route("/api/competitors", competitorRoutes);
+app.route("/api/trends", trendRoutes);
 app.route("/internal", reportUploadRoutes);
 app.route("/api/notification-channels", notificationChannelRoutes);
 app.route("/api/tokens", tokenRoutes);
