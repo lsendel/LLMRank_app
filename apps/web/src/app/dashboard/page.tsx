@@ -22,6 +22,8 @@ import {
   Eye,
   Sparkles,
   X,
+  Compass,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -156,6 +158,65 @@ export default function DashboardPage() {
 
       {/* What to Do Next */}
       <NextStepsCard stats={stats} activity={activity ?? []} />
+
+      {/* Quick Tools */}
+      {stats.totalProjects > 0 && activity && activity.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="hover:bg-accent/5 transition-colors">
+            <Link
+              href={`/dashboard/projects/${activity[0].projectId}?tab=strategy`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Compass className="h-4 w-4 text-primary" />
+                  Strategy & Personas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Define your target audience and generate content briefs.
+                </p>
+              </CardContent>
+            </Link>
+          </Card>
+
+          <Card className="hover:bg-accent/5 transition-colors">
+            <Link
+              href={`/dashboard/projects/${activity[0].projectId}?tab=competitors`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-primary" />
+                  Competitor Tracking
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Monitor how you stack up against your top 5 competitors.
+                </p>
+              </CardContent>
+            </Link>
+          </Card>
+
+          <Card className="hover:bg-accent/5 transition-colors">
+            <Link
+              href={`/dashboard/projects/${activity[0].projectId}?tab=visibility`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-primary" />
+                  AI Visibility
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Check if your brand is mentioned by major AI models.
+                </p>
+              </CardContent>
+            </Link>
+          </Card>
+        </div>
+      )}
 
       {/* AI Features onboarding banner — shown for new users with 0 crawls */}
       {stats.totalCrawls === 0 && !bannerDismissed && (

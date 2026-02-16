@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Play,
@@ -76,6 +76,18 @@ const CompetitorsTab = dynamic(
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const currentTab = searchParams.get("tab") ?? "overview";
+
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.set("tab", value);
+      router.push(`/dashboard/projects/${params.id}?${newParams.toString()}`);
+    },
+    [router, searchParams, params.id],
+  );
 
   const { withAuth } = useApi();
   const [startingCrawl, setStartingCrawl] = useState(false);
@@ -175,7 +187,7 @@ export default function ProjectPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview">
+      <Tabs value={currentTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="overview">
             <BarChart3 className="mr-1.5 h-4 w-4" />

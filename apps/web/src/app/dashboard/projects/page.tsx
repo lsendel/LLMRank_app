@@ -2,7 +2,13 @@
 
 import { useCallback } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Compass, Trophy, Eye, Bug } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,6 +121,82 @@ export default function ProjectsPage() {
                           {new Date(project.createdAt).toLocaleDateString()}
                         </span>
                       )}
+                    </div>
+
+                    {/* Quick Access Links */}
+                    <div className="mt-4 flex items-center justify-between border-t pt-3">
+                      <div className="flex items-center gap-1">
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link
+                                href={`/dashboard/projects/${project.id}?tab=strategy`}
+                                className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Compass className="h-4 w-4" />
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent>Strategy</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link
+                                href={`/dashboard/projects/${project.id}?tab=competitors`}
+                                className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Trophy className="h-4 w-4" />
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent>Competitors</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link
+                                href={`/dashboard/projects/${project.id}?tab=visibility`}
+                                className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent>Visibility</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link
+                                href={`/dashboard/projects/${project.id}?tab=issues`}
+                                className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Bug className="h-4 w-4" />
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent>Issues</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        asChild
+                      >
+                        <Link href={`/dashboard/projects/${project.id}`}>
+                          View Project
+                        </Link>
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
