@@ -13,7 +13,6 @@ interface PdfDownloadButtonProps {
     companyName?: string;
     primaryColor?: string;
   };
-  crawlId: string;
   disabled?: boolean;
 }
 
@@ -21,7 +20,6 @@ export function PdfDownloadButton({
   crawl,
   quickWins,
   branding,
-  crawlId,
   disabled,
 }: PdfDownloadButtonProps) {
   const [generating, setGenerating] = useState(false);
@@ -44,20 +42,20 @@ export function PdfDownloadButton({
           primaryColor={branding.primaryColor}
         />,
       ).toBlob();
-      // Ensure the blob has the correct MIME type for PDF
-      const blob =
-        rawBlob.type === "application/pdf"
-          ? rawBlob
-          : new Blob([rawBlob], { type: "application/pdf" });
+      const blob = new Blob([rawBlob], { type: "application/pdf" });
+      const now = new Date();
+      const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `llm-boost-report-${crawlId}.pdf`;
+      a.download = `llm-boost-report-${stamp}.pdf`;
+      a.style.display = "none";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      // Delay revoke so the browser has time to start the download
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 5_000);
     } catch (err) {
       console.error("PDF generation failed:", err);
       setError(true);

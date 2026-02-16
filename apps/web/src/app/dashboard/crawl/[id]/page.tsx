@@ -140,7 +140,6 @@ export default function CrawlDetailPage() {
             crawl={crawl}
             quickWins={quickWins || []}
             branding={branding}
-            crawlId={params.id}
             disabled={quickWinsLoading}
           />
           <Button
