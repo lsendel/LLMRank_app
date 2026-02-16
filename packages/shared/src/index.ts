@@ -18,6 +18,8 @@ export { Plan } from "./domain/plan";
 export { Score } from "./domain/score";
 export { CrawlStatus } from "./domain/crawl-status";
 export * from "./domain/branded-ids";
+export { ProjectAggregate } from "./domain/project-aggregate";
+export { CrawlJobAggregate } from "./domain/crawl-aggregate";
 export * from "./domain/llms-txt";
 export * from "./domain/permissions";
 export * from "./schemas/report";
