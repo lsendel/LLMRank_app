@@ -32,7 +32,14 @@ adminRoutes.get("/metrics", async (c) => {
 
   try {
     const metrics = await monitor.getSystemMetrics();
-    return c.json({ data: metrics });
+
+    // Include crawler health from KV
+    const crawlerHealthRaw = await c.env.KV.get("crawler:health:latest");
+    const crawlerHealth = crawlerHealthRaw
+      ? JSON.parse(crawlerHealthRaw)
+      : null;
+
+    return c.json({ data: { ...metrics, crawlerHealth } });
   } catch (error) {
     return handleServiceError(c, error);
   }
