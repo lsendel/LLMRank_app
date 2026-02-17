@@ -1,6 +1,8 @@
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { reports } from "../schema";
+import { reports, reportStatusEnum } from "../schema";
+
+type ReportStatus = (typeof reportStatusEnum.enumValues)[number];
 
 export function reportQueries(db: Database) {
   return {
@@ -39,12 +41,12 @@ export function reportQueries(db: Database) {
 
     async updateStatus(
       id: string,
-      status: string,
+      status: ReportStatus,
       extra?: Partial<typeof reports.$inferInsert>,
     ) {
       await db
         .update(reports)
-        .set({ status: status as any, ...extra })
+        .set({ status, ...extra })
         .where(eq(reports.id, id));
     },
 

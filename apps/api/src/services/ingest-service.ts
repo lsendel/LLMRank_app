@@ -2,6 +2,7 @@ import {
   CrawlResultBatchSchema,
   CrawlStatus,
   type CrawlPageResult,
+  type CrawlJobPayload,
 } from "@llm-boost/shared";
 import { detectContentType, type ScoringWeights } from "@llm-boost/scoring";
 import { scoringProfileQueries } from "@llm-boost/db";
@@ -17,7 +18,10 @@ import { ServiceError } from "./errors";
 import { rescoreLLM } from "./llm-scoring";
 import { createPageScoringService } from "./page-scoring-service";
 import { createPostProcessingService } from "./post-processing-service";
-import { createInsightCaptureService } from "./insight-capture-service";
+import {
+  createInsightCaptureService,
+  type CaptureArgs,
+} from "./insight-capture-service";
 import {
   createCrawlInsightRepository,
   createPageInsightRepository,
@@ -44,7 +48,7 @@ export interface BatchEnvironment {
   resendApiKey?: string;
   appBaseUrl?: string;
   seenUrls?: KVNamespace;
-  queue?: Queue<any>;
+  queue?: Queue<CrawlJobPayload>;
 }
 
 export function createIngestService(deps: IngestServiceDeps) {
@@ -181,9 +185,9 @@ export function createIngestService(deps: IngestServiceDeps) {
         await insightCaptureService.capture({
           crawlId: crawlJob.id,
           projectId: crawlJob.projectId,
-          scores: allScores as any,
-          issues: allIssues as any,
-          pages: allPages as any,
+          scores: allScores as CaptureArgs["scores"],
+          issues: allIssues as CaptureArgs["issues"],
+          pages: allPages as CaptureArgs["pages"],
         });
       }
 

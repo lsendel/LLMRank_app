@@ -212,6 +212,7 @@ export default function ProjectHistoryPage() {
                       {job.status === "complete" && (
                         <input
                           type="checkbox"
+                          aria-label="Select to compare"
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                           checked={comparisonIds?.includes(job.id) || false}
                           onChange={() => handleCompare(job.id)}

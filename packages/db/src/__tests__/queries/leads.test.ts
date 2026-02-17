@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { leadQueries } from "../../queries/leads";
+import type { Database } from "../../client";
 
 // ---------------------------------------------------------------------------
 // Mock DB builder – chainable drizzle-like object
@@ -24,7 +25,9 @@ function createMockDb() {
   chain.innerJoin = vi.fn().mockReturnValue(chain);
   chain.groupBy = vi.fn().mockReturnValue(chain);
 
-  chain.then = vi.fn().mockImplementation((resolve: any) => resolve([]));
+  chain.then = vi
+    .fn()
+    .mockImplementation((resolve: (val: unknown) => void) => resolve([]));
 
   const queryHandlers: Record<
     string,
@@ -45,7 +48,11 @@ function createMockDb() {
     },
   );
 
-  return { chain, queryHandlers, db: { ...chain, query: queryProxy } as any };
+  return {
+    chain,
+    queryHandlers,
+    db: { ...chain, query: queryProxy } as unknown as Database,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +128,9 @@ describe("leadQueries", () => {
       email: "test@example.com",
       source: "shared_report",
     };
-    mock.chain.then.mockImplementationOnce((resolve: any) => resolve([lead]));
+    mock.chain.then.mockImplementationOnce((resolve: (val: unknown) => void) =>
+      resolve([lead]),
+    );
 
     const result = await queries.getById("lead1");
 
@@ -132,7 +141,9 @@ describe("leadQueries", () => {
   });
 
   it("getById returns null when not found", async () => {
-    mock.chain.then.mockImplementationOnce((resolve: any) => resolve([]));
+    mock.chain.then.mockImplementationOnce((resolve: (val: unknown) => void) =>
+      resolve([]),
+    );
 
     const result = await queries.getById("nonexistent");
 
@@ -146,7 +157,9 @@ describe("leadQueries", () => {
       email: "found@example.com",
       source: "shared_report",
     };
-    mock.chain.then.mockImplementationOnce((resolve: any) => resolve([lead]));
+    mock.chain.then.mockImplementationOnce((resolve: (val: unknown) => void) =>
+      resolve([lead]),
+    );
 
     const result = await queries.findByEmail("found@example.com");
 
@@ -158,7 +171,9 @@ describe("leadQueries", () => {
   });
 
   it("findByEmail returns null when not found", async () => {
-    mock.chain.then.mockImplementationOnce((resolve: any) => resolve([]));
+    mock.chain.then.mockImplementationOnce((resolve: (val: unknown) => void) =>
+      resolve([]),
+    );
 
     const result = await queries.findByEmail("missing@example.com");
 

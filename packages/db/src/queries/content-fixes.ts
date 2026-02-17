@@ -1,6 +1,8 @@
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import type { Database } from "../client";
-import { contentFixes } from "../schema";
+import { contentFixes, fixStatusEnum } from "../schema";
+
+type FixStatus = (typeof fixStatusEnum.enumValues)[number];
 
 export function contentFixQueries(db: Database) {
   return {
@@ -30,10 +32,10 @@ export function contentFixQueries(db: Database) {
         );
       return row?.count ?? 0;
     },
-    async updateStatus(id: string, status: string) {
+    async updateStatus(id: string, status: FixStatus) {
       const [updated] = await db
         .update(contentFixes)
-        .set({ status: status as any })
+        .set({ status })
         .where(eq(contentFixes.id, id))
         .returning();
       return updated;

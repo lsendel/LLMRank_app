@@ -41,7 +41,7 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
     try {
       const data = await api.crawls.exportData(crawlJobId, format);
       if (format === "csv") {
-        const blob = new Blob([data], { type: "text/csv" });
+        const blob = new Blob([data as string], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;

@@ -1191,7 +1191,10 @@ export const api = {
       return res.data;
     },
 
-    async exportData(crawlId: string, format: "csv" | "json"): Promise<any> {
+    async exportData(
+      crawlId: string,
+      format: "csv" | "json",
+    ): Promise<string | unknown[]> {
       if (format === "csv") {
         // For CSV, we need the raw response
         const res = await fetch(
@@ -1205,7 +1208,7 @@ export const api = {
           throw new ApiError(res.status, "EXPORT_FAILED", "Export failed");
         return res.text();
       }
-      const res = await apiClient.get<ApiEnvelope<any[]>>(
+      const res = await apiClient.get<ApiEnvelope<unknown[]>>(
         `/api/crawls/${crawlId}/export?format=json`,
       );
       return res.data;
@@ -1353,7 +1356,13 @@ export const api = {
       errorsLast24h: number;
       systemTime: string;
     }> {
-      const res = await apiClient.get<ApiEnvelope<any>>("/api/admin/metrics");
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          activeCrawls: number;
+          errorsLast24h: number;
+          systemTime: string;
+        }>
+      >("/api/admin/metrics");
       return res.data;
     },
 
@@ -1565,13 +1574,17 @@ export const api = {
     },
 
     async getTopicMap(projectId: string): Promise<{
-      nodes: any[];
-      edges: any[];
-      clusters: any[];
+      nodes: unknown[];
+      edges: unknown[];
+      clusters: unknown[];
     }> {
-      const res = await apiClient.get<ApiEnvelope<any>>(
-        `/api/strategy/${projectId}/topic-map`,
-      );
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          nodes: unknown[];
+          edges: unknown[];
+          clusters: unknown[];
+        }>
+      >(`/api/strategy/${projectId}/topic-map`);
       return res.data;
     },
 
@@ -1699,7 +1712,7 @@ export const api = {
 
     async getScanResult(id: string, token?: string) {
       const params = token ? `?token=${token}` : "";
-      const res = await apiClient.get<ApiEnvelope<any>>(
+      const res = await apiClient.get<ApiEnvelope<unknown>>(
         `/api/public/scan-results/${id}${params}`,
       );
       return res.data;
@@ -2067,7 +2080,7 @@ export const api = {
       pageId?: string;
       issueCode: string;
     }) {
-      const res = await apiClient.post<ApiEnvelope<any>>(
+      const res = await apiClient.post<ApiEnvelope<unknown>>(
         "/api/fixes/generate",
         data,
       );
@@ -2080,7 +2093,7 @@ export const api = {
       );
     },
     async list(projectId: string) {
-      const res = await apiClient.get<ApiEnvelope<any[]>>(
+      const res = await apiClient.get<ApiEnvelope<unknown[]>>(
         `/api/fixes?projectId=${projectId}`,
       );
       return res.data;
@@ -2110,10 +2123,11 @@ export const api = {
   // ── Trends ─────────────────────────────────────────────────────
   trends: {
     async get(projectId: string, period = "90d") {
-      const res = await apiClient.get<ApiEnvelope<any>>(
-        `/api/trends/${projectId}?period=${period}`,
-      );
+      const res = await apiClient.get<
+        ApiEnvelope<{ points: unknown[]; deltas: unknown }>
+      >(`/api/trends/${projectId}?period=${period}`);
       const points = res.data?.points ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return points.map((p: any) => ({
         date: p.date,
         overall: p.overall ?? 0,
@@ -2163,10 +2177,10 @@ export const api = {
         currentGrade: string;
       };
     }> {
-      const res = await apiClient.get<ApiEnvelope<any>>(
+      const res = await apiClient.get<ApiEnvelope<unknown>>(
         `/api/action-plan/${projectId}`,
       );
-      return res.data;
+      return res.data as any; // Cast to expected return type for now
     },
 
     async generate(projectId: string): Promise<void> {
@@ -2207,10 +2221,10 @@ export const api = {
       completed: number;
       verified: number;
     }> {
-      const res = await apiClient.get<ApiEnvelope<any>>(
+      const res = await apiClient.get<ApiEnvelope<unknown>>(
         `/api/action-plan/${projectId}/progress`,
       );
-      return res.data;
+      return res.data as any;
     },
   },
 
@@ -2289,15 +2303,15 @@ export const api = {
     async invite(
       teamId: string,
       data: { email: string; role?: string },
-    ): Promise<any> {
-      const res = await apiClient.post<ApiEnvelope<any>>(
+    ): Promise<unknown> {
+      const res = await apiClient.post<ApiEnvelope<unknown>>(
         `/api/teams/${teamId}/invite`,
         data,
       );
       return res.data;
     },
-    async acceptInvite(token: string): Promise<any> {
-      const res = await apiClient.post<ApiEnvelope<any>>(
+    async acceptInvite(token: string): Promise<unknown> {
+      const res = await apiClient.post<ApiEnvelope<unknown>>(
         "/api/teams/accept-invite",
         { token },
       );
@@ -2307,8 +2321,8 @@ export const api = {
       teamId: string,
       memberId: string,
       role: string,
-    ): Promise<any> {
-      const res = await apiClient.patch<ApiEnvelope<any>>(
+    ): Promise<unknown> {
+      const res = await apiClient.patch<ApiEnvelope<unknown>>(
         `/api/teams/${teamId}/members/${memberId}`,
         { role },
       );

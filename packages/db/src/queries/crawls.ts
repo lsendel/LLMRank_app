@@ -1,4 +1,11 @@
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import {
+  eq,
+  desc,
+  and,
+  sql,
+  inArray,
+  type InferSelectModel,
+} from "drizzle-orm";
 import type { Database } from "../client";
 import {
   crawlJobs,
@@ -9,6 +16,7 @@ import {
 } from "../schema";
 
 type CrawlStatus = (typeof crawlStatusEnum.enumValues)[number];
+type PageScore = InferSelectModel<typeof pageScores>;
 
 export function crawlQueries(db: Database) {
   return {
@@ -99,13 +107,13 @@ export function crawlQueries(db: Database) {
       const pageMap1 = new Map(pages1.map((p) => [p.id, p.url]));
       const pageMap2 = new Map(pages2.map((p) => [p.id, p.url]));
 
-      const scoresByUrl1 = new Map<string, any>();
+      const scoresByUrl1 = new Map<string, PageScore>();
       for (const s of scores1) {
         const url = pageMap1.get(s.pageId);
         if (url) scoresByUrl1.set(url, s);
       }
 
-      const scoresByUrl2 = new Map<string, any>();
+      const scoresByUrl2 = new Map<string, PageScore>();
       for (const s of scores2) {
         const url = pageMap2.get(s.pageId);
         if (url) scoresByUrl2.set(url, s);

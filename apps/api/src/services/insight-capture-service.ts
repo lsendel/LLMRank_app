@@ -4,7 +4,7 @@ import type {
   PageInsightRepository,
 } from "../repositories";
 
-interface CaptureArgs {
+export interface CaptureArgs {
   crawlId: string;
   projectId: string;
   scores: Array<{
