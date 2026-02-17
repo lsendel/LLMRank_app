@@ -122,24 +122,26 @@ export default function PrivacyPage() {
 
           <h2>4. Data Storage and Security</h2>
           <p>
-            Application data is stored in Neon PostgreSQL (encrypted at rest,
-            TLS in transit). Crawled HTML is stored in Cloudflare R2 (encrypted
-            at rest). All API communication uses HTTPS. Internal service
-            communication is HMAC-SHA256 authenticated.
+            We store your data in Neon PostgreSQL, which encrypts it at rest and
+            uses TLS for all connections. Crawled HTML goes to Cloudflare R2,
+            also encrypted at rest. All API calls use HTTPS. Our services talk
+            to each other using HMAC-SHA256 signed messages for extra security.
           </p>
 
           <h2>5. Data Retention</h2>
           <ul>
-            <li>Active accounts: data retained while account is active.</li>
             <li>
-              Crawl data: retained for the history window of your plan (30 days
-              to 2 years).
+              Active accounts: we keep your data while your account is open.
             </li>
             <li>
-              Deleted accounts: all data permanently removed within 30 days.
+              Crawl data: stored for your plan&apos;s history window (30 days to
+              2 years).
             </li>
             <li>
-              Billing records: retained for 7 years per financial regulations.
+              Deleted accounts: we permanently remove all data within 30 days.
+            </li>
+            <li>
+              Billing records: kept for 7 years as required by financial rules.
             </li>
           </ul>
 
@@ -154,32 +156,42 @@ export default function PrivacyPage() {
 
           <h2>7. Cookies</h2>
           <p>
-            We use essential session cookies for authentication (via Clerk). We
-            do not use advertising or tracking cookies.
+            We only use cookies that keep you logged in (via Clerk). We do not
+            use advertising or tracking cookies.
           </p>
 
           <h2>8. Children</h2>
           <p>
-            The Service is not intended for children under 16. We do not
-            knowingly collect data from children.
+            This Service is not for anyone under 16. We do not knowingly collect
+            data from children.
           </p>
 
           <h2>9. Changes to This Policy</h2>
           <p>
-            We may update this Privacy Policy. Material changes will be
-            communicated via email. The &quot;Last updated&quot; date at the top
-            will be revised accordingly.
+            We may update this policy from time to time. We will email you about
+            major changes. The &quot;Last updated&quot; date at the top shows
+            when we last revised this page.
           </p>
 
           <h2>10. Contact</h2>
           <p>
-            Data protection questions? Contact us at{" "}
+            Have questions about your data? Email us at{" "}
             <a
               href="mailto:privacy@llmboost.app"
               className="text-primary underline"
             >
               privacy@llmboost.app
             </a>
+            .
+          </p>
+          <p className="mt-4">
+            See also our{" "}
+            <Link
+              href="/terms"
+              className="font-medium text-primary hover:underline"
+            >
+              terms of service
+            </Link>
             .
           </p>
         </div>
