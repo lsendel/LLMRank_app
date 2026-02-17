@@ -36,3 +36,7 @@ export {
   normalizeWeights,
   type ScoringWeights,
 } from "./profiles";
+export {
+  scoringResultToDimensions,
+  dimensionsToLegacyScores,
+} from "./dimension-adapter";

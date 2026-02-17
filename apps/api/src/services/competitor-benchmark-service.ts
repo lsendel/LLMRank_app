@@ -2,6 +2,7 @@ import { ServiceError } from "./errors";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import { parseHtml } from "../lib/html-parser";
 import { analyzeSitemap } from "../lib/sitemap";
+import { AI_BOT_USER_AGENT_NAMES } from "@llm-boost/shared";
 
 interface CompetitorBenchmarkDeps {
   competitorBenchmarks: {
@@ -82,13 +83,7 @@ export function createCompetitorBenchmarkService(
       const aiCrawlersBlocked: string[] = [];
       if (robotsResponse?.ok) {
         const robotsTxt = await robotsResponse.text();
-        const aiAgents = [
-          "GPTBot",
-          "ClaudeBot",
-          "PerplexityBot",
-          "Google-Extended",
-        ];
-        for (const agent of aiAgents) {
+        for (const agent of AI_BOT_USER_AGENT_NAMES) {
           const agentBlock = new RegExp(
             `User-agent:\\s*${agent}[\\s\\S]*?Disallow:\\s*/`,
             "i",

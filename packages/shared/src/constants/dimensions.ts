@@ -106,3 +106,52 @@ export const DIMENSIONS: Record<DimensionId, DimensionDef> = {
 // ---------------------------------------------------------------------------
 
 export type DimensionScores = Record<DimensionId, number>;
+
+// ---------------------------------------------------------------------------
+// AI Bot User Agents — canonical list for robots.txt checking
+// ---------------------------------------------------------------------------
+
+export interface AiBotUserAgent {
+  /** The user-agent string as it appears in robots.txt */
+  name: string;
+  /** The exact user-agent token to match against */
+  userAgent: string;
+  /** The organization operating this bot */
+  org: string;
+}
+
+/**
+ * All known AI bot user agents that we check in robots.txt.
+ *
+ * This is the single source of truth used by:
+ * - Public scan route (robots.txt AI crawler block detection)
+ * - Competitor benchmark service
+ * - Scoring engine (bot_access dimension)
+ */
+export const AI_BOT_USER_AGENTS: readonly AiBotUserAgent[] = [
+  // --- Major LLM platforms ---
+  { name: "GPTBot", userAgent: "GPTBot", org: "OpenAI" },
+  { name: "ChatGPT-User", userAgent: "ChatGPT-User", org: "OpenAI" },
+  { name: "ClaudeBot", userAgent: "ClaudeBot", org: "Anthropic" },
+  { name: "PerplexityBot", userAgent: "PerplexityBot", org: "Perplexity AI" },
+  { name: "Google-Extended", userAgent: "Google-Extended", org: "Google" },
+
+  // --- New: expanded AI bot coverage ---
+  { name: "Applebot-Extended", userAgent: "Applebot-Extended", org: "Apple" },
+  { name: "Bytespider", userAgent: "Bytespider", org: "ByteDance" },
+  { name: "Amazonbot", userAgent: "Amazonbot", org: "Amazon" },
+  {
+    name: "Meta-ExternalAgent",
+    userAgent: "Meta-ExternalAgent",
+    org: "Meta",
+  },
+  { name: "cohere-ai", userAgent: "cohere-ai", org: "Cohere" },
+  { name: "anthropic-ai", userAgent: "anthropic-ai", org: "Anthropic" },
+  { name: "GoogleOther", userAgent: "GoogleOther", org: "Google" },
+] as const;
+
+/**
+ * Convenience: just the user-agent strings (for simple array iteration).
+ */
+export const AI_BOT_USER_AGENT_NAMES: readonly string[] =
+  AI_BOT_USER_AGENTS.map((bot) => bot.userAgent);

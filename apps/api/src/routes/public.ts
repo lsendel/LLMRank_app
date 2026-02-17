@@ -5,7 +5,11 @@ import { analyzeSitemap } from "../lib/sitemap";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import { aggregateReportData, fetchReportData } from "@llm-boost/reports";
 import type { GenerateReportJob } from "@llm-boost/reports";
-import { getQuickWins, type ReportConfig } from "@llm-boost/shared";
+import {
+  getQuickWins,
+  AI_BOT_USER_AGENT_NAMES,
+  type ReportConfig,
+} from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";
 import {
   crawlQueries,
@@ -121,13 +125,7 @@ publicRoutes.post("/scan", async (c) => {
   const aiCrawlersBlocked: string[] = [];
   if (robotsResponse?.ok) {
     const robotsTxt = await robotsResponse.text();
-    const aiAgents = [
-      "GPTBot",
-      "ClaudeBot",
-      "PerplexityBot",
-      "Google-Extended",
-    ];
-    for (const agent of aiAgents) {
+    for (const agent of AI_BOT_USER_AGENT_NAMES) {
       const agentBlock = new RegExp(
         `User-agent:\\s*${agent}[\\s\\S]*?Disallow:\\s*/`,
         "i",
