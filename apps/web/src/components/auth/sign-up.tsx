@@ -49,8 +49,9 @@ export function SignUp() {
     <div className="flex flex-col gap-4 w-full">
       <h2 className="text-2xl font-bold text-center">Sign Up</h2>
       <div className="flex flex-col gap-2">
-        <label>Name</label>
+        <label htmlFor="name">Name</label>
         <input
+          id="name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -58,8 +59,9 @@ export function SignUp() {
         />
       </div>
       <div className="flex flex-col gap-2">
-        <label>Email</label>
+        <label htmlFor="email">Email</label>
         <input
+          id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -67,8 +69,9 @@ export function SignUp() {
         />
       </div>
       <div className="flex flex-col gap-2">
-        <label>Password</label>
+        <label htmlFor="password">Password</label>
         <input
+          id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

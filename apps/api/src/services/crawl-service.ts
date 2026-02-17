@@ -249,6 +249,51 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       return deps.crawls.listByProject(projectId);
     },
 
+    async listActiveForUser(
+      userId: string,
+      pagination: { page: number; limit: number },
+    ) {
+      const offset = (pagination.page - 1) * pagination.limit;
+      const jobs = await deps.crawls.listActiveByUser(
+        userId,
+        pagination.limit,
+        offset > 0 ? offset : 0,
+      );
+
+      // Return paginated response structure
+      return {
+        data: jobs,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: jobs.length, // Approximate / TODO: count query
+          totalPages: Math.ceil(jobs.length / pagination.limit) || 1, // Approximate
+        },
+      };
+    },
+
+    async listHistory(
+      userId: string,
+      pagination: { page: number; limit: number },
+    ) {
+      const offset = (pagination.page - 1) * pagination.limit;
+      const jobs = await deps.crawls.listByUser(
+        userId,
+        pagination.limit,
+        offset > 0 ? offset : 0,
+      );
+
+      return {
+        data: jobs,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: jobs.length, // Approximate / TODO: count query
+          totalPages: Math.ceil(jobs.length / pagination.limit) || 1, // Approximate
+        },
+      };
+    },
+
     async getQuickWins(userId: string, crawlId: string) {
       const crawlJob = await deps.crawls.getById(crawlId);
       if (!crawlJob) {

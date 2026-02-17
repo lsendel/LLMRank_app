@@ -59,6 +59,39 @@ export function OverviewTab({
 
   if (!hasScores) {
     const isFailed = latestCrawl?.status === "failed";
+
+    // If crawling/scoring, show progress
+    if (
+      latestCrawl?.status === "crawling" ||
+      latestCrawl?.status === "scoring" ||
+      latestCrawl?.status === "pending"
+    ) {
+      // We need to import these at the top of the file first.
+      // For now, let's just return a simple message to verify the logic,
+      // then I will add the imports and full component.
+      return (
+        <Card className="p-8">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div>
+              <h3 className="font-semibold">Crawl in Progress</h3>
+              <p className="text-sm text-muted-foreground">
+                We are currently scanning your site. This may take a few
+                minutes. You can view detailed progress on the{" "}
+                <Link
+                  href={`/dashboard/crawl/${latestCrawl.id}`}
+                  className="text-primary hover:underline"
+                >
+                  crawl page
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
     return (
       <Card className="p-8 text-center">
         {isFailed ? (

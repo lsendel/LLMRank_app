@@ -32,7 +32,16 @@ export function createProjectService(deps: ProjectServiceDeps) {
       const total = allProjects.length;
       const totalPages = Math.ceil(total / pagination.limit) || 1;
       const start = (pagination.page - 1) * pagination.limit;
-      const data = allProjects.slice(start, start + pagination.limit);
+      const page = allProjects.slice(start, start + pagination.limit);
+
+      // Enrich each project with its latest crawl + scores
+      const data = await Promise.all(
+        page.map(async (project) => {
+          const latestCrawl = await deps.crawls.getLatestByProject(project.id);
+          const enrichedCrawl = await enrichCrawlWithScores(latestCrawl);
+          return { ...project, latestCrawl: enrichedCrawl };
+        }),
+      );
 
       return { data, pagination: { ...pagination, total, totalPages } };
     },

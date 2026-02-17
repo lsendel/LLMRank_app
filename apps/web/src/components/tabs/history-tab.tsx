@@ -66,7 +66,7 @@ export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
                 <TableCell>
                   <span className="inline-flex items-center gap-1">
                     <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    {crawl.pagesScored}
+                    {crawl.pagesCrawled ?? crawl.pagesScored}
                   </span>
                 </TableCell>
                 <TableCell>

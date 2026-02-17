@@ -121,6 +121,16 @@ export interface CrawlRepository {
       expiresAt?: Date | null;
     },
   ): ReturnType<ReturnType<typeof crawlQueries>["updateShareSettings"]>;
+  listActiveByUser(
+    userId: string,
+    limit?: number,
+    offset?: number,
+  ): ReturnType<ReturnType<typeof crawlQueries>["listActiveByUser"]>;
+  listByUser(
+    userId: string,
+    limit?: number,
+    offset?: number,
+  ): ReturnType<ReturnType<typeof crawlQueries>["listByUser"]>;
 }
 
 export function createCrawlRepository(db: Database): CrawlRepository {
@@ -136,6 +146,10 @@ export function createCrawlRepository(db: Database): CrawlRepository {
     disableSharing: (id) => queries.disableSharing(id),
     updateShareSettings: (id, settings) =>
       queries.updateShareSettings(id, settings),
+    listActiveByUser: (userId, limit, offset) =>
+      queries.listActiveByUser(userId, limit, offset),
+    listByUser: (userId, limit, offset) =>
+      queries.listByUser(userId, limit, offset),
   };
 }
 

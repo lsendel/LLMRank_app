@@ -301,6 +301,7 @@ export interface PublicReport {
   projectId: string;
   completedAt: string;
   pagesScored: number;
+  pagesCrawled?: number;
   summary: string | null;
   summaryData: {
     overallScore: number;
@@ -398,6 +399,9 @@ export interface CrawlJobSummary {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  pagesFound?: number;
+  pagesCrawled?: number;
+  pagesScored?: number;
   errorMessage: string | null;
   cancelledAt?: string | null;
   cancelledBy?: string | null;
@@ -487,6 +491,7 @@ export interface SharedReport {
   projectId: string;
   completedAt: string | null;
   pagesScored: number;
+  pagesCrawled?: number;
   summary: string | null;
   summaryData?: unknown;
   project: {
@@ -959,29 +964,49 @@ async function request<T>(
   const headers = new Headers(extraHeaders);
   headers.set("Content-Type", "application/json");
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new ApiError(
+        response.status,
+        errorBody?.error?.code ?? "UNKNOWN_ERROR",
+        errorBody?.error?.message ?? response.statusText,
+        errorBody?.error?.details,
+      );
+    }
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new ApiError(
+        response.status,
+        "INVALID_RESPONSE",
+        "Invalid JSON response from server",
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    // Handle network errors (fetch throws)
     throw new ApiError(
-      response.status,
-      errorBody?.error?.code ?? "UNKNOWN_ERROR",
-      errorBody?.error?.message ?? response.statusText,
-      errorBody?.error?.details,
+      0,
+      "NETWORK_ERROR",
+      error instanceof Error ? error.message : "Network request failed",
     );
   }
-
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
 }
 
 // ─── Envelope unwrapper ─────────────────────────────────────────────
@@ -1997,6 +2022,11 @@ export const api = {
       return res.data;
     },
 
+    async getHistory(page = 1, limit = 50) {
+      return apiClient.get<PaginatedResponse<CrawlJobSummary>>(
+        `/crawls/history?page=${page}&limit=${limit}`,
+      );
+    },
     async list(projectId: string) {
       const res = await apiClient.get<ApiEnvelope<any[]>>(
         `/api/fixes?projectId=${projectId}`,
@@ -2302,6 +2332,20 @@ export const api = {
       await apiClient.post(`/api/projects/${data.projectId}/benchmarks`, {
         competitorDomain: data.competitorDomain,
       });
+    },
+  },
+  queue: {
+    async list(params?: {
+      page?: number;
+      limit?: number;
+    }): Promise<PaginatedResponse<CrawlJobSummary>> {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.set("page", params.page.toString());
+      if (params?.limit) searchParams.set("limit", params.limit.toString());
+      const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return apiClient.get<PaginatedResponse<CrawlJobSummary>>(
+        `/api/queue${qs}`,
+      );
     },
   },
 };

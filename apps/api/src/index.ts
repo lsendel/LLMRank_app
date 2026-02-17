@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { compress } from "hono/compress";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { timing } from "hono/timing";
@@ -14,6 +13,7 @@ import { createAuth } from "./lib/auth";
 import { healthRoutes } from "./routes/health";
 import { projectRoutes } from "./routes/projects";
 import { crawlRoutes } from "./routes/crawls";
+import { queueRoutes } from "./routes/queue";
 import { pageRoutes } from "./routes/pages";
 import { billingRoutes } from "./routes/billing";
 import { ingestRoutes } from "./routes/ingest";
@@ -110,7 +110,7 @@ const app = new Hono<AppEnv>();
 // Global middleware
 app.use("*", requestIdMiddleware);
 app.use("*", timing());
-app.use("*", compress());
+// app.use("*", compress()); // Cloudflare handles compression automatically
 app.use("*", logger());
 app.use(
   "*",
@@ -175,6 +175,7 @@ app.route("/api/projects", projectRoutes);
 app.route("/api/projects", brandingRoutes);
 app.route("/api/projects", exportRoutes);
 app.route("/api/crawls", crawlRoutes);
+app.route("/api/queue", queueRoutes);
 app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
 app.route("/ingest", ingestRoutes);

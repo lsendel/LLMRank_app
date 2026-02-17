@@ -43,3 +43,9 @@ deploy-crawler:
 deploy-reports:
 	@echo "==> Deploying report service to Fly.io..."
 	fly deploy --config apps/report-service/fly.toml --dockerfile apps/report-service/Dockerfile
+
+baseline:
+	@echo "==> Baselining to master..."
+	git add .
+	git commit -m "chore: baseline to master"
+	git push origin main

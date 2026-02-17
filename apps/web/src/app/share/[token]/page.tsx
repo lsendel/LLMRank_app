@@ -268,7 +268,10 @@ function CategoryBreakdown({ report }: { report: PublicReport }) {
 
 function StatsRow({ report }: { report: PublicReport }) {
   const stats = [
-    { label: "Pages Scanned", value: String(report.pagesScored) },
+    {
+      label: "Pages Scanned",
+      value: String(report.pagesCrawled ?? report.pagesScored),
+    },
     { label: "Issues Found", value: String(report.issueCount) },
     {
       label: "Scan Date",

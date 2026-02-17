@@ -234,5 +234,98 @@ export function crawlQueries(db: Database) {
         return { ...r, overallScore, letterGrade };
       });
     },
+    /** List active crawls (likely to be in queue/processing) for a user. */
+    async listActiveByUser(userId: string, limit = 50, offset = 0) {
+      return db
+        .select({
+          id: crawlJobs.id,
+          projectId: crawlJobs.projectId,
+          status: crawlJobs.status,
+          pagesFound: crawlJobs.pagesFound,
+          pagesCrawled: crawlJobs.pagesCrawled,
+          pagesScored: crawlJobs.pagesScored,
+          errorMessage: crawlJobs.errorMessage,
+          createdAt: crawlJobs.createdAt,
+          projectName: projects.name,
+        })
+        .from(crawlJobs)
+        .innerJoin(projects, eq(crawlJobs.projectId, projects.id))
+        .where(
+          and(
+            eq(projects.userId, userId),
+            inArray(crawlJobs.status, [
+              "pending",
+              "queued",
+              "crawling",
+              "scoring",
+            ]),
+          ),
+        )
+        .orderBy(desc(crawlJobs.createdAt))
+        .limit(limit)
+        .offset(offset);
+    },
+
+    /** List ALL crawls for a user (history), ordered by creation. */
+    async listByUser(userId: string, limit = 50, offset = 0) {
+      const rows = await db
+        .select({
+          id: crawlJobs.id,
+          projectId: crawlJobs.projectId,
+          status: crawlJobs.status,
+          pagesFound: crawlJobs.pagesFound,
+          pagesCrawled: crawlJobs.pagesCrawled,
+          pagesScored: crawlJobs.pagesScored,
+          errorMessage: crawlJobs.errorMessage,
+          summary: crawlJobs.summary,
+          summaryData: crawlJobs.summaryData,
+          startedAt: crawlJobs.startedAt,
+          completedAt: crawlJobs.completedAt,
+          createdAt: crawlJobs.createdAt,
+          projectName: projects.name,
+        })
+        .from(crawlJobs)
+        .innerJoin(projects, eq(crawlJobs.projectId, projects.id))
+        .where(eq(projects.userId, userId))
+        .orderBy(desc(crawlJobs.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      if (rows.length === 0) return [];
+
+      // Batch-fetch average scores for completed crawls
+      const completedIds = rows
+        .filter((r) => r.status === "complete")
+        .map((r) => r.id);
+
+      const scoreMap = new Map<string, number>();
+      if (completedIds.length > 0) {
+        const scoreRows = await db
+          .select({
+            jobId: pageScores.jobId,
+            avg: sql<number>`avg(${pageScores.overallScore})`,
+          })
+          .from(pageScores)
+          .where(inArray(pageScores.jobId, completedIds))
+          .groupBy(pageScores.jobId);
+
+        for (const sr of scoreRows) {
+          scoreMap.set(sr.jobId, Math.round(Number(sr.avg)));
+        }
+      }
+
+      return rows.map((r) => {
+        const overallScore = scoreMap.get(r.id) ?? null;
+        let letterGrade: string | null = null;
+        if (overallScore !== null) {
+          if (overallScore >= 90) letterGrade = "A";
+          else if (overallScore >= 80) letterGrade = "B";
+          else if (overallScore >= 70) letterGrade = "C";
+          else if (overallScore >= 60) letterGrade = "D";
+          else letterGrade = "F";
+        }
+        return { ...r, overallScore, letterGrade };
+      });
+    },
   };
 }

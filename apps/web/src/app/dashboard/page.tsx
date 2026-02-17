@@ -9,7 +9,6 @@ import {
 } from "@/components/persona-discovery-modal";
 import {
   FolderKanban,
-  Activity,
   BarChart3,
   Clock,
   Plus,
@@ -24,6 +23,7 @@ import {
   X,
   Compass,
   Trophy,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -300,39 +300,43 @@ export default function DashboardPage() {
                 className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
                 onClick={trackClick}
               >
-                <Card>
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-primary/10 p-2">
-                        <FolderKanban className="h-5 w-5 text-primary" />
+                <Card className="hover:bg-accent/5 transition-colors cursor-pointer">
+                  <Link href="/dashboard/projects">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-primary/10 p-2">
+                          <FolderKanban className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Total Projects
+                          </p>
+                          <p className="text-2xl font-semibold">
+                            {stats.totalProjects}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Total Projects
-                        </p>
-                        <p className="text-2xl font-semibold">
-                          {stats.totalProjects}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
+                    </CardContent>
+                  </Link>
                 </Card>
-                <Card>
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-primary/10 p-2">
-                        <Activity className="h-5 w-5 text-primary" />
+                <Card className="hover:bg-accent/5 transition-colors cursor-pointer">
+                  <Link href="/dashboard/history">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-primary/10 p-2">
+                          <History className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Total Crawls
+                          </p>
+                          <p className="text-2xl font-semibold">
+                            {stats.totalCrawls}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Total Crawls
-                        </p>
-                        <p className="text-2xl font-semibold">
-                          {stats.totalCrawls}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
+                    </CardContent>
+                  </Link>
                 </Card>
                 <Card>
                   <CardContent className="p-5">
@@ -575,7 +579,8 @@ export default function DashboardPage() {
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                   <span className="inline-flex items-center gap-1">
                                     <FileText className="h-3 w-3" />
-                                    {item.pagesScored} pages
+                                    {item.pagesCrawled ?? item.pagesScored}{" "}
+                                    pages
                                   </span>
                                   {item.completedAt && (
                                     <span className="inline-flex items-center gap-1">

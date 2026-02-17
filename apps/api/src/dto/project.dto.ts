@@ -24,7 +24,7 @@ export function toProjectDetailResponse(entity: Record<string, any>) {
 }
 
 export function toProjectListResponse(entities: Record<string, any>[]) {
-  return entities.map(toProjectResponse);
+  return entities.map(toProjectDetailResponse);
 }
 
 function toCrawlSummary(crawl: Record<string, any>) {

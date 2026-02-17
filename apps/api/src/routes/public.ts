@@ -83,11 +83,13 @@ publicRoutes.post("/scan", async (c) => {
   // Fetch HTML, robots.txt, llms.txt, and sitemap in parallel
   const fetchWithTimeout = async (url: string): Promise<Response | null> => {
     try {
-      return await fetch(url, {
+      const res = await fetch(url, {
         headers: { "User-Agent": "AISEOBot/1.0" },
         signal: AbortSignal.timeout(10_000),
       });
-    } catch {
+      return res;
+    } catch (err) {
+      console.error(`Fetch failed for ${url}:`, err);
       return null;
     }
   };
@@ -105,7 +107,7 @@ publicRoutes.post("/scan", async (c) => {
       {
         error: {
           code: "FETCH_FAILED",
-          message: `Could not fetch ${pageUrl} (status: ${htmlResponse?.status ?? "timeout"})`,
+          message: `Could not fetch ${pageUrl} (status: ${htmlResponse?.status ?? "timeout/error"})`,
         },
       },
       422,
@@ -334,6 +336,7 @@ publicRoutes.get("/reports/:token", async (c) => {
       projectId: project.id,
       completedAt: crawlJob.completedAt,
       pagesScored: crawlJob.pagesScored,
+      pagesCrawled: crawlJob.pagesCrawled,
       summary: crawlJob.summary,
       summaryData: crawlJob.summaryData ?? null,
       shareLevel: level,

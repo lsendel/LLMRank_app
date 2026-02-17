@@ -16,6 +16,32 @@ crawlRoutes.use("*", authMiddleware);
 // POST / — Start a new crawl
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// GET /history — List all crawls for a user (across all projects)
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/history", async (c) => {
+  const userId = c.get("userId");
+  const page = Number(c.req.query("page") || "1");
+  const limit = Number(c.req.query("limit") || "50");
+
+  const { crawlService } = c.get("container");
+
+  try {
+    const result = await crawlService.listHistory(userId, { page, limit });
+    return c.json({
+      data: toCrawlListResponse(result.data),
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST / — Start a new crawl
+// ---------------------------------------------------------------------------
+
 crawlRoutes.post(
   "/",
   rateLimit({ limit: 10, windowSeconds: 3600, keyPrefix: "rl:crawl" }),

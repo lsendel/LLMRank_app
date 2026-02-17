@@ -32,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2",
     "d3-force": "^3.0.0",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.469",
     "next": "^15",
     "posthog-js": "^1.347.2",
