@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — LLM Boost AI-Readiness Platform",
+  title: "Privacy Policy — AI-Readiness",
   description:
     "LLM Boost privacy policy explaining how we collect, use, and protect your data when using our AI-readiness SEO platform.",
   alternates: { canonical: "/privacy" },

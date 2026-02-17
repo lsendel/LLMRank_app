@@ -10,7 +10,7 @@ import {
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Pricing",
+  title: "AI-Readiness SEO Pricing Plans",
   description:
     "LLM Boost pricing plans from Free to Agency ($299/mo). All plans include 37-factor AI-readiness scoring, automated crawling, and Lighthouse audits.",
   alternates: { canonical: "/pricing" },

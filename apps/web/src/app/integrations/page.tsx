@@ -10,7 +10,7 @@ import {
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Integrations",
+  title: "SEO Integrations & Connections",
   description:
     "Connect LLM Boost with Google Search Console, Google Analytics, WordPress, Slack, and more to supercharge your AI SEO strategy.",
   alternates: { canonical: "/integrations" },

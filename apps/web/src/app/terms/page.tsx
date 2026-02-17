@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — LLM Boost AI-Readiness Platform",
+  title: "Terms of Service — AI-Readiness",
   description:
     "LLM Boost terms of service covering account usage, billing, data handling, and acceptable use of the AI-readiness platform.",
   alternates: { canonical: "/terms" },
