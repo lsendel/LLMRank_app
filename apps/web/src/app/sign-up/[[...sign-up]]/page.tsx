@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Sign Up Free — AI-Readiness SEO Platform",
   description:
     "Create your free LLM Boost account. Audit up to 10 pages per crawl, score your site across 37 AI-readiness factors, and get actionable recommendations.",
-  robots: { index: false, follow: true },
+  robots: { index: true, follow: true },
   alternates: { canonical: "/sign-up" },
   openGraph: {
     title: "Sign Up Free | LLM Boost",

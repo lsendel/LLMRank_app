@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Sign In to Your AI-Readiness Dashboard",
   description:
     "Sign in to LLM Boost to access your AI-readiness scores, track visibility across ChatGPT, Claude, Perplexity, and Gemini, and get prioritized SEO fixes.",
-  robots: { index: false, follow: true },
+  robots: { index: true, follow: true },
   alternates: { canonical: "/sign-in" },
   openGraph: {
     title: "Sign In | LLM Boost",

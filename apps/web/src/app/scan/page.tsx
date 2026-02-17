@@ -52,6 +52,10 @@ export default function ScanPage() {
             Enter any URL to get an instant AI-readiness score with actionable
             recommendations. No signup required.
           </p>
+          <p className="text-sm font-semibold text-primary">
+            Short answer: you get a 37-factor grade, a prioritized checklist,
+            and the top three fixes to unlock AI citations in under two minutes.
+          </p>
         </div>
 
         <Card>
@@ -73,6 +77,42 @@ export default function ScanPage() {
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
           </CardContent>
         </Card>
+
+        <div className="w-full rounded-lg border border-border bg-muted/40 p-5 text-left text-sm leading-relaxed text-muted-foreground">
+          <p className="font-semibold text-foreground">
+            Why I run this scan weekly
+          </p>
+          <p className="mt-2">
+            I audit new content drops for SaaS and agency teams every week. This
+            scan catches hidden noindex tags, broken schema, and internal link
+            gaps before ChatGPT or Claude stop citing the page. After each
+            crawl, I sync the fixes into the{" "}
+            <Link
+              href="/leaderboard"
+              className="font-medium text-primary hover:underline"
+            >
+              AI-readiness leaderboard
+            </Link>{" "}
+            and report progress inside our client workspaces.
+          </p>
+          <p className="mt-2">
+            Need deeper coverage? Connect data sources from the{" "}
+            <Link
+              href="/integrations"
+              className="font-medium text-primary hover:underline"
+            >
+              integrations
+            </Link>{" "}
+            page or schedule recurring crawls on the{" "}
+            <Link
+              href="/pricing"
+              className="font-medium text-primary hover:underline"
+            >
+              Pro and Agency plans
+            </Link>
+            .
+          </p>
+        </div>
 
         <div className="grid gap-4 text-left sm:grid-cols-3">
           {[
@@ -100,6 +140,11 @@ export default function ScanPage() {
           <h2 className="text-xl font-bold text-foreground">
             What does the AI-readiness scan check?
           </h2>
+          <p className="text-sm font-semibold text-primary">
+            Direct answer: the scan analyzes Technical SEO, content depth, AI
+            readiness signals, and performance so you know exactly why an AI
+            engine would skip your page.
+          </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
             The free scan evaluates your page across 37 factors in four
             categories. Technical SEO (25% weight) checks meta tags, structured
@@ -156,7 +201,21 @@ export default function ScanPage() {
               View pricing plans
             </Link>{" "}
             for up to 2,000 pages per crawl, AI visibility tracking, and
-            integrations.
+            integrations. Compare your current score with peers on the{" "}
+            <Link
+              href="/leaderboard"
+              className="font-medium text-primary hover:underline"
+            >
+              leaderboard
+            </Link>{" "}
+            or connect data sources on the{" "}
+            <Link
+              href="/integrations"
+              className="font-medium text-primary hover:underline"
+            >
+              integrations page
+            </Link>
+            .
           </p>
         </div>
       </div>

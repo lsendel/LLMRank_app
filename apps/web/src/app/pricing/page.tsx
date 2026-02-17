@@ -149,22 +149,22 @@ const PRICING_FAQ = [
   {
     question: "Can I change plans at any time?",
     answer:
-      "Yes. You can upgrade or downgrade your plan at any time from the dashboard settings page. When upgrading, the new plan takes effect immediately and you are billed the prorated difference. When downgrading, the change takes effect at the start of your next billing cycle.",
+      "Yes. You can upgrade or downgrade anytime from the dashboard settings page. Upgrades take effect immediately and we bill only the prorated difference. Downgrades start at the next billing cycle so you keep current access until then.",
   },
   {
     question: "What happens when I hit my crawl limit?",
     answer:
-      "When you reach your monthly crawl limit, you can still view all existing scores, reports, and recommendations. New crawls will be available when your billing cycle resets. Upgrade to a higher plan for more crawls — the Pro plan includes 30 per month and Agency offers unlimited crawls.",
+      "When you reach your monthly crawl limit, you can still view every score, report, and recommendation. New crawls become available as soon as your billing cycle resets. Upgrade for more capacity — Pro includes 30 crawls per month and Agency offers unlimited crawls.",
   },
   {
     question: "Do I need a credit card for the free plan?",
     answer:
-      "No. The free plan requires only an email address to sign up. You get 10 pages per crawl, 2 crawls per month, and 1 project — no credit card needed. Upgrade when you need more capacity.",
+      "No credit card required. The free plan only needs an email address and includes 10 pages per crawl, 2 crawls per month, and 1 project. Upgrade when you need more projects or scheduled crawls.",
   },
   {
     question: "What is an AI visibility check?",
     answer:
-      "Visibility checks query major AI platforms — ChatGPT, Claude, Perplexity, and Gemini — with relevant queries to see if your brand is mentioned or your URLs are cited. This helps you understand how visible your content is in AI-generated answers, not just in traditional search results.",
+      "Visibility checks query ChatGPT, Claude, Perplexity, and Gemini with relevant prompts to see if your brand is mentioned or your URLs are cited. They show how visible your content is in AI-generated answers, not just traditional search results.",
   },
 ];
 
@@ -227,6 +227,11 @@ export default function PricingPage() {
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Simple, transparent pricing
         </h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base font-semibold text-primary">
+          Direct answer: use Free for quick audits, Starter for sites under 100
+          pages, Pro for 500-page crawls, and Agency when you manage multiple
+          client domains.
+        </p>
         <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
           Start free, upgrade when you need more pages, crawls, or integrations.
           All plans include the full 37-factor scoring engine built on{" "}
@@ -242,16 +247,52 @@ export default function PricingPage() {
         </p>
       </section>
 
-      <p className="mx-auto mt-6 max-w-2xl px-6 text-sm leading-relaxed text-muted-foreground">
-        Every plan includes access to our full 37-factor scoring engine, which
-        evaluates Technical SEO, Content Quality, AI Readiness, and Performance.
-        The free tier lets you scan up to 10 pages per crawl with 2 monthly
-        crawls and 1 project. Paid plans unlock more pages per crawl, higher
-        crawl frequency, additional projects, AI visibility checks, integrations
-        with Google Search Console and Google Analytics, and detailed report
-        exports. All plans include prioritized quick wins, issue catalogs, and
-        score trend tracking.
-      </p>
+      <div className="mx-auto mt-6 max-w-3xl space-y-4 px-6">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Every plan uses the full 37-factor scoring engine across Technical
+          SEO, Content Quality, AI Readiness, and Performance. The free tier
+          scans 10 pages with two crawls per month — perfect for a proof of
+          concept. Starter and Pro add more pages, crawl frequency, visibility
+          checks, and the{" "}
+          <Link
+            href="/integrations"
+            className="font-medium text-primary hover:underline"
+          >
+            Google Search Console and GA4 integrations
+          </Link>
+          . Agency unlocks unlimited crawls, 50 projects, and white-labeled
+          PDF/DOCX exports so agencies can ship reports without extra tools.
+        </p>
+        <div className="rounded-lg border border-border bg-muted/40 p-5 text-left text-sm leading-relaxed text-muted-foreground">
+          <p className="font-semibold text-foreground">
+            How I pick plans for clients
+          </p>
+          <p className="mt-2">
+            I audit SaaS and media sites every week. Free covers quick QA before
+            launch, Pro is the sweet spot when we monitor 300–500 URLs, and
+            Agency handles multi-client retainers with scheduled crawls and
+            executive-ready decks. The tiers mirror exactly how our consulting
+            team buys the product.
+          </p>
+          <p className="mt-2">
+            Not sure where to start? Run a{" "}
+            <Link
+              href="/scan"
+              className="font-medium text-primary hover:underline"
+            >
+              free scan
+            </Link>{" "}
+            and check your grade on the{" "}
+            <Link
+              href="/leaderboard"
+              className="font-medium text-primary hover:underline"
+            >
+              AI-readiness leaderboard
+            </Link>
+            . Upgrade only when you need more scale.
+          </p>
+        </div>
+      </div>
 
       {/* Cards */}
       <section className="mx-auto w-full max-w-6xl px-6 pb-20">
@@ -330,6 +371,11 @@ export default function PricingPage() {
           <h2 className="mb-10 text-center text-2xl font-bold text-foreground">
             Full feature comparison
           </h2>
+          <p className="mb-8 text-center text-sm font-semibold text-foreground">
+            Quick answer: Starter fits single sites under 100 pages, Pro covers
+            most growing teams at 500 pages per crawl, and Agency is designed
+            for agencies that need unlimited crawls plus white-labeled exports.
+          </p>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -384,6 +430,12 @@ export default function PricingPage() {
           <h2 className="text-center text-2xl font-bold text-foreground">
             Pricing FAQ
           </h2>
+          <p className="mt-4 text-center text-sm font-semibold text-foreground">
+            Quick answers: you can change plans anytime, unused data stays
+            visible even if crawls pause, the free plan needs no credit card,
+            and AI visibility checks ping ChatGPT, Claude, Perplexity, and
+            Gemini.
+          </p>
           <div className="mt-8 space-y-6">
             {PRICING_FAQ.map((item) => (
               <details

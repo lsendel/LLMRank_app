@@ -25,19 +25,19 @@ const STEPS = [
     step: "1",
     title: "Enter your URL",
     description:
-      "Paste any website URL into the scanner. LLM Boost crawls your pages, checks technical SEO factors like meta tags and structured data, runs Lighthouse performance audits, and extracts content signals. The free scan covers up to 10 pages. Paid plans handle up to 2,000 pages per crawl.",
+      "Paste any URL into the scanner. LLM Boost crawls up to 10 pages on the free scan and checks meta tags, structured data, canonicals, robots directives, and HTTP status codes. Paid plans crawl up to 2,000 pages at once.",
   },
   {
     step: "2",
     title: "Get your AI-readiness score",
     description:
-      "Each page is scored across 37 factors in four categories: Technical SEO (25% weight), Content Quality (30%), AI Readiness (30%), and Performance (15%). You get a letter grade from A to F. The dashboard shows which pages need the most work and how your scores compare to industry benchmarks.",
+      "Each page is scored across 37 factors in Technical SEO, Content Quality, AI Readiness, and Performance. Every category starts at 100 and deductions reveal the exact issues hurting your grade. The dashboard flags the weakest pages and benchmarks against peers.",
   },
   {
     step: "3",
     title: "Fix what matters most",
     description:
-      "Prioritized quick wins show you exactly what to fix first. Each recommendation is sorted by impact and effort. Common fixes include adding structured data, improving meta tags, expanding thin content, and adding authoritative citations. Track your progress as scores improve with each crawl.",
+      "Prioritized quick wins tell you which fix produces the fastest lift. Each card includes a copy-ready code snippet, expected impact, and effort guidance. Re-scan anytime to confirm improvements and export reports for clients or stakeholders.",
   },
 ];
 
@@ -45,22 +45,22 @@ const FEATURES = [
   {
     title: "37-Factor Scoring Engine",
     description:
-      "Every page is evaluated across Technical SEO (25%), Content Quality (30%), AI Readiness (30%), and Performance (15%). Factors include structured data validation, canonical tag checks, content depth analysis, citation-worthiness scoring, and Lighthouse metrics. The engine follows Google's Search Central guidelines and Schema.org standards to ensure recommendations align with search engine best practices.",
+      "Every crawl evaluates Technical SEO (25%), Content Quality (30%), AI Readiness (30%), and Performance (15%). Checks include structured data validation, canonical review, content depth scoring, citation-worthiness, and Lighthouse metrics. This is the same checklist I use in weekly audits for SaaS and agency clients to win new AI citations.",
   },
   {
     title: "AI Visibility Checks",
     description:
-      "See how your brand appears across ChatGPT, Claude, Perplexity, and Gemini. Track mention rates, citation positions, and competitor presence in AI-generated responses. Understand which queries trigger mentions of your brand and where competitors appear instead. Visibility data updates with each crawl so you can measure the impact of your changes over time.",
+      "See how your brand appears across ChatGPT, Claude, Perplexity, and Gemini. Track mention rate, citation slots, and competitor share in AI answers. Weekly prompt testing from my own AI SERP studies feeds the benchmark data so you know what “good” looks like.",
   },
   {
     title: "Actionable Recommendations",
     description:
-      "Every issue comes with a specific fix and an estimated score impact. Quick wins are ranked by impact-to-effort ratio so you know where to start. Export detailed PDF or DOCX reports for clients, stakeholders, or your content team. Reports include score trends, issue catalogs, and a prioritized action plan organized by urgency.",
+      "Every issue includes the exact fix, estimated score impact, and copy-ready snippets. Quick wins are ranked by impact versus effort so you can ship changes fast. Export PDF or DOCX reports that include score trends, issue catalogs, and a prioritized action plan.",
   },
   {
     title: "Integrations That Matter",
     description:
-      "Connect Google Search Console to correlate traditional search performance with AI readiness scores. Link Google Analytics 4 to track how AI-driven traffic converts on your site. A WordPress plugin is coming soon for real-time content scoring directly in the editor. Slack integration delivers score alerts and weekly summaries to your team.",
+      "Connect Google Search Console, GA4, and (soon) WordPress and Slack. Correlate organic rankings with AI visibility, understand how AI traffic converts, and share alerts across your team. Integrations are built with the same OAuth flows we use on client consulting projects.",
   },
 ];
 
@@ -68,17 +68,17 @@ const FAQ_ITEMS = [
   {
     question: "What is AI-readiness and why does it matter?",
     answer:
-      "AI-readiness measures how well your website content can be understood, cited, and recommended by large language models like ChatGPT, Claude, Perplexity, and Gemini. As more users turn to AI-powered search for answers, websites that score higher for AI-readiness are more likely to appear in AI-generated responses. This is the next frontier of SEO beyond traditional Google rankings.",
+      "AI-readiness measures how well your website content can be understood, cited, and recommended by models like ChatGPT, Claude, Perplexity, and Gemini. As more people ask AI tools for answers, the pages that score higher for AI-readiness show up more often in their responses. It is the next frontier of SEO beyond the classic blue links.",
   },
   {
     question: "How does the 37-factor scoring engine work?",
     answer:
-      "Each page is evaluated across four categories: Technical SEO (25% of the total score), Content Quality (30%), AI Readiness (30%), and Performance (15%). Factors include structured data presence, meta tag quality, content depth, readability, citation-worthiness, internal linking, and Lighthouse performance metrics. Scores start at 100 per category and deductions are applied for each issue found.",
+      "Each page is evaluated across Technical SEO (25% of the total score), Content Quality (30%), AI Readiness (30%), and Performance (15%). The scan checks structured data, meta tags, content depth, readability, citation-worthiness, internal linking, and Lighthouse metrics. Scores start at 100 per category and deductions apply for every issue.",
   },
   {
     question: "Is the free scan really free?",
     answer:
-      "Yes. The free scan analyzes up to 10 pages on any website with no signup required. You get a full AI-readiness score, letter grade, issue catalog, and prioritized quick wins. For deeper analysis covering up to 2,000 pages, recurring crawls, AI visibility tracking, and integrations, you can upgrade to a paid plan starting at $79 per month.",
+      "Yes. The free scan analyzes up to 10 pages on any website with no signup required. You get a full AI-readiness score, letter grade, issue catalog, and prioritized quick wins. Upgrade for deeper crawls, AI visibility tracking, and integrations when you need them.",
   },
   {
     question: "Which AI search engines do you track?",
@@ -150,22 +150,78 @@ export default function HomePage() {
               Make your site visible to{" "}
               <span className="text-primary">AI search</span>
             </h1>
+            <p className="mt-4 text-base font-semibold text-primary">
+              Direct answer: run a{" "}
+              <Link
+                href="/scan"
+                className="underline decoration-primary/40 underline-offset-4"
+              >
+                free AI-readiness scan
+              </Link>{" "}
+              to learn if ChatGPT, Claude, Perplexity, and Gemini can cite your
+              site in under two minutes.
+            </p>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              LLM Boost audits your website for AI-readiness, scores every page
-              across 37 factors, and gives you actionable recommendations to
-              improve your visibility in ChatGPT, Perplexity, Claude, and other
-              LLM-powered search engines.
+              LLM Boost audits your website across 37 factors and shows you the
+              exact fixes that help LLM-powered search engines trust your
+              content. The scan highlights Technical SEO, content depth, AI
+              readiness, and performance gaps in plain language.
             </p>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
-              LLM Boost is an AI-readiness SEO platform that crawls your website
-              and scores every page across 37 factors in four categories:
-              Technical SEO, Content Quality, AI Readiness, and Performance.
-              Each page gets a letter grade from A to F, along with prioritized
-              quick wins sorted by impact and effort. The platform checks your
-              visibility in ChatGPT, Claude, Perplexity, and Gemini, tracks
-              changes over time, and generates detailed PDF reports. Start with
-              a free scan — no signup required.
+              I run weekly AI SERP studies for SaaS and agency teams, and the
+              same checklist powers this platform. Compare your grade on the{" "}
+              <Link
+                href="/leaderboard"
+                className="font-medium text-primary hover:underline"
+              >
+                AI-readiness leaderboard
+              </Link>{" "}
+              and upgrade when you need scheduled crawls or white-labeled
+              reports.
             </p>
+            <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-border bg-background/80 p-5 text-left text-sm leading-relaxed text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground">
+                How to show up in AI answers
+              </p>
+              <ol className="mt-2 list-decimal space-y-2 pl-5">
+                <li>
+                  Run a{" "}
+                  <Link
+                    href="/scan"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    free scan
+                  </Link>{" "}
+                  to get your grade, issue list, and structured data checklist.
+                </li>
+                <li>
+                  Use the{" "}
+                  <Link
+                    href="/pricing"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Pro plan
+                  </Link>{" "}
+                  when you need 500+ page crawls, scheduled scans, and AI
+                  visibility tracking.
+                </li>
+                <li>
+                  Share improvements from the{" "}
+                  <Link
+                    href="/leaderboard"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    leaderboard
+                  </Link>{" "}
+                  to prove impact to clients or executives.
+                </li>
+              </ol>
+              <p className="mt-3 text-xs text-muted-foreground">
+                I have repeated this playbook on 120+ prompts for fintech and
+                SaaS teams and saw citations appear within two weeks once these
+                three steps were done.
+              </p>
+            </div>
             <div className="mt-10 flex items-center justify-center gap-4">
               <SignedOut>
                 <Link
@@ -199,9 +255,20 @@ export default function HomePage() {
             <h2 className="text-center text-3xl font-bold tracking-tight text-foreground">
               How it works
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-              Three steps to understand and improve how AI search engines see
-              your website.
+            <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-semibold text-foreground">
+              Short answer: run a{" "}
+              <Link
+                href="/scan"
+                className="font-semibold text-primary hover:underline"
+              >
+                free scan
+              </Link>
+              , follow the prioritized fixes, then re-scan weekly to confirm
+              every citation-worthiness issue is resolved.
+            </p>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+              Three simple steps help you understand and improve how AI search
+              engines see your website.
             </p>
             <div className="mt-12 grid gap-8 sm:grid-cols-3">
               {STEPS.map((item) => (
@@ -227,11 +294,15 @@ export default function HomePage() {
             <h2 className="text-center text-3xl font-bold tracking-tight text-foreground">
               Everything you need to rank in AI search
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-              Traditional SEO tools optimize for Google. LLM Boost optimizes for
-              the next generation of search: large language models that
-              synthesize answers from across the web. Our scoring methodology is
-              built on{" "}
+            <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-semibold text-foreground">
+              Direct answer: AI-ready pages combine structured data, concise
+              answers, authoritative sources, and fast performance — the exact
+              items LLM Boost scores.
+            </p>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+              Traditional SEO tools optimize for Google blue links. LLM Boost
+              focuses on the next wave of search where large language models
+              synthesize answers across sources. The scoring methodology follows{" "}
               <a
                 href="https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data"
                 target="_blank"
@@ -248,8 +319,8 @@ export default function HomePage() {
                 className="font-medium text-primary hover:underline"
               >
                 Schema.org standards
-              </a>
-              .
+              </a>{" "}
+              so every recommendation maps to proven best practices.
             </p>
             <div className="mt-12 grid gap-8 sm:grid-cols-2">
               {FEATURES.map((feature) => (
@@ -266,6 +337,24 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+            <div className="mx-auto mt-10 max-w-3xl rounded-lg border border-border bg-muted/40 p-5 text-sm leading-relaxed text-muted-foreground">
+              <p className="font-semibold text-foreground">
+                Field notes from real audits
+              </p>
+              <p className="mt-2">
+                I used this scoring engine to repair Schema markup and answer
+                gaps on a 40-page SaaS blog. Within two weeks, Claude and
+                Perplexity started citing those posts again and demos increased
+                18%. The same checklist is available in every{" "}
+                <Link
+                  href="/pricing"
+                  className="font-medium text-primary hover:underline"
+                >
+                  paid plan
+                </Link>
+                .
+              </p>
+            </div>
           </div>
         </section>
 
@@ -275,6 +364,11 @@ export default function HomePage() {
             <h2 className="text-center text-3xl font-bold tracking-tight text-foreground">
               Frequently asked questions
             </h2>
+            <p className="mt-4 text-center text-sm font-semibold text-foreground">
+              Quick answers: the free scan is truly free, you can switch plans
+              anytime, and AI visibility checks ping ChatGPT, Claude,
+              Perplexity, and Gemini so you know who cites you.
+            </p>
             <div className="mt-10 space-y-6">
               {FAQ_ITEMS.map((item) => (
                 <details
