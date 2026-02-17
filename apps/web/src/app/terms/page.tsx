@@ -47,9 +47,9 @@ export default function TermsPage() {
         <div className="prose mt-10 max-w-none text-foreground [&_h2]:mt-10 [&_h2]:text-xl [&_h2]:font-semibold [&_p]:mt-4 [&_p]:leading-7 [&_p]:text-muted-foreground [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-6 [&_li]:text-muted-foreground">
           <h2>1. Acceptance of Terms</h2>
           <p>
-            By accessing or using LLM Boost (&quot;the Service&quot;), operated
-            by LLM Boost Inc., you agree to be bound by these Terms of Service.
-            If you do not agree, do not use the Service.
+            By using LLM Boost (&quot;the Service&quot;), you agree to these
+            Terms. LLM Boost Inc. operates the Service. If you do not agree with
+            these Terms, please do not use the Service.
           </p>
 
           <h2>2. Service Description</h2>
@@ -106,9 +106,9 @@ export default function TermsPage() {
 
           <h2>6. Intellectual Property</h2>
           <p>
-            You retain ownership of your website content. We retain ownership of
-            the Service, scoring algorithms, and generated reports. Scores and
-            recommendations are provided for your internal use.
+            You own your website content. We own the Service, our scoring
+            algorithms, and generated reports. We license scores and
+            recommendations to you for your internal use only.
           </p>
 
           <h2>7. Data Handling</h2>
@@ -123,34 +123,52 @@ export default function TermsPage() {
 
           <h2>8. Limitation of Liability</h2>
           <p>
-            The Service is provided &quot;as is&quot; without warranties of any
-            kind. LLM Boost shall not be liable for indirect, incidental, or
-            consequential damages. Our total liability shall not exceed the fees
-            paid by you in the 12 months preceding the claim.
+            We provide the Service &quot;as is&quot; without warranties. We are
+            not liable for indirect or consequential damages. The most we owe
+            you is a refund of the fees you paid in the 12 months before the
+            claim.
           </p>
 
           <h2>9. Termination</h2>
           <p>
-            We may suspend or terminate your account for violation of these
-            Terms. You may delete your account at any time via Settings. Upon
-            termination, your data will be deleted within 30 days.
+            We may suspend or close your account if you break these Terms. You
+            can delete your account at any time from Settings. After you delete
+            your account, we remove your data within 30 days.
           </p>
 
           <h2>10. Changes to Terms</h2>
           <p>
-            We may update these Terms. Material changes will be communicated via
-            email. Continued use after changes constitutes acceptance.
+            We may update these Terms from time to time. We will email you about
+            major changes. If you keep using the Service after changes take
+            effect, you accept the updated Terms.
           </p>
 
           <h2>11. Contact</h2>
           <p>
-            Questions about these Terms? Contact us at{" "}
+            Questions about these Terms? Email us at{" "}
             <a
               href="mailto:legal@llmboost.app"
               className="text-primary underline"
             >
               legal@llmboost.app
             </a>
+            .
+          </p>
+          <p className="mt-4">
+            You can also review our{" "}
+            <Link
+              href="/privacy"
+              className="font-medium text-primary hover:underline"
+            >
+              privacy policy
+            </Link>{" "}
+            or{" "}
+            <Link
+              href="/pricing"
+              className="font-medium text-primary hover:underline"
+            >
+              pricing plans
+            </Link>
             .
           </p>
         </div>
