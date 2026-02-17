@@ -144,15 +144,18 @@ export function aggregateIntegrations(
         totalBounce += Number(d.bounceRate);
         bounceCount++;
       }
-      if (d.avgEngagement != null) {
-        totalEngagement += Number(d.avgEngagement);
+      // Support both field names: avgEngagement (legacy) and engagementDuration (fetcher)
+      const engagement = d.avgEngagement ?? d.engagementDuration;
+      if (engagement != null) {
+        totalEngagement += Number(engagement);
         engagementCount++;
       }
 
-      // Support single-page format: { url, sessions }
-      if (d.url && d.sessions != null) {
-        const existing = pagesMap.get(String(d.url)) ?? 0;
-        pagesMap.set(String(d.url), existing + Number(d.sessions));
+      // Support single-page format: { pageUrl|url, sessions }
+      const pageUrl = d.pageUrl ?? d.url;
+      if (pageUrl && d.sessions != null) {
+        const existing = pagesMap.get(String(pageUrl)) ?? 0;
+        pagesMap.set(String(pageUrl), existing + Number(d.sessions));
       }
 
       // Support pages array format: { pages: [{ url, sessions }] }

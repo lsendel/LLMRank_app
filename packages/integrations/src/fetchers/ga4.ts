@@ -177,6 +177,7 @@ export async function fetchGA4Data(
       provider: "ga4",
       pageUrl: url,
       data: {
+        pageUrl: url,
         bounceRate: metrics?.bounceRate ?? null,
         avgSessionDuration: metrics?.avgSessionDuration ?? null,
         sessions: metrics?.sessions ?? 0,
