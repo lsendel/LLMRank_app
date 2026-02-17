@@ -18,16 +18,17 @@ const BASE_URL = "https://llmrank.app";
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: "LLM Boost - AI-Readiness SEO Platform",
+    default:
+      "AI Search Optimization Tool - Rank in ChatGPT & Perplexity | LLM Boost",
     template: "%s | LLM Boost",
   },
   description:
-    "Audit your website for AI-readiness across 37 factors. Get actionable recommendations to improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
+    "The first AI Search Optimization (AISO) platform. Audit your website for AI-readiness across 37 factors. Optimize for ChatGPT, Claude, Perplexity, and Gemini.",
   openGraph: {
     type: "website",
     locale: "en_US",
     siteName: "LLM Boost",
-    title: "LLM Boost - AI-Readiness SEO Platform",
+    title: "Rank in ChatGPT, Claude & Perplexity | LLM Boost",
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
     url: BASE_URL,
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "LLM Boost - AI-Readiness SEO Platform",
+    title: "AI Search Optimization Tool - Rank in ChatGPT & Perplexity",
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
     images: [`${BASE_URL}/og-default.png`],

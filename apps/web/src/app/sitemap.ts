@@ -40,5 +40,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "yearly",
       priority: 0.3,
     },
+    ...INDUSTRIES.map((industry) => ({
+      url: `${BASE_URL}/audit/${industry}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
   ];
 }
+
+const INDUSTRIES = [
+  "saas",
+  "ecommerce",
+  "healthcare",
+  "legal",
+  "startups",
+  "agencies",
+  "fintech",
+  "real-estate",
+];

@@ -164,7 +164,17 @@ const PRICING_FAQ = [
   {
     question: "What is an AI visibility check?",
     answer:
-      "Visibility checks query ChatGPT, Claude, Perplexity, and Gemini with relevant prompts to see if your brand is mentioned or your URLs are cited. They show how visible your content is in AI-generated answers, not just traditional search results.",
+      "Visibility checks query ChatGPT, Claude, Perplexity, and Gemini with relevant prompts to see if your brand is mentioned or your URLs are cited. They show how visible your content is in AI-generated answers, not just traditional search results. We track citation position, sentiment, and competitor share of voice.",
+  },
+  {
+    question: "Do you offer an SLA or uptime guarantee?",
+    answer:
+      "Yes. Agency plans include a 99.9% uptime SLA and priority support. Pro and Starter plans are monitored 24/7 but do not include financial SLAs. You can check our system status at any time from the dashboard footer.",
+  },
+  {
+    question: "Can I export reports for my clients?",
+    answer:
+      "Absolutely. The Agency plan includes white-labeled PDF and DOCX reporting. You can upload your own agency logo, set custom colors, and remove all LLM Boost branding from the reports you send to clients.",
   },
 ];
 
