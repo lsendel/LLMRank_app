@@ -145,9 +145,13 @@ export async function runIntegrationEnrichments(
     );
   }
 
-  // Update lastSyncAt for each integration
+  // Update lastSyncAt for each integration, recording per-provider errors
   for (const p of prepared) {
-    await integrationQueries(db).updateLastSync(p.integrationId, null);
+    const result = providerResults.find((r) => r.provider === p.provider);
+    await integrationQueries(db).updateLastSync(
+      p.integrationId,
+      result && !result.ok ? (result.error ?? "Unknown error") : null,
+    );
   }
 
   console.log(

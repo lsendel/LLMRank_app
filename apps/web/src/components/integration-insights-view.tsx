@@ -44,17 +44,32 @@ interface Props {
 function ConnectToUnlockCard({
   provider,
   description,
+  isConnected,
 }: {
   provider: string;
   description: string;
+  isConnected?: boolean;
 }) {
   return (
     <Card className="relative overflow-hidden">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2">
-        <p className="text-sm font-medium">Connect {provider} to unlock</p>
-        <p className="text-xs text-muted-foreground max-w-[200px] text-center">
-          {description}
-        </p>
+        {isConnected ? (
+          <>
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            <p className="text-sm font-medium">{provider} — No data yet</p>
+            <p className="text-xs text-muted-foreground max-w-[240px] text-center">
+              Sync failed or no matching property found. Check the integration
+              settings and try Sync Now again.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium">Connect {provider} to unlock</p>
+            <p className="text-xs text-muted-foreground max-w-[200px] text-center">
+              {description}
+            </p>
+          </>
+        )}
       </div>
       <CardContent className="p-6 opacity-30 select-none pointer-events-none">
         <div className="h-[200px] flex items-center justify-center">
@@ -73,7 +88,7 @@ function ConnectToUnlockCard({
 
 export function IntegrationInsightsView({
   insights,
-  connectedProviders: _connectedProviders,
+  connectedProviders = [],
 }: Props) {
   if (!insights.integrations) return null;
 
@@ -314,6 +329,7 @@ export function IntegrationInsightsView({
         <ConnectToUnlockCard
           provider="Google Search Console"
           description="See your top queries, impressions, clicks, and search positions"
+          isConnected={connectedProviders.includes("gsc")}
         />
       )}
 
@@ -322,6 +338,7 @@ export function IntegrationInsightsView({
         <ConnectToUnlockCard
           provider="Google Analytics 4"
           description="Track bounce rate, engagement time, and top landing pages"
+          isConnected={connectedProviders.includes("ga4")}
         />
       )}
 
@@ -386,6 +403,7 @@ export function IntegrationInsightsView({
         <ConnectToUnlockCard
           provider="Microsoft Clarity"
           description="Monitor UX scores and detect rage clicks"
+          isConnected={connectedProviders.includes("clarity")}
         />
       )}
     </div>

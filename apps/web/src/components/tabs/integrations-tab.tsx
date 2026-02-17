@@ -599,7 +599,14 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
               </p>
             </div>
           ) : (
-            <IntegrationInsightsView insights={integrationInsights} />
+            <IntegrationInsightsView
+              insights={integrationInsights}
+              connectedProviders={
+                integrations
+                  ?.filter((i) => i.hasCredentials && i.enabled)
+                  .map((i) => i.provider) ?? []
+              }
+            />
           )}
         </CardContent>
       </Card>

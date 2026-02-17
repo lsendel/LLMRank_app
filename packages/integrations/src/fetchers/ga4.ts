@@ -16,7 +16,8 @@ async function findPropertyId(
   });
 
   if (!res.ok) {
-    throw new Error(`GA4 Admin API error: ${res.status}`);
+    const body = await res.text().catch(() => "");
+    throw new Error(`GA4 Admin API error: ${res.status} ${body}`);
   }
 
   const data: {

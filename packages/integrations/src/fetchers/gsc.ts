@@ -15,7 +15,8 @@ async function findSiteUrl(
   });
 
   if (!res.ok) {
-    throw new Error(`GSC Sites List API error: ${res.status}`);
+    const body = await res.text().catch(() => "");
+    throw new Error(`GSC Sites List API error: ${res.status} ${body}`);
   }
 
   const data: {
