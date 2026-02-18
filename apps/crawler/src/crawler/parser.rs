@@ -2,6 +2,8 @@ use scraper::{Html, Selector};
 use std::collections::HashMap;
 use url::Url;
 
+use crate::models::ExtractedLink;
+
 /// Complete parsed representation of an HTML page.
 #[derive(Debug, Clone)]
 pub struct ParsedPage {
@@ -11,6 +13,7 @@ pub struct ParsedPage {
     pub headings: Headings,
     pub internal_links: Vec<String>,
     pub external_links: Vec<String>,
+    pub external_link_details: Vec<ExtractedLink>,
     pub total_images: u32,
     pub images_without_alt: u32,
     pub schema_json_ld: Vec<String>,
@@ -54,7 +57,8 @@ impl Parser {
         let meta_description = Self::extract_meta_description(&document);
         let canonical_url = Self::extract_canonical(&document);
         let headings = Self::extract_headings(&document);
-        let (internal_links, external_links) = Self::extract_links(&document, &base);
+        let (internal_links, external_links, external_link_details) =
+            Self::extract_links(&document, &base);
         let (total_images, images_without_alt) = Self::extract_image_stats(&document);
         let schema_json_ld = Self::extract_json_ld(&document);
         let og_tags = Self::extract_og_tags(&document);
@@ -76,6 +80,7 @@ impl Parser {
             headings,
             internal_links,
             external_links,
+            external_link_details,
             total_images,
             images_without_alt,
             schema_json_ld,
@@ -207,10 +212,14 @@ impl Parser {
         headings
     }
 
-    fn extract_links(document: &Html, base: &Option<Url>) -> (Vec<String>, Vec<String>) {
+    fn extract_links(
+        document: &Html,
+        base: &Option<Url>,
+    ) -> (Vec<String>, Vec<String>, Vec<ExtractedLink>) {
         let sel = Selector::parse("a[href]").unwrap();
         let mut internal = Vec::new();
         let mut external = Vec::new();
+        let mut external_details = Vec::new();
 
         let base_host = base
             .as_ref()
@@ -225,7 +234,6 @@ impl Parser {
                 };
 
                 if let Some(resolved_url) = resolved {
-                    // Only include http/https links
                     if resolved_url.scheme() != "http" && resolved_url.scheme() != "https" {
                         continue;
                     }
@@ -235,13 +243,31 @@ impl Parser {
                     if link_host == base_host {
                         internal.push(url_str);
                     } else {
+                        // Capture anchor text (trimmed, max 500 chars)
+                        let anchor_text = el
+                            .text()
+                            .collect::<String>()
+                            .trim()
+                            .chars()
+                            .take(500)
+                            .collect::<String>();
+
+                        // Capture rel attribute
+                        let rel = el.value().attr("rel").unwrap_or("").to_string();
+
+                        external_details.push(ExtractedLink {
+                            url: url_str.clone(),
+                            anchor_text,
+                            rel,
+                            is_external: true,
+                        });
                         external.push(url_str);
                     }
                 }
             }
         }
 
-        (internal, external)
+        (internal, external, external_details)
     }
 
     fn extract_image_stats(document: &Html) -> (u32, u32) {
