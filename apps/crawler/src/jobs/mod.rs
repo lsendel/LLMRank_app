@@ -15,6 +15,7 @@ use crate::crawler::robots::RobotsChecker;
 use crate::crawler::{CrawlEngine, CrawlEngineError};
 use crate::lighthouse::LighthouseRunner;
 use crate::models::*;
+use crate::renderer::JsRenderer;
 use crate::storage::{StorageClient, StorageConfig};
 
 type HmacSha256 = Hmac<Sha256>;
@@ -209,6 +210,15 @@ impl JobManager {
             None
         };
 
+        let js_renderer = if crawl_config.run_js_render {
+            Some(JsRenderer::new(
+                config.max_concurrent_renderers,
+                config.renderer_script_path.clone(),
+            ))
+        } else {
+            None
+        };
+
         let storage = Arc::new(StorageClient::new(StorageConfig {
             endpoint: config.r2_endpoint.clone(),
             access_key: config.r2_access_key.clone(),
@@ -234,34 +244,66 @@ impl JobManager {
             page_size_bytes: None,
         };
 
-        // Fetch robots.txt if configured
-        let robots = if crawl_config.respect_robots {
-            if let Some(ref d) = domain {
-                if let Ok(checker) = RobotsChecker::new(d).await {
-                    // Check blocked bots
+        // Always fetch robots.txt for sitemap discovery and bot analysis.
+        // Only use it for URL blocking when respect_robots is true.
+        let mut sitemap_urls_from_robots: Vec<String> = Vec::new();
+        let robots = if let Some(ref d) = domain {
+            match RobotsChecker::new(d).await {
+                Ok(checker) => {
                     site_context.ai_crawlers_blocked = checker.blocked_bots("/");
-
-                    // Check sitemaps
-                    if !checker.sitemaps.is_empty() {
-                        site_context.has_sitemap = true;
-                        // For now we just mark as present. Full analysis would require fetching the XML.
-                        site_context.sitemap_analysis = Some(SitemapAnalysis {
-                            is_valid: true,
-                            url_count: 0, // Placeholder
-                            stale_url_count: 0,
-                            discovered_page_count: 0,
-                        });
+                    sitemap_urls_from_robots = checker.sitemaps.clone();
+                    if crawl_config.respect_robots {
+                        Some(checker)
+                    } else {
+                        None
                     }
-                    Some(checker)
-                } else {
-                    None
                 }
-            } else {
-                None
+                Err(_) => None,
             }
         } else {
             None
         };
+
+        // Fetch and parse sitemaps discovered in robots.txt
+        if !sitemap_urls_from_robots.is_empty() {
+            if let Some(ref d) = domain {
+                let sitemap_result = crate::crawler::sitemap::fetch_sitemap_urls(
+                    &sitemap_urls_from_robots,
+                    d,
+                    5, // max child sitemaps to fetch from index
+                )
+                .await;
+
+                tracing::info!(
+                    job_id = %payload.job_id,
+                    sitemap_urls = sitemap_result.urls.len(),
+                    total_in_sitemap = sitemap_result.total_count,
+                    "Sitemap discovery complete"
+                );
+
+                site_context.has_sitemap = true;
+                site_context.sitemap_analysis = Some(SitemapAnalysis {
+                    is_valid: true,
+                    url_count: sitemap_result.total_count,
+                    stale_url_count: 0,
+                    discovered_page_count: sitemap_result.urls.len() as u32,
+                });
+
+                // Filter sitemap URLs through robots.txt if applicable
+                let sitemap_seed_urls: Vec<String> = if let Some(ref checker) = robots {
+                    sitemap_result
+                        .urls
+                        .into_iter()
+                        .filter(|u| checker.is_allowed(u, &crawl_config.user_agent))
+                        .collect()
+                } else {
+                    sitemap_result.urls
+                };
+
+                // These will be added to the frontier below
+                sitemap_urls_from_robots = sitemap_seed_urls;
+            }
+        }
 
         // Check llms.txt
         if crawl_config.check_llms_txt {
@@ -276,6 +318,7 @@ impl JobManager {
         let engine = Arc::new(CrawlEngine::new(
             fetcher,
             lighthouse_runner,
+            js_renderer,
             storage,
             robots,
             crawl_config.clone(),
@@ -288,8 +331,18 @@ impl JobManager {
             .build()
             .expect("Failed to build callback client");
 
-        // Initialize frontier
+        // Initialize frontier with seed URLs + sitemap-discovered URLs
         let mut frontier = Frontier::new(&crawl_config.seed_urls, crawl_config.max_depth);
+        if !sitemap_urls_from_robots.is_empty() {
+            let cap = crawl_config.max_pages as usize;
+            let to_add: Vec<String> = sitemap_urls_from_robots.into_iter().take(cap).collect();
+            tracing::info!(
+                job_id = %payload.job_id,
+                added = to_add.len(),
+                "Adding sitemap URLs to frontier"
+            );
+            frontier.add_discovered(&to_add, 0);
+        }
         let max_workers = config.max_concurrent_fetches;
 
         let mut pages_crawled: u32 = 0;
@@ -370,9 +423,9 @@ impl JobManager {
                         });
                     }
 
-                    // Send batch every 10 pages or 30 seconds
                     let should_send_batch =
-                        batch_pages.len() >= 10 || last_batch_time.elapsed().as_secs() >= 30;
+                        batch_pages.len() >= config.batch_page_threshold
+                            || last_batch_time.elapsed().as_secs() >= config.batch_interval_secs;
 
                     if should_send_batch && !batch_pages.is_empty() {
                         let batch = CrawlResultBatch {
@@ -632,6 +685,7 @@ mod tests {
                 top_transition_words: vec![],
             },
             lighthouse: None,
+            js_rendered_link_count: None,
             site_context: None,
             timing_ms: 100,
             redirect_chain: vec![],
