@@ -172,6 +172,7 @@ impl CrawlEngine {
                 schema_types,
                 internal_links: parsed.internal_links,
                 external_links: parsed.external_links,
+                external_link_details: parsed.external_link_details,
                 images_without_alt: parsed.images_without_alt,
                 has_robots_meta: parsed.has_robots_meta,
                 robots_directives: parsed.robots_directives,
