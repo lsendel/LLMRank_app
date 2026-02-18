@@ -17,3 +17,4 @@ export type {
 } from "./visibility";
 export { FactExtractor } from "./fact-extractor";
 export type { ExtractedFact } from "./fact-extractor";
+export { checkGeminiAIMode } from "./providers/gemini-ai-mode";
