@@ -587,3 +587,104 @@ impl JobManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{ExtractedData, ExtractedLink};
+
+    fn make_page(url: &str, external_links: Vec<ExtractedLink>) -> CrawlPageResult {
+        CrawlPageResult {
+            url: url.to_string(),
+            status_code: 200,
+            title: None,
+            meta_description: None,
+            canonical_url: None,
+            word_count: 0,
+            content_hash: "abc".to_string(),
+            html_r2_key: "key".to_string(),
+            extracted: ExtractedData {
+                h1: vec![],
+                h2: vec![],
+                h3: vec![],
+                h4: vec![],
+                h5: vec![],
+                h6: vec![],
+                schema_types: vec![],
+                internal_links: vec![],
+                external_links: vec![],
+                external_link_details: external_links,
+                images_without_alt: 0,
+                has_robots_meta: false,
+                robots_directives: vec![],
+                og_tags: None,
+                structured_data: None,
+                flesch_score: None,
+                flesch_classification: None,
+                text_html_ratio: None,
+                text_length: None,
+                html_length: None,
+                pdf_links: vec![],
+                cors_unsafe_blank_links: 0,
+                cors_mixed_content: 0,
+                cors_has_issues: false,
+                sentence_length_variance: None,
+                top_transition_words: vec![],
+            },
+            lighthouse: None,
+            site_context: None,
+            timing_ms: 100,
+            redirect_chain: vec![],
+        }
+    }
+
+    #[test]
+    fn test_collect_backlink_entries() {
+        let pages = vec![make_page(
+            "https://example.com/blog/post",
+            vec![
+                ExtractedLink {
+                    url: "https://competitor.com/product".to_string(),
+                    anchor_text: "check this out".to_string(),
+                    rel: "nofollow".to_string(),
+                    is_external: true,
+                },
+                ExtractedLink {
+                    url: "https://reference.org/docs".to_string(),
+                    anchor_text: "documentation".to_string(),
+                    rel: "".to_string(),
+                    is_external: true,
+                },
+            ],
+        )];
+
+        let entries = collect_backlink_entries(&pages);
+        assert_eq!(entries.len(), 2);
+
+        assert_eq!(entries[0].source_url, "https://example.com/blog/post");
+        assert_eq!(entries[0].source_domain, "example.com");
+        assert_eq!(entries[0].target_url, "https://competitor.com/product");
+        assert_eq!(entries[0].target_domain, "competitor.com");
+        assert_eq!(entries[0].anchor_text, "check this out");
+        assert_eq!(entries[0].rel, "nofollow");
+
+        assert_eq!(entries[1].target_domain, "reference.org");
+        assert_eq!(entries[1].rel, "");
+    }
+
+    #[test]
+    fn test_collect_backlink_entries_skips_invalid_urls() {
+        let pages = vec![make_page(
+            "https://example.com/page",
+            vec![ExtractedLink {
+                url: "not-a-valid-url".to_string(),
+                anchor_text: "bad".to_string(),
+                rel: "".to_string(),
+                is_external: true,
+            }],
+        )];
+
+        let entries = collect_backlink_entries(&pages);
+        assert_eq!(entries.len(), 0); // Skipped because domain_from_url returns empty
+    }
+}
