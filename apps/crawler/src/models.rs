@@ -53,6 +53,17 @@ pub struct CrawlJobPayload {
     pub config: CrawlConfig,
 }
 
+// --- Extracted Link ---
+
+/// A link extracted from a page with metadata for backlink tracking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractedLink {
+    pub url: String,
+    pub anchor_text: String,
+    pub rel: String, // e.g. "nofollow", "sponsored", "" for dofollow
+    pub is_external: bool,
+}
+
 // --- Extracted Data ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +77,8 @@ pub struct ExtractedData {
     pub schema_types: Vec<String>,
     pub internal_links: Vec<String>,
     pub external_links: Vec<String>,
+    #[serde(default)]
+    pub external_link_details: Vec<ExtractedLink>,
     pub images_without_alt: u32,
     pub has_robots_meta: bool,
     pub robots_directives: Vec<String>,
