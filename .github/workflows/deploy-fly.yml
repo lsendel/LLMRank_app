@@ -1,14 +1,15 @@
-name: Deploy Crawler
+name: Deploy Fly.io
 
 on:
   push:
     branches: [main]
     paths:
       - "apps/crawler/**"
+      - "apps/report-service/**"
       - "infra/docker/Dockerfile.crawler"
 
 jobs:
-  deploy:
+  deploy-crawler:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,5 +18,17 @@ jobs:
 
       - run: flyctl deploy -a llmrank-crawler
         working-directory: apps/crawler
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-report-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - run: flyctl deploy -a llm-boost-reports
+        working-directory: apps/report-service
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

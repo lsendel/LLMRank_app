@@ -7,9 +7,10 @@ on:
       - "packages/**"
       - "apps/web/**"
       - "apps/api/**"
+      - "apps/report-worker/**"
 
 jobs:
-  deploy-worker:
+  migrations:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,19 +24,57 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Deploy API Worker via Wrangler
+      - name: Push DB schema to Neon
+        run: pnpm --filter @llm-boost/db push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  deploy-api:
+    needs: migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy API Worker
         run: npx wrangler deploy
         working-directory: apps/api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
-      - name: Run Neon migrations
-        run: pnpm --filter @llm-boost/db push
+  deploy-report-worker:
+    needs: migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy Report Worker
+        run: npx wrangler deploy
+        working-directory: apps/report-worker
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
   deploy-web:
+    needs: [deploy-api, deploy-report-worker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,9 +89,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build web app (OpenNext)
-        run: pnpm --filter @llm-boost/web build
+        run: npx opennextjs-cloudflare build
+        working-directory: apps/web
 
-      - name: Deploy Web Worker via Wrangler
+      - name: Deploy Web Worker
         run: npx wrangler deploy --config wrangler.jsonc
         working-directory: apps/web
         env:

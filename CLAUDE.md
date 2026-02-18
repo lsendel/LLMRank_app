@@ -75,9 +75,6 @@ pnpm test
 # Typecheck all packages
 pnpm typecheck
 
-# Deploy Workers
-npx wrangler deploy
-
 # Database migrations (requires DATABASE_URL env var)
 cd packages/db && npx drizzle-kit push    # Push schema to Neon
 cd packages/db && npx drizzle-kit generate # Generate migration files
@@ -85,10 +82,34 @@ cd packages/db && npx drizzle-kit generate # Generate migration files
 # Rust crawler (from apps/crawler/)
 cargo build --release
 cargo test
-
-# Deploy crawler to Fly.io (from apps/crawler/)
-flyctl deploy -a llmrank-crawler
 ```
+
+## Deployment
+
+CI auto-deploys on push to `main` when relevant paths change.
+
+| Workflow                | Services                                  | Trigger Paths                                                        |
+| ----------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| `deploy-cloudflare.yml` | DB migrations → API + Report Worker → Web | `packages/**`, `apps/web/**`, `apps/api/**`, `apps/report-worker/**` |
+| `deploy-fly.yml`        | Crawler, Report Service                   | `apps/crawler/**`, `apps/report-service/**`                          |
+
+**Manual deploy commands:**
+
+```bash
+# Deploy all services (when CI is broken)
+bash infra/scripts/deploy-all.sh
+
+# Individual Cloudflare services
+cd apps/api && npx wrangler deploy
+cd apps/report-worker && npx wrangler deploy
+cd apps/web && npx opennextjs-cloudflare build && npx wrangler deploy --config wrangler.jsonc
+
+# Individual Fly.io services
+cd apps/crawler && flyctl deploy -a llmrank-crawler
+cd apps/report-service && flyctl deploy -a llm-boost-reports
+```
+
+**Required GitHub Secrets:** `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `DATABASE_URL`, `FLY_API_TOKEN`
 
 ## Key Design Decisions
 
