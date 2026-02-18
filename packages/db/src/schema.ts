@@ -880,6 +880,18 @@ export const adminAuditLogs = pgTable(
   (t) => [index("idx_admin_audit_target").on(t.targetType, t.targetId)],
 );
 
+export const narrativeToneEnum = pgEnum("narrative_tone", [
+  "technical",
+  "business",
+]);
+
+export const narrativeStatusEnum = pgEnum("narrative_status", [
+  "pending",
+  "generating",
+  "ready",
+  "failed",
+]);
+
 export const reportTypeEnum = pgEnum("report_type", ["summary", "detailed"]);
 export const reportFormatEnum = pgEnum("report_format", ["pdf", "docx"]);
 export const reportStatusEnum = pgEnum("report_status", [
@@ -1089,6 +1101,35 @@ export const reportSchedules = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [index("idx_report_schedules_project").on(t.projectId)],
+);
+
+// ---------------------------------------------------------------------------
+// Narrative Reports (AI-generated analysis)
+// ---------------------------------------------------------------------------
+
+export const narrativeReports = pgTable(
+  "narrative_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crawlJobId: uuid("crawl_job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    tone: narrativeToneEnum("tone").notNull(),
+    status: narrativeStatusEnum("status").notNull().default("pending"),
+    sections: jsonb("sections").default([]),
+    version: integer("version").notNull().default(1),
+    generatedBy: text("generated_by"),
+    tokenUsage: jsonb("token_usage"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_narrative_reports_crawl").on(t.crawlJobId),
+    index("idx_narrative_reports_project").on(t.projectId),
+  ],
 );
 
 // ---------------------------------------------------------------------------
