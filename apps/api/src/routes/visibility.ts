@@ -10,6 +10,12 @@ import {
 import { createVisibilityService } from "../services/visibility-service";
 import { handleServiceError } from "../services/errors";
 import { rateLimit } from "../middleware/rate-limit";
+import { suggestKeywords } from "@llm-boost/llm";
+import {
+  enrichmentQueries,
+  crawlQueries,
+  scheduledVisibilityQueryQueries,
+} from "@llm-boost/db";
 
 export const visibilityRoutes = new Hono<AppEnv>();
 
@@ -198,3 +204,62 @@ visibilityRoutes.get("/:projectId/trends", async (c) => {
     return handleServiceError(c, error);
   }
 });
+
+// ---------------------------------------------------------------------------
+// POST /:projectId/discover-keywords — Suggest keywords to track
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.post(
+  "/:projectId/discover-keywords",
+  rateLimit({ limit: 3, windowSeconds: 60, keyPrefix: "rl:vis-discover" }),
+  async (c) => {
+    const db = c.get("db");
+    const userId = c.get("userId");
+    const projectId = c.req.param("projectId");
+
+    const project = await createProjectRepository(db).getById(projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
+
+    const { createKeywordDiscoveryService } =
+      await import("../services/keyword-discovery-service");
+
+    const service = createKeywordDiscoveryService({
+      projects: createProjectRepository(db),
+      enrichments: {
+        async listByJobAndProvider(jobId: string, provider: string) {
+          return enrichmentQueries(db).listByJobAndProvider(
+            jobId,
+            provider as any,
+          );
+        },
+      },
+      schedules: {
+        async listByProject(pid: string) {
+          return scheduledVisibilityQueryQueries(db).listByProject(pid);
+        },
+      },
+      crawls: {
+        async getLatestByProject(pid: string) {
+          return crawlQueries(db).getLatestByProject(pid);
+        },
+      },
+      llm: {
+        async generateKeywords(domain: string, context: string) {
+          return suggestKeywords(c.env.ANTHROPIC_API_KEY, domain, context);
+        },
+      },
+    });
+
+    try {
+      const result = await service.discover(userId, projectId);
+      return c.json({ data: result });
+    } catch (error) {
+      return handleServiceError(c, error);
+    }
+  },
+);
