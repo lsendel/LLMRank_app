@@ -24,5 +24,6 @@ export { CrawlJobAggregate } from "./domain/crawl-aggregate";
 export * from "./domain/llms-txt";
 export * from "./domain/permissions";
 export * from "./schemas/report";
+export * from "./schemas/narrative";
 export * from "./persona-widget-config";
 export * from "./utils/robots-parser";
