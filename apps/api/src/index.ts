@@ -488,6 +488,7 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
           perplexity: env.PERPLEXITY_API_KEY,
           gemini: env.GOOGLE_API_KEY,
           copilot: env.BING_API_KEY,
+          gemini_ai_mode: env.GOOGLE_API_KEY,
         },
       });
 

@@ -71,6 +71,7 @@ visibilityRoutes.post(
           perplexity: c.env.PERPLEXITY_API_KEY,
           gemini: c.env.GOOGLE_API_KEY,
           copilot: c.env.BING_API_KEY,
+          gemini_ai_mode: c.env.GOOGLE_API_KEY,
         },
       });
       return c.json({ data: stored }, 201);
