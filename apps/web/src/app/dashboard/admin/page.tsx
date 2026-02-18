@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
   type ComponentType,
+  type KeyboardEvent,
 } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -196,6 +197,7 @@ export default function AdminPage() {
           description: "Waiting to be dispatched",
           tone: stats.ingestHealth.pendingJobs > 50 ? "warning" : "default",
           trend: pendingHistory,
+          detailKey: "pending",
         },
         {
           title: "Running Jobs",
@@ -203,6 +205,7 @@ export default function AdminPage() {
           icon: Users,
           description: "Crawling or scoring now",
           tone: "default",
+          detailKey: "running",
         },
         {
           title: "Avg Completion (24h)",
@@ -221,6 +224,7 @@ export default function AdminPage() {
           description: "Jobs marked failed in last day",
           tone:
             stats.ingestHealth.failedLast24h > 0 ? "destructive" : "default",
+          detailKey: "failed",
         },
         {
           title: "Outbox Queue",
@@ -228,6 +232,7 @@ export default function AdminPage() {
           icon: Inbox,
           description: "Background tasks waiting to run",
           tone: stats.ingestHealth.outboxPending > 25 ? "warning" : "default",
+          detailKey: "outbox",
         },
       ]
     : [];
@@ -369,8 +374,32 @@ export default function AdminPage() {
             {ingestCards.map((card) => (
               <div
                 key={card.title}
-                className="rounded-lg border p-4"
+                className={`rounded-lg border p-4 ${
+                  card.detailKey
+                    ? "cursor-pointer transition hover:border-primary/40"
+                    : ""
+                }`}
                 data-tone={card.tone}
+                role={card.detailKey ? "button" : undefined}
+                tabIndex={card.detailKey ? 0 : undefined}
+                aria-label={
+                  card.detailKey ? `View ${card.title} details` : undefined
+                }
+                onClick={
+                  card.detailKey
+                    ? () => setDetailType(card.detailKey ?? null)
+                    : undefined
+                }
+                onKeyDown={
+                  card.detailKey
+                    ? (event: KeyboardEvent<HTMLDivElement>) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailType(card.detailKey ?? null);
+                        }
+                      }
+                    : undefined
+                }
               >
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>{card.title}</span>
@@ -391,17 +420,6 @@ export default function AdminPage() {
                   {card.description}
                 </p>
                 {card.trend && <PendingSparkline data={card.trend} />}
-                {card.detailKey && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 px-0 text-xs text-primary"
-                    onClick={() => setDetailType(card.detailKey ?? null)}
-                    disabled={!ingestDetails}
-                  >
-                    View details
-                  </Button>
-                )}
               </div>
             ))}
           </CardContent>

@@ -1577,15 +1577,29 @@ export const api = {
     },
 
     async getTopicMap(projectId: string): Promise<{
-      nodes: unknown[];
-      edges: unknown[];
-      clusters: unknown[];
+      nodes: {
+        id: string;
+        label: string;
+        score: number;
+        wordCount: number;
+        cluster: string;
+        val: number;
+      }[];
+      edges: { source: string; target: string }[];
+      clusters: { id: string; label: string }[];
     }> {
       const res = await apiClient.get<
         ApiEnvelope<{
-          nodes: unknown[];
-          edges: unknown[];
-          clusters: unknown[];
+          nodes: {
+            id: string;
+            label: string;
+            score: number;
+            wordCount: number;
+            cluster: string;
+            val: number;
+          }[];
+          edges: { source: string; target: string }[];
+          clusters: { id: string; label: string }[];
         }>
       >(`/api/strategy/${projectId}/topic-map`);
       return res.data;
@@ -1713,9 +1727,9 @@ export const api = {
       return res.data;
     },
 
-    async getScanResult(id: string, token?: string) {
+    async getScanResult(id: string, token?: string): Promise<PublicScanResult> {
       const params = token ? `?token=${token}` : "";
-      const res = await apiClient.get<ApiEnvelope<unknown>>(
+      const res = await apiClient.get<ApiEnvelope<PublicScanResult>>(
         `/api/public/scan-results/${id}${params}`,
       );
       return res.data;
@@ -2109,11 +2123,10 @@ export const api = {
       projectId: string;
       pageId?: string;
       issueCode: string;
-    }) {
-      const res = await apiClient.post<ApiEnvelope<unknown>>(
-        "/api/fixes/generate",
-        data,
-      );
+    }): Promise<{ generatedFix: string; fixType: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ generatedFix: string; fixType: string }>
+      >("/api/fixes/generate", data);
       return res.data;
     },
 

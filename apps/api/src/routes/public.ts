@@ -5,8 +5,16 @@ import { parseHtml } from "../lib/html-parser";
 import { analyzeSitemap } from "../lib/sitemap";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import { getQuickWins, AI_BOT_USER_AGENT_NAMES } from "@llm-boost/shared";
+import type { ReportConfig } from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";
-import { scanResultQueries } from "@llm-boost/db";
+import {
+  scanResultQueries,
+  crawlQueries,
+  projectQueries,
+  leadQueries,
+} from "@llm-boost/db";
+import { fetchReportData, aggregateReportData } from "@llm-boost/reports";
+import type { GenerateReportJob } from "@llm-boost/reports";
 import { badgeRoutes } from "./badge";
 
 export const publicRoutes = new Hono<AppEnv>();

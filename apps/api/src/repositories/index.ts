@@ -496,7 +496,7 @@ export interface ReportRepository {
   ): ReturnType<ReturnType<typeof reportQueries>["countThisMonth"]>;
   updateStatus(
     id: string,
-    status: string,
+    status: "queued" | "generating" | "complete" | "failed",
     extra?: Record<string, unknown>,
   ): ReturnType<ReturnType<typeof reportQueries>["updateStatus"]>;
   delete(id: string): ReturnType<ReturnType<typeof reportQueries>["delete"]>;

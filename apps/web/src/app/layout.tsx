@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import {
   JsonLd,
   organizationSchema,
@@ -64,6 +65,7 @@ export default function RootLayout({
         <JsonLd data={organizationSchema()} />
         <JsonLd data={webSiteSchema()} />
         <PostHogProvider>{children}</PostHogProvider>
+        <GoogleAnalytics />
       </body>
     </html>
   );
