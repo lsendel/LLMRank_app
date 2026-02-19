@@ -18,6 +18,8 @@ import {
   personaQueries,
   reportQueries,
   scheduledVisibilityQueryQueries,
+  projectQueries,
+  competitorQueries,
 } from "@llm-boost/db";
 
 export const projectRoutes = new Hono<AppEnv>();
@@ -221,5 +223,72 @@ projectRoutes.get(
         scheduleCount,
       },
     });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PATCH /:id/site-context — Update site description and industry
+// ---------------------------------------------------------------------------
+
+projectRoutes.patch(
+  "/:id/site-context",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const db = c.get("db");
+
+    const body = await c.req.json<{
+      siteDescription?: string;
+      industry?: string;
+    }>();
+
+    await projectQueries(db).update(projectId, {
+      ...(body.siteDescription !== undefined && {
+        siteDescription: body.siteDescription,
+      }),
+      ...(body.industry !== undefined && { industry: body.industry }),
+    });
+
+    return c.json({ data: { success: true } });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:id/rediscover-competitors — Re-run competitor discovery
+// ---------------------------------------------------------------------------
+
+projectRoutes.post(
+  "/:id/rediscover-competitors",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const db = c.get("db");
+
+    // Clear existing auto-discovered competitors
+    const existing = await competitorQueries(db).listByProject(projectId);
+    for (const comp of existing) {
+      if (comp.source === "auto_discovered") {
+        await competitorQueries(db).remove(comp.id);
+      }
+    }
+
+    const { runAutoCompetitorDiscovery } =
+      await import("../services/auto-competitor-service");
+
+    const promise = runAutoCompetitorDiscovery({
+      databaseUrl: c.env.DATABASE_URL,
+      projectId,
+      anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+      perplexityApiKey: c.env.PERPLEXITY_API_KEY,
+      grokApiKey: c.env.XAI_API_KEY,
+    });
+
+    if (c.executionCtx?.waitUntil) {
+      c.executionCtx.waitUntil(promise.catch(() => {}));
+      return c.json({ data: { status: "discovering" } }, 202);
+    }
+
+    await promise;
+    return c.json({ data: { status: "complete" } });
   },
 );

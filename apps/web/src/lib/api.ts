@@ -267,6 +267,7 @@ export interface VisibilityCheck {
     | "gemini_ai_mode"
     | "grok";
   query: string;
+  keywordId?: string | null;
   responseText: string | null;
   brandMentioned: boolean;
   urlCited: boolean;
