@@ -66,7 +66,7 @@ export function generateRecommendations(input: {
         descriptions[failure.issueCode] ??
         `Fix "${failure.label}" to improve ${failure.platform} visibility.`,
       impact: "high",
-      provider: failure.platform.toLowerCase(),
+      provider: failure.platform.toLowerCase().replace(/ /g, "_"),
       fixUrl: `/dashboard/projects/${input.projectId}?tab=issues`,
     });
   }

@@ -258,7 +258,14 @@ export interface VisibilityCheck {
   id: string;
   projectId: string;
   pageId?: string;
-  llmProvider: "chatgpt" | "claude" | "perplexity" | "gemini" | "copilot";
+  llmProvider:
+    | "chatgpt"
+    | "claude"
+    | "perplexity"
+    | "gemini"
+    | "copilot"
+    | "gemini_ai_mode"
+    | "grok";
   query: string;
   responseText: string | null;
   brandMentioned: boolean;
@@ -701,7 +708,7 @@ export interface CreateScheduleInput {
   projectId: string;
   query: string;
   providers: string[];
-  frequency: "hourly" | "daily" | "weekly";
+  frequency: "hourly" | "daily" | "weekly" | "monthly";
 }
 
 export interface ScheduleUpdate {

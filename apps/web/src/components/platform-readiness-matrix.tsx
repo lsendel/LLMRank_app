@@ -21,6 +21,9 @@ const PLATFORM_ICONS: Record<string, string> = {
   Claude: "🟠",
   Perplexity: "🔍",
   Gemini: "💎",
+  "Gemini AI Mode": "✨",
+  Copilot: "🔷",
+  Grok: "⚡",
 };
 
 function passRateColor(rate: number): string {

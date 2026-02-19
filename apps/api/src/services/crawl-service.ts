@@ -329,7 +329,9 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       });
 
       return Object.entries(PLATFORM_REQUIREMENTS).map(([platform, checks]) => {
-        const platformId = platform.toLowerCase() as LLMPlatformId;
+        const platformId = platform
+          .toLowerCase()
+          .replace(/ /g, "_") as LLMPlatformId;
         const scoreData = platformScores[platformId] || {
           score: 0,
           grade: "F",
