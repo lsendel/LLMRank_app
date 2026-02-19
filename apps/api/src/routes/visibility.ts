@@ -19,7 +19,7 @@ import {
   scheduledVisibilityQueryQueries,
   discoveredLinkQueries,
 } from "@llm-boost/db";
-import { PLATFORM_REQUIREMENTS } from "@llm-boost/shared";
+import { PLATFORM_REQUIREMENTS, validateKeyword } from "@llm-boost/shared";
 
 export const visibilityRoutes = new Hono<AppEnv>();
 
@@ -469,9 +469,20 @@ visibilityRoutes.get("/:projectId/recommendations", async (c) => {
       issueCode: string;
       importance: "critical" | "important" | "recommended";
     }> = [];
+    const issuePageUrls: Record<string, string[]> = {};
     if (latestCrawl) {
       const issues = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
       const issueCodes = new Set(issues.map((i) => i.code));
+      // Group page URLs by issue code
+      for (const issue of issues) {
+        const url = (issue as { pageUrl?: string | null }).pageUrl;
+        if (url) {
+          if (!issuePageUrls[issue.code]) issuePageUrls[issue.code] = [];
+          if (!issuePageUrls[issue.code].includes(url)) {
+            issuePageUrls[issue.code].push(url);
+          }
+        }
+      }
       for (const [platform, platformChecks] of Object.entries(
         PLATFORM_REQUIREMENTS,
       )) {
@@ -521,6 +532,7 @@ visibilityRoutes.get("/:projectId/recommendations", async (c) => {
       gaps,
       platformFailures,
       issueCodesPresent: new Set(),
+      issuePageUrls,
       trends: providerTrends,
       providersUsed: providers,
       projectId,
@@ -613,5 +625,52 @@ visibilityRoutes.post(
     } catch (error) {
       return handleServiceError(c, error);
     }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:projectId/suggest-keywords — AI-powered keyword suggestions
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.post(
+  "/:projectId/suggest-keywords",
+  rateLimit({ limit: 10, windowSeconds: 60, keyPrefix: "rl:vis-suggest" }),
+  async (c) => {
+    const db = c.get("db");
+    const userId = c.get("userId");
+    const projectId = c.req.param("projectId");
+
+    const project = await createProjectRepository(db).getById(projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
+
+    // Get existing keywords to avoid duplicates
+    const { savedKeywordQueries: savedKwQueries } =
+      await import("@llm-boost/db");
+    const existing = await savedKwQueries(db).listByProject(projectId);
+    const existingSet = new Set(existing.map((k) => k.keyword.toLowerCase()));
+
+    const context =
+      existing.length > 0
+        ? `Existing keywords (avoid duplicates): ${existing.map((k) => k.keyword).join(", ")}`
+        : "";
+
+    const suggestions = await suggestKeywords(
+      c.env.ANTHROPIC_API_KEY,
+      project.domain,
+      context,
+    );
+
+    // Filter out duplicates and invalid keywords
+    const fresh = suggestions
+      .filter((kw: string) => !existingSet.has(kw.toLowerCase()))
+      .filter((kw: string) => validateKeyword(kw).valid)
+      .slice(0, 10);
+
+    return c.json({ data: fresh });
   },
 );
