@@ -11,7 +11,7 @@ const base = {
 describe("calculatePlatformScores", () => {
   it("returns a score for every supported platform", () => {
     const result = calculatePlatformScores(base);
-    expect(Object.keys(result)).toHaveLength(5);
+    expect(Object.keys(result)).toHaveLength(7);
     for (const [platform, detail] of Object.entries(result)) {
       expect(detail.score).toBeGreaterThanOrEqual(0);
       expect(detail.score).toBeLessThanOrEqual(100);

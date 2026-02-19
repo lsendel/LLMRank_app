@@ -14,6 +14,8 @@ describe("LLM platform constants", () => {
       "claude",
       "gemini",
       "grok",
+      "copilot",
+      "gemini_ai_mode",
     ]);
   });
 

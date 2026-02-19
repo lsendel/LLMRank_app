@@ -13,6 +13,8 @@ export const LLM_PLATFORMS = [
   "claude",
   "gemini",
   "grok",
+  "copilot",
+  "gemini_ai_mode",
 ] as const;
 
 export type LLMPlatformId = (typeof LLM_PLATFORMS)[number];
@@ -23,6 +25,8 @@ export const LLM_PLATFORM_NAMES: Record<LLMPlatformId, string> = {
   claude: "Claude (Anthropic)",
   gemini: "Gemini (Google)",
   grok: "Grok (xAI)",
+  copilot: "Copilot (Microsoft)",
+  gemini_ai_mode: "AI Mode (Google)",
 };
 
 export type PlatformCategoryWeights = Record<
@@ -62,6 +66,18 @@ export const PLATFORM_WEIGHTS: Record<LLMPlatformId, PlatformCategoryWeights> =
       ai_readiness: 0.25,
       performance: 0.2,
     },
+    copilot: {
+      technical: 0.35,
+      content: 0.25,
+      ai_readiness: 0.15,
+      performance: 0.25,
+    },
+    gemini_ai_mode: {
+      technical: 0.25,
+      content: 0.3,
+      ai_readiness: 0.35,
+      performance: 0.1,
+    },
   };
 
 export const PLATFORM_TIPS: Record<LLMPlatformId, string[]> = {
@@ -94,5 +110,17 @@ export const PLATFORM_TIPS: Record<LLMPlatformId, string[]> = {
     "Include quotable statements and statistics",
     "Keep readability between 55-70 Flesch score",
     "Use schema markup to reinforce technical credibility",
+  ],
+  copilot: [
+    "Ensure Bing can crawl your site (check BingBot in robots.txt)",
+    "Implement comprehensive meta tags (title, description, OG)",
+    "Submit sitemap to Bing Webmaster Tools",
+    "Optimize page speed — Copilot favors fast-loading sources",
+  ],
+  gemini_ai_mode: [
+    "Include source URLs and citations in your content",
+    "Use comprehensive JSON-LD schema for entity recognition",
+    "Write content that directly answers common questions",
+    "Add authoritative references and data-backed claims",
   ],
 };
