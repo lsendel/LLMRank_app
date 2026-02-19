@@ -15,9 +15,11 @@ import { computeAIVisibilityScore } from "@llm-boost/scoring";
 import {
   enrichmentQueries,
   crawlQueries,
+  scoreQueries,
   scheduledVisibilityQueryQueries,
   discoveredLinkQueries,
 } from "@llm-boost/db";
+import { PLATFORM_REQUIREMENTS } from "@llm-boost/shared";
 
 export const visibilityRoutes = new Hono<AppEnv>();
 
@@ -404,6 +406,127 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
         },
       },
     });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:projectId/recommendations — Prioritized action items
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.get("/:projectId/recommendations", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  try {
+    const project = await createProjectRepository(db).getById(projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
+
+    const checks =
+      await createVisibilityRepository(db).listByProject(projectId);
+
+    // 1. Compute gaps
+    const queryMap = new Map<
+      string,
+      { userMentioned: boolean; competitorsCited: Array<{ domain: string }> }
+    >();
+    for (const check of checks) {
+      const entry = queryMap.get(check.query) ?? {
+        userMentioned: false,
+        competitorsCited: [],
+      };
+      if (check.brandMentioned) entry.userMentioned = true;
+      const mentions = (check.competitorMentions ?? []) as Array<{
+        domain: string;
+        mentioned: boolean;
+      }>;
+      for (const m of mentions) {
+        if (
+          m.mentioned &&
+          !entry.competitorsCited.some((c2) => c2.domain === m.domain)
+        ) {
+          entry.competitorsCited.push({ domain: m.domain });
+        }
+      }
+      queryMap.set(check.query, entry);
+    }
+    const gaps = [...queryMap.entries()]
+      .filter(([, v]) => !v.userMentioned && v.competitorsCited.length > 0)
+      .map(([query, v]) => ({ query, competitorsCited: v.competitorsCited }));
+
+    // 2. Platform failures (from latest crawl)
+    const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+    const platformFailures: Array<{
+      platform: string;
+      label: string;
+      issueCode: string;
+      importance: "critical" | "important" | "recommended";
+    }> = [];
+    if (latestCrawl) {
+      const issues = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
+      const issueCodes = new Set(issues.map((i) => i.code));
+      for (const [platform, platformChecks] of Object.entries(
+        PLATFORM_REQUIREMENTS,
+      )) {
+        for (const check of platformChecks) {
+          if (issueCodes.has(check.issueCode)) {
+            platformFailures.push({ platform, ...check });
+          }
+        }
+      }
+    }
+
+    // 3. Trends (current vs previous week per provider)
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
+    const providerTrends: Array<{
+      provider: string;
+      currentRate: number;
+      previousRate: number;
+    }> = [];
+    const providers = new Set(checks.map((ch) => ch.llmProvider));
+    for (const provider of providers) {
+      const current = checks.filter(
+        (ch) =>
+          ch.llmProvider === provider && new Date(ch.checkedAt) >= oneWeekAgo,
+      );
+      const previous = checks.filter(
+        (ch) =>
+          ch.llmProvider === provider &&
+          new Date(ch.checkedAt) >= twoWeeksAgo &&
+          new Date(ch.checkedAt) < oneWeekAgo,
+      );
+      if (current.length > 0 && previous.length > 0) {
+        providerTrends.push({
+          provider,
+          currentRate:
+            current.filter((ch) => ch.brandMentioned).length / current.length,
+          previousRate:
+            previous.filter((ch) => ch.brandMentioned).length / previous.length,
+        });
+      }
+    }
+
+    const { generateRecommendations } =
+      await import("../services/recommendations-service");
+    const recommendations = generateRecommendations({
+      gaps,
+      platformFailures,
+      issueCodesPresent: new Set(),
+      trends: providerTrends,
+      providersUsed: providers,
+      projectId,
+    });
+
+    return c.json({ data: recommendations });
   } catch (error) {
     return handleServiceError(c, error);
   }
