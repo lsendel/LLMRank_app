@@ -20,6 +20,7 @@
     "@llm-boost/db": "workspace:*",
     "@llm-boost/integrations": "workspace:*",
     "@llm-boost/llm": "workspace:*",
+    "@llm-boost/narrative": "workspace:*",
     "@llm-boost/reports": "workspace:*",
     "@llm-boost/scoring": "workspace:*",
     "@llm-boost/shared": "workspace:*",

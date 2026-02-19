@@ -2817,4 +2817,55 @@ export const api = {
       );
     },
   },
+
+  // ── Narratives ─────────────────────────────────────────────────
+  narratives: {
+    async generate(
+      crawlJobId: string,
+      tone: "technical" | "business" = "technical",
+    ) {
+      const res = await apiClient.post<ApiEnvelope<any>>(
+        "/api/narratives/generate",
+        { crawlJobId, tone },
+      );
+      return res.data;
+    },
+    async get(
+      crawlJobId: string,
+      tone: "technical" | "business" = "technical",
+    ) {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/narratives/${crawlJobId}?tone=${tone}`,
+      );
+      return res.data;
+    },
+    async editSection(
+      crawlJobId: string,
+      sectionId: string,
+      editedContent: string | null,
+    ) {
+      const res = await apiClient.patch<ApiEnvelope<any>>(
+        `/api/narratives/${crawlJobId}/sections/${sectionId}`,
+        { editedContent },
+      );
+      return res.data;
+    },
+    async regenerateSection(
+      crawlJobId: string,
+      sectionType: string,
+      instructions?: string,
+    ) {
+      const res = await apiClient.post<ApiEnvelope<any>>(
+        `/api/narratives/${crawlJobId}/sections/${sectionType}/regenerate`,
+        { instructions },
+      );
+      return res.data;
+    },
+    async delete(crawlJobId: string) {
+      const res = await apiClient.delete<ApiEnvelope<{ deleted: boolean }>>(
+        `/api/narratives/${crawlJobId}`,
+      );
+      return res.data;
+    },
+  },
 };

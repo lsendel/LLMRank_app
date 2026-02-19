@@ -14,6 +14,7 @@ import {
   adminQueries,
   outboxQueries,
   reportQueries,
+  narrativeQueries,
   crawlInsightQueries,
   pageInsightQueries,
   type CrawlInsightInsert,
@@ -525,4 +526,23 @@ export function createReportRepository(db: Database): ReportRepository {
       queries.updateStatus(id, status, extra),
     delete: (id) => queries.delete(id),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Narrative Repository
+// ---------------------------------------------------------------------------
+
+export interface NarrativeRepository {
+  create: ReturnType<typeof narrativeQueries>["create"];
+  getById: ReturnType<typeof narrativeQueries>["getById"];
+  getByCrawlAndTone: ReturnType<typeof narrativeQueries>["getByCrawlAndTone"];
+  listByProject: ReturnType<typeof narrativeQueries>["listByProject"];
+  updateStatus: ReturnType<typeof narrativeQueries>["updateStatus"];
+  updateSections: ReturnType<typeof narrativeQueries>["updateSections"];
+  getLatestVersion: ReturnType<typeof narrativeQueries>["getLatestVersion"];
+  delete: ReturnType<typeof narrativeQueries>["delete"];
+}
+
+export function createNarrativeRepository(db: Database): NarrativeRepository {
+  return narrativeQueries(db);
 }

@@ -12,6 +12,7 @@ import type {
   LogRepository,
   OutboxRepository,
   AdminRepository,
+  NarrativeRepository,
 } from "../../repositories";
 import {
   buildNotificationChannel,
@@ -321,6 +322,28 @@ export function createMockScanResultRepo(overrides?: any) {
       create: vi.fn().mockResolvedValue(buildScanResult()),
       getById: vi.fn().mockResolvedValue(null),
       deleteExpired: vi.fn().mockResolvedValue(0),
+    },
+    overrides,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Narrative
+// ---------------------------------------------------------------------------
+
+export function createMockNarrativeRepo(
+  overrides?: Partial<MockOf<NarrativeRepository>>,
+): MockOf<NarrativeRepository> {
+  return applyOverrides(
+    {
+      create: vi.fn().mockResolvedValue({ id: "narrative-1" }),
+      getById: vi.fn().mockResolvedValue(null),
+      getByCrawlAndTone: vi.fn().mockResolvedValue(null),
+      listByProject: vi.fn().mockResolvedValue([]),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+      updateSections: vi.fn().mockResolvedValue(undefined),
+      getLatestVersion: vi.fn().mockResolvedValue(0),
+      delete: vi.fn().mockResolvedValue(undefined),
     },
     overrides,
   );
