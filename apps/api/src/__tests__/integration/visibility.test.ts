@@ -69,10 +69,13 @@ const mockSavedKeywordQueries = {
     ]),
 };
 
-vi.mock("@llm-boost/db", () => ({
-  savedKeywordQueries: () => mockSavedKeywordQueries,
-  visibilityQueries: vi.fn(),
-}));
+vi.mock("@llm-boost/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@llm-boost/db")>();
+  return {
+    ...actual,
+    savedKeywordQueries: () => mockSavedKeywordQueries,
+  };
+});
 
 // Mock the LLM visibility checker to avoid real API calls
 vi.mock("@llm-boost/llm", () => ({
