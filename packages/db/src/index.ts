@@ -43,4 +43,6 @@ export {
   type BacklinkSummary,
   type ReferringDomain,
 } from "./queries/discovered-links";
+export { personaQueries } from "./queries/personas";
+export { savedKeywordQueries } from "./queries/saved-keywords";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";
