@@ -27,3 +27,7 @@ export * from "./schemas/report";
 export * from "./schemas/narrative";
 export * from "./persona-widget-config";
 export * from "./utils/robots-parser";
+export {
+  validateKeyword,
+  KEYWORD_MAX_LENGTH,
+} from "./validation/keyword-validation";
