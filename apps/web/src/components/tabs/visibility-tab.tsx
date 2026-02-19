@@ -35,6 +35,7 @@ import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
 import { CompetitorComparison } from "@/components/visibility/competitor-comparison";
 import { AIVisibilityScoreHeader } from "@/components/visibility/ai-visibility-score-header";
 import { RecommendationsCard } from "@/components/visibility/recommendations-card";
+import { KeywordPicker } from "@/components/visibility/keyword-picker";
 import { useToast } from "@/components/ui/use-toast";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -73,7 +74,7 @@ const FREQUENCY_OPTIONS = [
 
 export default function VisibilityTab({
   projectId,
-  domain,
+  domain: _domain,
   latestCrawlId,
 }: {
   projectId: string;
@@ -82,8 +83,7 @@ export default function VisibilityTab({
 }) {
   const { withAuth } = useApi();
   const { toast } = useToast();
-  const [selectedQueries, setSelectedQueries] = useState<string[]>([]);
-  const [customQuery, setCustomQuery] = useState("");
+  const [selectedKeywordIds, setSelectedKeywordIds] = useState<string[]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
   );
@@ -146,44 +146,39 @@ export default function VisibilityTab({
       .finally(() => setSchedulesLoaded(true));
   }, [withAuth, projectId, toast]);
 
-  // Derive curated queries from history + schedules
-  const curatedQueries = Array.from(
-    new Set([
-      ...history.map((ch) => ch.query),
-      ...schedules.map((s) => s.query),
-    ]),
-  ).sort();
-
-  function toggleQuery(q: string) {
-    setSelectedQueries((prev) =>
-      prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q],
-    );
-  }
-
-  function addCustomQuery() {
-    const trimmed = customQuery.trim();
-    if (!trimmed || selectedQueries.includes(trimmed)) return;
-    setSelectedQueries((prev) => [...prev, trimmed]);
-    setCustomQuery("");
-  }
-
   async function handleRunCheck() {
-    if (selectedQueries.length === 0 || selectedProviders.length === 0) return;
+    if (selectedKeywordIds.length === 0 || selectedProviders.length === 0)
+      return;
     setLoading(true);
     setError(null);
     try {
-      const allResults: VisibilityCheck[] = [];
-      for (const q of selectedQueries) {
-        await withAuth(async () => {
-          const data = await api.visibility.run({
-            projectId,
-            query: q,
-            providers: selectedProviders,
-          });
-          allResults.push(...data);
-        });
+      // Separate real keyword IDs from persona virtual IDs
+      const realIds: string[] = [];
+      const personaQueries: string[] = [];
+      for (const id of selectedKeywordIds) {
+        if (id.startsWith("persona:")) {
+          const query = id.split(":").slice(2).join(":");
+          personaQueries.push(query);
+        } else {
+          realIds.push(id);
+        }
       }
-      setResults(allResults);
+
+      // Save persona queries as keywords first
+      if (personaQueries.length > 0) {
+        const saved = await api.keywords.createBatch(projectId, personaQueries);
+        realIds.push(...saved.map((k) => k.id));
+      }
+
+      await withAuth(async () => {
+        const data = await api.visibility.run({
+          projectId,
+          keywordIds: realIds,
+          providers: selectedProviders,
+        });
+        setResults(data);
+      });
+
       const updated = await api.visibility.list(projectId);
       setHistory(updated);
     } catch (err) {
@@ -287,82 +282,17 @@ export default function VisibilityTab({
       )}
 
       {/* Run Check Form */}
+      <KeywordPicker
+        projectId={projectId}
+        selectedIds={selectedKeywordIds}
+        onSelectionChange={setSelectedKeywordIds}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Run Visibility Check</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Select Queries</Label>
-
-            {curatedQueries.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {curatedQueries.map((q) => (
-                  <Button
-                    key={q}
-                    variant={
-                      selectedQueries.includes(q) ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() => toggleQuery(q)}
-                    className="max-w-[280px] truncate"
-                  >
-                    {q}
-                  </Button>
-                ))}
-              </div>
-            )}
-
-            {/* Custom query input */}
-            <div className="flex gap-2">
-              <Input
-                placeholder={`Add a query, e.g. "best ${domain.split(".")[0]} alternatives"`}
-                value={customQuery}
-                onChange={(e) => setCustomQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCustomQuery();
-                  }
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addCustomQuery}
-                disabled={!customQuery.trim()}
-              >
-                Add
-              </Button>
-            </div>
-
-            {/* Show selected custom queries not in curated list */}
-            {selectedQueries.filter((q) => !curatedQueries.includes(q)).length >
-              0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedQueries
-                  .filter((q) => !curatedQueries.includes(q))
-                  .map((q) => (
-                    <Button
-                      key={q}
-                      variant="default"
-                      size="sm"
-                      onClick={() => toggleQuery(q)}
-                      className="max-w-[280px] truncate"
-                    >
-                      {q}
-                    </Button>
-                  ))}
-              </div>
-            )}
-
-            {curatedQueries.length === 0 && selectedQueries.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No previous queries found. Add a query above to get started.
-              </p>
-            )}
-          </div>
-
           <div className="space-y-2">
             <Label>LLM Providers</Label>
             <div className="flex flex-wrap gap-2">
@@ -382,13 +312,13 @@ export default function VisibilityTab({
           </div>
 
           {/* Cost indicator */}
-          {selectedQueries.length > 0 && (
+          {selectedKeywordIds.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              {selectedQueries.length} quer
-              {selectedQueries.length === 1 ? "y" : "ies"} x{" "}
+              {selectedKeywordIds.length} quer
+              {selectedKeywordIds.length === 1 ? "y" : "ies"} x{" "}
               {selectedProviders.length} provider
               {selectedProviders.length === 1 ? "" : "s"} ={" "}
-              {selectedQueries.length * selectedProviders.length} checks
+              {selectedKeywordIds.length * selectedProviders.length} checks
             </p>
           )}
 
@@ -399,7 +329,7 @@ export default function VisibilityTab({
           )}
           <Button
             onClick={handleRunCheck}
-            disabled={loading || selectedQueries.length === 0}
+            disabled={loading || selectedKeywordIds.length === 0}
           >
             {loading ? "Checking..." : "Run Check"}
           </Button>
@@ -422,7 +352,7 @@ export default function VisibilityTab({
       {results.length > 0 && schedules.length === 0 && (
         <ScheduleSuggestionBanner
           projectId={projectId}
-          lastQuery={selectedQueries[0] ?? ""}
+          lastQuery={results[0]?.query ?? ""}
           lastProviders={selectedProviders}
           onCreated={(schedule) => setSchedules((prev) => [...prev, schedule])}
         />
