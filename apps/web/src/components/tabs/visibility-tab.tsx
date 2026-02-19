@@ -61,6 +61,7 @@ const PROVIDERS = [
   { id: "gemini", label: "Gemini" },
   { id: "copilot", label: "Copilot" },
   { id: "gemini_ai_mode", label: "AI Search (Gemini)" },
+  { id: "grok", label: "Grok" },
 ] as const;
 
 const FREQUENCY_OPTIONS = [
@@ -80,7 +81,8 @@ export default function VisibilityTab({
 }) {
   const { withAuth } = useApi();
   const { toast } = useToast();
-  const [query, setQuery] = useState("");
+  const [selectedQueries, setSelectedQueries] = useState<string[]>([]);
+  const [customQuery, setCustomQuery] = useState("");
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
   );
@@ -143,21 +145,46 @@ export default function VisibilityTab({
       .finally(() => setSchedulesLoaded(true));
   }, [withAuth, projectId, toast]);
 
+  // Derive curated queries from history + schedules
+  const curatedQueries = Array.from(
+    new Set([
+      ...history.map((ch) => ch.query),
+      ...schedules.map((s) => s.query),
+    ]),
+  ).sort();
+
+  function toggleQuery(q: string) {
+    setSelectedQueries((prev) =>
+      prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q],
+    );
+  }
+
+  function addCustomQuery() {
+    const trimmed = customQuery.trim();
+    if (!trimmed || selectedQueries.includes(trimmed)) return;
+    setSelectedQueries((prev) => [...prev, trimmed]);
+    setCustomQuery("");
+  }
+
   async function handleRunCheck() {
-    if (!query.trim() || selectedProviders.length === 0) return;
+    if (selectedQueries.length === 0 || selectedProviders.length === 0) return;
     setLoading(true);
     setError(null);
     try {
-      await withAuth(async () => {
-        const data = await api.visibility.run({
-          projectId,
-          query: query.trim(),
-          providers: selectedProviders,
+      const allResults: VisibilityCheck[] = [];
+      for (const q of selectedQueries) {
+        await withAuth(async () => {
+          const data = await api.visibility.run({
+            projectId,
+            query: q,
+            providers: selectedProviders,
+          });
+          allResults.push(...data);
         });
-        setResults(data);
-        const updated = await api.visibility.list(projectId);
-        setHistory(updated);
-      });
+      }
+      setResults(allResults);
+      const updated = await api.visibility.list(projectId);
+      setHistory(updated);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -259,14 +286,76 @@ export default function VisibilityTab({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="vis-query">Search Query</Label>
-            <Input
-              id="vis-query"
-              placeholder={`e.g. "best ${domain.split(".")[0]} alternatives"`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+            <Label>Select Queries</Label>
+
+            {curatedQueries.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {curatedQueries.map((q) => (
+                  <Button
+                    key={q}
+                    variant={
+                      selectedQueries.includes(q) ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => toggleQuery(q)}
+                    className="max-w-[280px] truncate"
+                  >
+                    {q}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {/* Custom query input */}
+            <div className="flex gap-2">
+              <Input
+                placeholder={`Add a query, e.g. "best ${domain.split(".")[0]} alternatives"`}
+                value={customQuery}
+                onChange={(e) => setCustomQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomQuery();
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addCustomQuery}
+                disabled={!customQuery.trim()}
+              >
+                Add
+              </Button>
+            </div>
+
+            {/* Show selected custom queries not in curated list */}
+            {selectedQueries.filter((q) => !curatedQueries.includes(q)).length >
+              0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedQueries
+                  .filter((q) => !curatedQueries.includes(q))
+                  .map((q) => (
+                    <Button
+                      key={q}
+                      variant="default"
+                      size="sm"
+                      onClick={() => toggleQuery(q)}
+                      className="max-w-[280px] truncate"
+                    >
+                      {q}
+                    </Button>
+                  ))}
+              </div>
+            )}
+
+            {curatedQueries.length === 0 && selectedQueries.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No previous queries found. Add a query above to get started.
+              </p>
+            )}
           </div>
+
           <div className="space-y-2">
             <Label>LLM Providers</Label>
             <div className="flex flex-wrap gap-2">
@@ -284,12 +373,27 @@ export default function VisibilityTab({
               ))}
             </div>
           </div>
+
+          {/* Cost indicator */}
+          {selectedQueries.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {selectedQueries.length} quer
+              {selectedQueries.length === 1 ? "y" : "ies"} x{" "}
+              {selectedProviders.length} provider
+              {selectedProviders.length === 1 ? "" : "s"} ={" "}
+              {selectedQueries.length * selectedProviders.length} checks
+            </p>
+          )}
+
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
-          <Button onClick={handleRunCheck} disabled={loading || !query.trim()}>
+          <Button
+            onClick={handleRunCheck}
+            disabled={loading || selectedQueries.length === 0}
+          >
             {loading ? "Checking..." : "Run Check"}
           </Button>
         </CardContent>
