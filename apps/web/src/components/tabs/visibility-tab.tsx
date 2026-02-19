@@ -33,6 +33,8 @@ import {
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
 import { CompetitorComparison } from "@/components/visibility/competitor-comparison";
+import { AIVisibilityScoreHeader } from "@/components/visibility/ai-visibility-score-header";
+import { RecommendationsCard } from "@/components/visibility/recommendations-card";
 import { useToast } from "@/components/ui/use-toast";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -65,9 +67,8 @@ const PROVIDERS = [
 ] as const;
 
 const FREQUENCY_OPTIONS = [
-  { value: "hourly", label: "Hourly", description: "Pro+ plans only" },
-  { value: "daily", label: "Daily", description: "Every 24 hours" },
   { value: "weekly", label: "Weekly", description: "Every 7 days" },
+  { value: "monthly", label: "Monthly", description: "1st of each month" },
 ] as const;
 
 export default function VisibilityTab({
@@ -199,7 +200,7 @@ export default function VisibilityTab({
   async function handleCreateSchedule(data: {
     query: string;
     providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
+    frequency: "weekly" | "monthly";
   }) {
     setScheduleError(null);
     try {
@@ -264,6 +265,12 @@ export default function VisibilityTab({
 
   return (
     <div className="space-y-6">
+      {/* AI Visibility Score Header */}
+      <AIVisibilityScoreHeader projectId={projectId} />
+
+      {/* Actionable Recommendations */}
+      <RecommendationsCard projectId={projectId} />
+
       {/* Platform Readiness Matrix */}
       {latestCrawlId && <PlatformReadinessMatrix crawlId={latestCrawlId} />}
 
@@ -523,7 +530,7 @@ function ScheduledChecksSection({
   onCreateSchedule: (data: {
     query: string;
     providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
+    frequency: "weekly" | "monthly";
   }) => Promise<void>;
   onToggleSchedule: (schedule: ScheduledQuery) => Promise<void>;
   onDeleteSchedule: (id: string) => Promise<void>;
@@ -624,13 +631,7 @@ function ScheduleRow({
             </Badge>
           ))}
           <Badge
-            variant={
-              schedule.frequency === "hourly"
-                ? "default"
-                : schedule.frequency === "daily"
-                  ? "outline"
-                  : "secondary"
-            }
+            variant={schedule.frequency === "weekly" ? "default" : "secondary"}
             className="text-xs"
           >
             {schedule.frequency}
@@ -688,16 +689,14 @@ function AddScheduleDialog({
   onSubmit: (data: {
     query: string;
     providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
+    frequency: "weekly" | "monthly";
   }) => Promise<void>;
 }) {
   const [scheduleQuery, setScheduleQuery] = useState("");
   const [scheduleProviders, setScheduleProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
   );
-  const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly">(
-    "daily",
-  );
+  const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
   const [submitting, setSubmitting] = useState(false);
 
   function toggleScheduleProvider(id: string) {
@@ -718,7 +717,7 @@ function AddScheduleDialog({
       // Reset form on success
       setScheduleQuery("");
       setScheduleProviders(PROVIDERS.map((p) => p.id));
-      setFrequency("daily");
+      setFrequency("weekly");
     } catch {
       // Error is displayed via the error prop
     } finally {
@@ -767,9 +766,7 @@ function AddScheduleDialog({
           <Label>Frequency</Label>
           <Select
             value={frequency}
-            onValueChange={(val) =>
-              setFrequency(val as "hourly" | "daily" | "weekly")
-            }
+            onValueChange={(val) => setFrequency(val as "weekly" | "monthly")}
           >
             <SelectTrigger>
               <SelectValue />
@@ -785,11 +782,6 @@ function AddScheduleDialog({
               ))}
             </SelectContent>
           </Select>
-          {frequency === "hourly" && (
-            <p className="text-xs text-amber-600">
-              Hourly checks are only available on Pro and Agency plans.
-            </p>
-          )}
         </div>
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
