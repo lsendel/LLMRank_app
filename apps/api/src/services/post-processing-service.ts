@@ -23,6 +23,7 @@ import { runAutoNarrativeRegeneration } from "./auto-narrative-service";
 import { runAutoPersonaGeneration } from "./auto-persona-service";
 import { runAutoReportGeneration } from "./auto-report-service";
 import { runAutoCompetitorDiscovery } from "./auto-competitor-service";
+import { runAutoKeywordGeneration } from "./auto-keyword-service";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -243,6 +244,18 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
           runAutoCompetitorDiscovery({
             databaseUrl: env.databaseUrl,
             projectId,
+            anthropicApiKey: env.anthropicApiKey,
+          }).catch(() => {}),
+        );
+      }
+
+      // Auto-generate seed keywords on first crawl (fire-and-forget)
+      if (batch.is_final && env.anthropicApiKey) {
+        args.executionCtx.waitUntil(
+          runAutoKeywordGeneration({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            crawlJobId,
             anthropicApiKey: env.anthropicApiKey,
           }).catch(() => {}),
         );
