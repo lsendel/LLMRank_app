@@ -45,4 +45,5 @@ export {
 } from "./queries/discovered-links";
 export { personaQueries } from "./queries/personas";
 export { savedKeywordQueries } from "./queries/saved-keywords";
+export { promoQueries } from "./queries/promos";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";

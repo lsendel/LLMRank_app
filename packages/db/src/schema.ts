@@ -19,6 +19,12 @@ import {
 
 export const planEnum = pgEnum("plan", ["free", "starter", "pro", "agency"]);
 
+export const userStatusEnum = pgEnum("user_status", [
+  "active",
+  "suspended",
+  "banned",
+]);
+
 export const crawlStatusEnum = pgEnum("crawl_status", [
   "pending",
   "queued",
@@ -157,6 +163,18 @@ export const keywordSourceEnum = pgEnum("keyword_source", [
   "perplexity",
 ]);
 
+export const discountTypeEnum = pgEnum("discount_type", [
+  "percent_off",
+  "amount_off",
+  "free_months",
+]);
+
+export const promoDurationEnum = pgEnum("promo_duration", [
+  "once",
+  "repeating",
+  "forever",
+]);
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -182,6 +200,9 @@ export const users = pgTable("users", {
   notifyOnScoreDrop: boolean("notify_on_score_drop").notNull().default(true),
   webhookUrl: text("webhook_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  status: userStatusEnum("status").notNull().default("active"),
+  suspendedAt: timestamp("suspended_at"),
+  suspendedReason: text("suspended_reason"),
   onboardingComplete: boolean("onboarding_complete").notNull().default(false),
   persona: personaEnum("persona"),
   digestFrequency: text("digest_frequency").notNull().default("off"),
@@ -572,6 +593,34 @@ export const payments = pgTable(
   (t) => [
     index("idx_payments_user").on(t.userId),
     index("idx_payments_subscription").on(t.subscriptionId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Promos / Coupons
+// ---------------------------------------------------------------------------
+
+export const promos = pgTable(
+  "promos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull().unique(),
+    stripeCouponId: text("stripe_coupon_id").notNull(),
+    stripePromotionCodeId: text("stripe_promotion_code_id"),
+    discountType: discountTypeEnum("discount_type").notNull(),
+    discountValue: integer("discount_value").notNull(),
+    duration: promoDurationEnum("duration").notNull(),
+    durationMonths: integer("duration_months"),
+    maxRedemptions: integer("max_redemptions"),
+    timesRedeemed: integer("times_redeemed").notNull().default(0),
+    expiresAt: timestamp("expires_at"),
+    active: boolean("active").notNull().default(true),
+    createdBy: text("created_by").references(() => users.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_promos_code").on(t.code),
+    index("idx_promos_active").on(t.active),
   ],
 );
 

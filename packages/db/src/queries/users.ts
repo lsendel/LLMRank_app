@@ -106,5 +106,23 @@ export function userQueries(db: Database) {
         .set({ crawlCreditsRemaining: credits, updatedAt: new Date() })
         .where(eq(users.plan, plan));
     },
+
+    async updateStatus(
+      id: string,
+      status: "active" | "suspended" | "banned",
+      reason?: string,
+    ) {
+      const [updated] = await db
+        .update(users)
+        .set({
+          status,
+          suspendedAt: status !== "active" ? new Date() : null,
+          suspendedReason: reason ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return updated;
+    },
   };
 }
