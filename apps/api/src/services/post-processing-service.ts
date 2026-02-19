@@ -24,6 +24,7 @@ import { runAutoPersonaGeneration } from "./auto-persona-service";
 import { runAutoReportGeneration } from "./auto-report-service";
 import { runAutoCompetitorDiscovery } from "./auto-competitor-service";
 import { runAutoKeywordGeneration } from "./auto-keyword-service";
+import { runAutoSiteDescription } from "./auto-site-description-service";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -238,6 +239,18 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         );
       }
 
+      // Auto-detect site description and industry (fire-and-forget)
+      if (batch.is_final && env.anthropicApiKey) {
+        args.executionCtx.waitUntil(
+          runAutoSiteDescription({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            crawlJobId,
+            anthropicApiKey: env.anthropicApiKey,
+          }).catch(() => {}),
+        );
+      }
+
       // Auto-discover competitors on first crawl (fire-and-forget)
       if (batch.is_final && env.anthropicApiKey) {
         args.executionCtx.waitUntil(
@@ -245,6 +258,8 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             databaseUrl: env.databaseUrl,
             projectId,
             anthropicApiKey: env.anthropicApiKey,
+            perplexityApiKey: env.perplexityApiKey,
+            grokApiKey: env.xaiApiKey,
           }).catch(() => {}),
         );
       }
