@@ -160,3 +160,46 @@ competitorRoutes.get("/", async (c) => {
 
   return c.json({ data: { projectScores, competitors: comparison } });
 });
+
+// GET /api/competitors/comparison/:projectId — Structured comparison table
+competitorRoutes.get("/comparison/:projectId", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const competitors = await competitorQueries(db).listByProject(projectId);
+  const benchmarks =
+    await competitorBenchmarkQueries(db).listByProject(projectId);
+
+  const comparison = {
+    ownDomain: project.domain,
+    competitors: competitors.map((comp) => {
+      const benchmark = benchmarks.find(
+        (b) => b.competitorDomain === comp.domain,
+      );
+      return {
+        id: comp.id,
+        domain: comp.domain,
+        source: comp.source ?? "user_added",
+        overallScore: benchmark?.overallScore ?? null,
+        letterGrade: benchmark?.letterGrade ?? null,
+        technicalScore: benchmark?.technicalScore ?? null,
+        contentScore: benchmark?.contentScore ?? null,
+        aiReadinessScore: benchmark?.aiReadinessScore ?? null,
+        performanceScore: benchmark?.performanceScore ?? null,
+        issueCount: benchmark?.issueCount ?? null,
+        crawledAt: benchmark?.crawledAt ?? null,
+      };
+    }),
+  };
+
+  return c.json({ data: comparison });
+});
