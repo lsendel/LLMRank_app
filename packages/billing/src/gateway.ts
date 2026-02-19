@@ -196,6 +196,7 @@ export class StripeGateway {
     successUrl: string;
     cancelUrl: string;
     upgradeFromSubscriptionId?: string;
+    promotionCodeId?: string;
   }): Promise<{ sessionId: string; url: string }> {
     const params: Record<string, string> = {
       mode: "subscription",
@@ -211,6 +212,10 @@ export class StripeGateway {
     if (opts.upgradeFromSubscriptionId) {
       params["subscription_data[metadata][upgrade_from_subscription_id]"] =
         opts.upgradeFromSubscriptionId;
+    }
+
+    if (opts.promotionCodeId) {
+      params["discounts[0][promotion_code]"] = opts.promotionCodeId;
     }
 
     const session = await stripeRequest<StripeCheckoutSession>(
@@ -273,6 +278,122 @@ export class StripeGateway {
       this.secretKey,
       "DELETE",
       `/subscriptions/${subscriptionId}`,
+    );
+  }
+
+  /**
+   * Update a subscription's price (for downgrades).
+   * proration_behavior "none" means the change takes effect at next renewal.
+   */
+  async updateSubscriptionPrice(
+    subscriptionId: string,
+    itemId: string,
+    newPriceId: string,
+  ): Promise<StripeSubscription> {
+    return stripeRequest<StripeSubscription>(
+      this.secretKey,
+      "POST",
+      `/subscriptions/${subscriptionId}`,
+      {
+        "items[0][id]": itemId,
+        "items[0][price]": newPriceId,
+        proration_behavior: "none",
+      },
+    );
+  }
+
+  /**
+   * Create a Stripe coupon.
+   */
+  async createCoupon(opts: {
+    percentOff?: number;
+    amountOff?: number;
+    currency?: string;
+    duration: "once" | "repeating" | "forever";
+    durationInMonths?: number;
+    name?: string;
+  }): Promise<{ id: string }> {
+    const params: Record<string, string> = {
+      duration: opts.duration,
+    };
+    if (opts.percentOff != null) params.percent_off = String(opts.percentOff);
+    if (opts.amountOff != null) {
+      params.amount_off = String(opts.amountOff);
+      params.currency = opts.currency ?? "usd";
+    }
+    if (opts.durationInMonths != null)
+      params.duration_in_months = String(opts.durationInMonths);
+    if (opts.name) params.name = opts.name;
+
+    return stripeRequest<{ id: string }>(
+      this.secretKey,
+      "POST",
+      "/coupons",
+      params,
+    );
+  }
+
+  /**
+   * Create a Stripe promotion code (the user-facing code linked to a coupon).
+   */
+  async createPromotionCode(
+    couponId: string,
+    code: string,
+    opts?: { maxRedemptions?: number; expiresAt?: number },
+  ): Promise<{ id: string; code: string }> {
+    const params: Record<string, string> = {
+      coupon: couponId,
+      code: code.toUpperCase(),
+    };
+    if (opts?.maxRedemptions != null)
+      params.max_redemptions = String(opts.maxRedemptions);
+    if (opts?.expiresAt != null) params.expires_at = String(opts.expiresAt);
+
+    return stripeRequest<{ id: string; code: string }>(
+      this.secretKey,
+      "POST",
+      "/promotion_codes",
+      params,
+    );
+  }
+
+  /**
+   * Apply a coupon to an existing subscription.
+   */
+  async applyDiscountToSubscription(
+    subscriptionId: string,
+    couponId: string,
+  ): Promise<StripeSubscription> {
+    return stripeRequest<StripeSubscription>(
+      this.secretKey,
+      "POST",
+      `/subscriptions/${subscriptionId}`,
+      { coupon: couponId },
+    );
+  }
+
+  /**
+   * Deactivate a Stripe promotion code.
+   */
+  async deactivatePromotionCode(
+    promotionCodeId: string,
+  ): Promise<{ id: string; active: boolean }> {
+    return stripeRequest<{ id: string; active: boolean }>(
+      this.secretKey,
+      "POST",
+      `/promotion_codes/${promotionCodeId}`,
+      { active: "false" },
+    );
+  }
+
+  /**
+   * Delete a Stripe coupon (also deactivates linked promotion codes).
+   */
+  async deleteCoupon(couponId: string): Promise<void> {
+    await stripeRequest<{ id: string; deleted: boolean }>(
+      this.secretKey,
+      "DELETE",
+      `/coupons/${couponId}`,
     );
   }
 

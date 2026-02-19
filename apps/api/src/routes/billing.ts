@@ -47,6 +47,8 @@ billingRoutes.post("/checkout", authMiddleware, async (c) => {
       successUrl: body.successUrl,
       cancelUrl: body.cancelUrl,
       stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+      promoCode: (body as { promoCode?: string }).promoCode,
+      db,
     });
     return c.json({ data: session });
   } catch (error) {
@@ -135,6 +137,62 @@ billingRoutes.post("/cancel", authMiddleware, async (c) => {
       userId,
       c.env.STRIPE_SECRET_KEY,
     );
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /validate-promo — Validate a promo code ──────────────
+
+billingRoutes.post("/validate-promo", async (c) => {
+  const body = await c.req.json<{ code: string }>();
+  if (!body.code?.trim()) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "code is required" } },
+      422,
+    );
+  }
+
+  const db = c.get("db");
+  const service = createBillingService({
+    billing: createBillingRepository(db),
+    users: createUserRepository(db),
+  });
+
+  try {
+    const data = await service.validatePromo(body.code.trim(), db);
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /downgrade — Downgrade subscription at period end ─────
+
+billingRoutes.post("/downgrade", authMiddleware, async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const body = await c.req.json<{ plan: string }>();
+
+  if (!body.plan) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "plan is required" } },
+      422,
+    );
+  }
+
+  const service = createBillingService({
+    billing: createBillingRepository(db),
+    users: createUserRepository(db),
+  });
+
+  try {
+    const data = await service.downgrade({
+      userId,
+      targetPlan: body.plan,
+      stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+    });
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);

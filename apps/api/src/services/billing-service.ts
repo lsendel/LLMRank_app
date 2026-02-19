@@ -1,6 +1,8 @@
 import { PLAN_LIMITS, ERROR_CODES } from "@llm-boost/shared";
 import type { BillingRepository, UserRepository } from "../repositories";
 import { StripeGateway, priceIdFromPlanCode } from "@llm-boost/billing";
+import { promoQueries } from "@llm-boost/db";
+import type { Database } from "@llm-boost/db";
 import { ServiceError } from "./errors";
 
 export interface BillingServiceDeps {
@@ -16,6 +18,8 @@ export function createBillingService(deps: BillingServiceDeps) {
       successUrl: string;
       cancelUrl: string;
       stripeSecretKey: string;
+      promoCode?: string;
+      db?: Database;
     }) {
       const user = await deps.users.getById(args.userId);
       if (!user) {
@@ -30,6 +34,15 @@ export function createBillingService(deps: BillingServiceDeps) {
           `Invalid plan: ${args.plan}`,
         );
       }
+
+      let promotionCodeId: string | undefined;
+      if (args.promoCode && args.db) {
+        const promo = await promoQueries(args.db).getByCode(args.promoCode);
+        if (promo?.stripePromotionCodeId) {
+          promotionCodeId = promo.stripePromotionCodeId;
+        }
+      }
+
       const gateway = new StripeGateway(args.stripeSecretKey);
       const customerId = await gateway.ensureCustomer(
         user.email,
@@ -43,6 +56,7 @@ export function createBillingService(deps: BillingServiceDeps) {
         planCode: args.plan,
         successUrl: args.successUrl,
         cancelUrl: args.cancelUrl,
+        promotionCodeId,
       });
     },
 
@@ -86,6 +100,91 @@ export function createBillingService(deps: BillingServiceDeps) {
         subscription.stripeSubscriptionId,
       );
       return { canceled: true };
+    },
+
+    async downgrade(args: {
+      userId: string;
+      targetPlan: string;
+      stripeSecretKey: string;
+    }) {
+      const user = await deps.users.getById(args.userId);
+      if (!user) {
+        throw new ServiceError("NOT_FOUND", 404, "User not found");
+      }
+
+      // Downgrade to free = cancel subscription
+      if (args.targetPlan === "free") {
+        return this.cancelAtPeriodEnd(args.userId, args.stripeSecretKey);
+      }
+
+      const targetPriceId = priceIdFromPlanCode(args.targetPlan);
+      if (!targetPriceId) {
+        throw new ServiceError(
+          "VALIDATION_ERROR",
+          422,
+          `Invalid plan: ${args.targetPlan}`,
+        );
+      }
+
+      const subscription = await deps.billing.getActiveSubscription(
+        args.userId,
+      );
+      if (!subscription?.stripeSubscriptionId) {
+        throw new ServiceError(
+          "VALIDATION_ERROR",
+          422,
+          "No active subscription to downgrade",
+        );
+      }
+
+      const gateway = new StripeGateway(args.stripeSecretKey);
+      const stripeSub = await gateway.getSubscription(
+        subscription.stripeSubscriptionId,
+      );
+      const itemId = stripeSub.items.data[0]?.id;
+      if (!itemId) {
+        throw new ServiceError(
+          "VALIDATION_ERROR",
+          422,
+          "Subscription has no items",
+        );
+      }
+
+      await gateway.updateSubscriptionPrice(
+        subscription.stripeSubscriptionId,
+        itemId,
+        targetPriceId,
+      );
+
+      return { downgraded: true, targetPlan: args.targetPlan };
+    },
+
+    async validatePromo(code: string, db: Database) {
+      const promo = await promoQueries(db).getByCode(code);
+      if (!promo) {
+        throw new ServiceError("NOT_FOUND", 404, "Promo code not found");
+      }
+      if (promo.expiresAt && promo.expiresAt < new Date()) {
+        throw new ServiceError(
+          "VALIDATION_ERROR",
+          422,
+          "Promo code has expired",
+        );
+      }
+      if (promo.maxRedemptions && promo.timesRedeemed >= promo.maxRedemptions) {
+        throw new ServiceError(
+          "VALIDATION_ERROR",
+          422,
+          "Promo code has reached maximum redemptions",
+        );
+      }
+      return {
+        code: promo.code,
+        discountType: promo.discountType,
+        discountValue: promo.discountValue,
+        duration: promo.duration,
+        durationMonths: promo.durationMonths,
+      };
     },
 
     async portal(userId: string, returnUrl: string, stripeSecretKey: string) {
