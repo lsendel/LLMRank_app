@@ -8,6 +8,8 @@ import { createAdminService } from "../services/admin-service";
 import { createMonitoringService } from "../services/monitoring-service";
 import { createNotificationService } from "../services/notification-service";
 import { handleServiceError } from "../services/errors";
+import { StripeGateway } from "@llm-boost/billing";
+import { promoQueries, billingQueries } from "@llm-boost/db";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -118,6 +120,330 @@ adminRoutes.post("/ingest/outbox/:id/replay", async (c) => {
       c.get("userId"),
     );
     return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /customers/:id/block — Ban a user ────────────────────
+
+adminRoutes.post("/customers/:id/block", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+  const body = (await c.req.json<{ reason?: string }>().catch(() => ({}))) as {
+    reason?: string;
+  };
+
+  const service = buildAdminService(c);
+  try {
+    const result = await service.blockUser({
+      targetId,
+      adminId,
+      reason: body.reason,
+      stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+      db,
+    });
+    return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /customers/:id/suspend — Suspend a user ──────────────
+
+adminRoutes.post("/customers/:id/suspend", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+  const body = (await c.req.json<{ reason?: string }>().catch(() => ({}))) as {
+    reason?: string;
+  };
+
+  const service = buildAdminService(c);
+  try {
+    const result = await service.suspendUser({
+      targetId,
+      adminId,
+      reason: body.reason,
+      stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+      db,
+    });
+    return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /customers/:id/unblock — Restore a user ──────────────
+
+adminRoutes.post("/customers/:id/unblock", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+
+  const service = buildAdminService(c);
+  try {
+    const result = await service.unblockUser({ targetId, adminId, db });
+    return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /customers/:id/change-plan — Admin force plan change ──
+
+adminRoutes.post("/customers/:id/change-plan", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+  const body = await c.req.json<{ plan: string }>();
+
+  if (!body.plan) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "plan is required" } },
+      422,
+    );
+  }
+
+  const service = buildAdminService(c);
+  try {
+    const result = await service.changeUserPlan({
+      targetId,
+      adminId,
+      plan: body.plan,
+      stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+      db,
+    });
+    return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /customers/:id/cancel-subscription — Admin cancel sub ─
+
+adminRoutes.post("/customers/:id/cancel-subscription", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+
+  const service = buildAdminService(c);
+  try {
+    const result = await service.cancelUserSubscription({
+      targetId,
+      adminId,
+      stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+      db,
+    });
+    return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── GET /promos — List all promo codes ─────────────────────────
+
+adminRoutes.get("/promos", async (c) => {
+  const db = c.get("db");
+  const promoList = await promoQueries(db).list();
+  return c.json({ data: promoList });
+});
+
+// ─── POST /promos — Create a promo code ─────────────────────────
+
+adminRoutes.post("/promos", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const body = await c.req.json<{
+    code: string;
+    discountType: "percent_off" | "amount_off" | "free_months";
+    discountValue: number;
+    duration: "once" | "repeating" | "forever";
+    durationMonths?: number;
+    maxRedemptions?: number;
+    expiresAt?: string;
+  }>();
+
+  if (
+    !body.code?.trim() ||
+    !body.discountType ||
+    !body.discountValue ||
+    !body.duration
+  ) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "code, discountType, discountValue, and duration are required",
+        },
+      },
+      422,
+    );
+  }
+
+  try {
+    const gateway = new StripeGateway(c.env.STRIPE_SECRET_KEY);
+
+    // Build Stripe coupon params
+    const couponOpts: Parameters<typeof gateway.createCoupon>[0] = {
+      duration: body.duration,
+      name: `Promo: ${body.code.toUpperCase()}`,
+    };
+
+    if (body.discountType === "percent_off") {
+      couponOpts.percentOff = body.discountValue;
+    } else if (body.discountType === "amount_off") {
+      couponOpts.amountOff = body.discountValue;
+    } else if (body.discountType === "free_months") {
+      couponOpts.percentOff = 100;
+      couponOpts.duration = "repeating";
+      couponOpts.durationInMonths = body.discountValue;
+    }
+
+    if (body.duration === "repeating" && body.durationMonths) {
+      couponOpts.durationInMonths = body.durationMonths;
+    }
+
+    const stripeCoupon = await gateway.createCoupon(couponOpts);
+
+    const stripePromoCode = await gateway.createPromotionCode(
+      stripeCoupon.id,
+      body.code,
+      {
+        maxRedemptions: body.maxRedemptions ?? undefined,
+        expiresAt: body.expiresAt
+          ? Math.floor(new Date(body.expiresAt).getTime() / 1000)
+          : undefined,
+      },
+    );
+
+    const promo = await promoQueries(db).create({
+      code: body.code,
+      stripeCouponId: stripeCoupon.id,
+      stripePromotionCodeId: stripePromoCode.id,
+      discountType: body.discountType,
+      discountValue: body.discountValue,
+      duration:
+        body.discountType === "free_months" ? "repeating" : body.duration,
+      durationMonths:
+        body.discountType === "free_months"
+          ? body.discountValue
+          : body.durationMonths,
+      maxRedemptions: body.maxRedemptions,
+      expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+      createdBy: adminId,
+    });
+
+    const service = buildAdminService(c);
+    await service.recordAction({
+      actorId: adminId,
+      action: "create_promo",
+      targetType: "promo",
+      targetId: promo.id,
+    });
+
+    return c.json({ data: promo }, 201);
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── DELETE /promos/:id — Deactivate a promo code ───────────────
+
+adminRoutes.delete("/promos/:id", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const promoId = c.req.param("id");
+
+  try {
+    const promo = await promoQueries(db).getById(promoId);
+    if (!promo) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Promo not found" } },
+        404,
+      );
+    }
+
+    // Deactivate in Stripe
+    const gateway = new StripeGateway(c.env.STRIPE_SECRET_KEY);
+    if (promo.stripePromotionCodeId) {
+      await gateway.deactivatePromotionCode(promo.stripePromotionCodeId);
+    }
+
+    await promoQueries(db).deactivate(promoId);
+
+    const service = buildAdminService(c);
+    await service.recordAction({
+      actorId: adminId,
+      action: "deactivate_promo",
+      targetType: "promo",
+      targetId: promoId,
+    });
+
+    return c.json({ data: { deactivated: true } });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ─── POST /customers/:id/apply-promo — Apply promo to customer ──
+
+adminRoutes.post("/customers/:id/apply-promo", async (c) => {
+  const db = c.get("db");
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+  const body = await c.req.json<{ promoId: string }>();
+
+  if (!body.promoId) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "promoId is required" } },
+      422,
+    );
+  }
+
+  try {
+    const promo = await promoQueries(db).getById(body.promoId);
+    if (!promo || !promo.active) {
+      return c.json(
+        {
+          error: { code: "NOT_FOUND", message: "Promo not found or inactive" },
+        },
+        404,
+      );
+    }
+
+    const sub = await billingQueries(db).getActiveSubscription(targetId);
+    if (!sub?.stripeSubscriptionId) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Customer has no active subscription",
+          },
+        },
+        422,
+      );
+    }
+
+    const gateway = new StripeGateway(c.env.STRIPE_SECRET_KEY);
+    await gateway.applyDiscountToSubscription(
+      sub.stripeSubscriptionId,
+      promo.stripeCouponId,
+    );
+    await promoQueries(db).incrementRedeemed(promo.id);
+
+    const service = buildAdminService(c);
+    await service.recordAction({
+      actorId: adminId,
+      action: "apply_promo",
+      targetType: "user",
+      targetId,
+      reason: `Applied promo ${promo.code}`,
+    });
+
+    return c.json({ data: { applied: true, promoCode: promo.code } });
   } catch (error) {
     return handleServiceError(c, error);
   }
