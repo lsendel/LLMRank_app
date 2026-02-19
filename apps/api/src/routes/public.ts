@@ -221,6 +221,7 @@ publicRoutes.post("/scan", async (c) => {
   if (c.env.OPENAI_API_KEY) apiKeys.chatgpt = c.env.OPENAI_API_KEY;
   if (c.env.ANTHROPIC_API_KEY) apiKeys.claude = c.env.ANTHROPIC_API_KEY;
   if (c.env.GEMINI_API_KEY) apiKeys.gemini = c.env.GEMINI_API_KEY;
+  if (c.env.XAI_API_KEY) apiKeys.grok = c.env.XAI_API_KEY;
 
   if (Object.keys(apiKeys).length > 0) {
     try {

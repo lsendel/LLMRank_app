@@ -4,7 +4,7 @@ AI-Readiness SEO Platform — crawl websites, score pages across 37 factors, and
 
 ## Why LLM Boost?
 
-AI assistants are becoming the primary way people find information. When ChatGPT, Claude, Perplexity, Gemini 3, or Codex generate answers, they pull from web content — but not all content is equally visible. LLM Boost analyzes your site and tells you exactly what to fix.
+AI assistants are becoming the primary way people find information. When ChatGPT, Claude, Perplexity, Gemini 3, Codex, or Meta AI generate answers, they pull from web content — but not all content is equally visible. LLM Boost analyzes your site and tells you exactly what to fix.
 
 ## Supported AI Platforms
 
@@ -13,8 +13,11 @@ LLM Boost monitors and optimizes your visibility across:
 - **ChatGPT** — OpenAI's conversational assistant
 - **Claude** — Anthropic's AI assistant
 - **Perplexity** — AI-powered search engine
-- **Gemini 3** — Google's multimodal AI
-- **Codex** — OpenAI's code-generation and research agent
+- **Gemini** — Google's multimodal AI
+- **Google AI Mode** — Google's AI-powered search experience
+- **Copilot** — Microsoft's AI assistant (Bing-powered)
+- **Grok** — xAI's conversational assistant with real-time web search
+- **Meta AI** — Meta's AI assistant powered by Llama
 
 ## How It Works
 

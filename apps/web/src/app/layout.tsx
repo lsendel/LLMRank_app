@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { GoogleAnalytics } from "@/components/google-analytics";
+import { MicrosoftClarity } from "@/components/microsoft-clarity";
 import {
   JsonLd,
   organizationSchema,
@@ -66,6 +67,7 @@ export default function RootLayout({
         <JsonLd data={webSiteSchema()} />
         <PostHogProvider>{children}</PostHogProvider>
         <GoogleAnalytics />
+        <MicrosoftClarity />
       </body>
     </html>
   );

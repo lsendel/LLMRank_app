@@ -4,6 +4,7 @@ import { checkPerplexity } from "./providers/perplexity";
 import { checkGemini } from "./providers/gemini";
 import { checkCopilot } from "./providers/copilot";
 import { checkGeminiAIMode } from "./providers/gemini-ai-mode";
+import { checkGrok } from "./providers/grok";
 
 export interface VisibilityCheckResult {
   provider: string;
@@ -41,6 +42,7 @@ const PROVIDER_MAP: Record<string, ProviderCheckFn> = {
   gemini: checkGemini,
   copilot: checkCopilot,
   gemini_ai_mode: checkGeminiAIMode,
+  grok: checkGrok,
 };
 
 export class VisibilityChecker {
