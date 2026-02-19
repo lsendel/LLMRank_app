@@ -49,6 +49,15 @@ export interface BatchEnvironment {
   appBaseUrl?: string;
   seenUrls?: KVNamespace;
   queue?: Queue<CrawlJobPayload>;
+  // Auto-visibility API keys
+  openaiApiKey?: string;
+  perplexityApiKey?: string;
+  googleApiKey?: string;
+  bingApiKey?: string;
+  xaiApiKey?: string;
+  // Auto-report
+  reportServiceUrl?: string;
+  sharedSecret?: string;
 }
 
 export function createIngestService(deps: IngestServiceDeps) {

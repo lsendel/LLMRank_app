@@ -18,6 +18,9 @@ import { createNotificationService } from "./notification-service";
 import { createRegressionService } from "./regression-service";
 import { createFrontierService } from "./frontier-service";
 import { createDb, outboxEvents } from "@llm-boost/db";
+import { runAutoVisibilityChecks } from "./auto-visibility-service";
+import { runAutoNarrativeRegeneration } from "./auto-narrative-service";
+import { runAutoPersonaGeneration } from "./auto-persona-service";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -37,7 +40,16 @@ export interface PostProcessingEnv {
   resendApiKey?: string;
   appBaseUrl?: string;
   seenUrls?: KVNamespace;
-  queue?: Queue<any>;
+  queue?: Queue<unknown>;
+  // Auto-visibility API keys
+  openaiApiKey?: string;
+  perplexityApiKey?: string;
+  googleApiKey?: string;
+  bingApiKey?: string;
+  xaiApiKey?: string;
+  // Auto-report
+  reportServiceUrl?: string;
+  sharedSecret?: string;
 }
 
 export function createPostProcessingService(deps: PostProcessingDeps) {
@@ -166,6 +178,48 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             }),
           );
         }
+      }
+
+      // Auto-run visibility checks (fire-and-forget)
+      if (batch.is_final) {
+        args.executionCtx.waitUntil(
+          runAutoVisibilityChecks({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            apiKeys: {
+              chatgpt: env.openaiApiKey ?? "",
+              claude: env.anthropicApiKey ?? "",
+              perplexity: env.perplexityApiKey ?? "",
+              gemini: env.googleApiKey ?? "",
+              copilot: env.bingApiKey ?? "",
+              gemini_ai_mode: env.googleApiKey ?? "",
+              grok: env.xaiApiKey ?? "",
+            },
+          }).catch(() => {}),
+        );
+      }
+
+      // Auto-regenerate narrative (fire-and-forget)
+      if (batch.is_final && env.anthropicApiKey) {
+        args.executionCtx.waitUntil(
+          runAutoNarrativeRegeneration({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            crawlJobId,
+            anthropicApiKey: env.anthropicApiKey,
+          }).catch(() => {}),
+        );
+      }
+
+      // Auto-generate personas on first crawl (fire-and-forget)
+      if (batch.is_final && env.anthropicApiKey) {
+        args.executionCtx.waitUntil(
+          runAutoPersonaGeneration({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            anthropicApiKey: env.anthropicApiKey,
+          }).catch(() => {}),
+        );
       }
 
       // New: Recursive Link Discovery (Infinite Scaling)

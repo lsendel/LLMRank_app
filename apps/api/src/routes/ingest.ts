@@ -45,7 +45,17 @@ ingestRoutes.post("/batch", async (c) => {
         integrationKey: c.env.INTEGRATION_ENCRYPTION_KEY,
         googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
         googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
+        resendApiKey: c.env.RESEND_API_KEY,
         appBaseUrl: c.env.APP_BASE_URL,
+        // Auto-visibility API keys
+        openaiApiKey: c.env.OPENAI_API_KEY,
+        perplexityApiKey: c.env.PERPLEXITY_API_KEY,
+        googleApiKey: c.env.GOOGLE_API_KEY,
+        bingApiKey: c.env.BING_API_KEY,
+        xaiApiKey: c.env.XAI_API_KEY,
+        // Auto-report
+        reportServiceUrl: c.env.REPORT_SERVICE_URL,
+        sharedSecret: c.env.SHARED_SECRET,
       },
       executionCtx: c.executionCtx,
     });
