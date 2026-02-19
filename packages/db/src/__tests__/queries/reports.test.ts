@@ -151,7 +151,7 @@ describe("reportQueries", () => {
 
   // --- updateStatus ---
   it("updateStatus calls update with status", async () => {
-    await queries.updateStatus("r1", "completed");
+    await queries.updateStatus("r1", "complete");
 
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe("reportQueries", () => {
   });
 
   it("updateStatus passes extra fields when provided", async () => {
-    await queries.updateStatus("r1", "completed", {
+    await queries.updateStatus("r1", "complete", {
       r2Key: "reports/r1.pdf",
     } as any);
 
