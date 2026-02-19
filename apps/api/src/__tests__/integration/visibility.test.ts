@@ -60,6 +60,20 @@ vi.mock("../../repositories", () => ({
   createCompetitorRepository: () => mockCompetitorRepo,
 }));
 
+// Mock @llm-boost/db for savedKeywordQueries used in POST /check
+const mockSavedKeywordQueries = {
+  listByProject: vi
+    .fn()
+    .mockResolvedValue([
+      { id: "kw-1", keyword: "best SEO tools", projectId: "proj-1" },
+    ]),
+};
+
+vi.mock("@llm-boost/db", () => ({
+  savedKeywordQueries: () => mockSavedKeywordQueries,
+  visibilityQueries: vi.fn(),
+}));
+
 // Mock the LLM visibility checker to avoid real API calls
 vi.mock("@llm-boost/llm", () => ({
   VisibilityChecker: vi.fn().mockImplementation(() => ({
@@ -137,7 +151,7 @@ describe("Visibility Routes", () => {
         method: "POST",
         json: {
           projectId: "proj-1",
-          query: "best SEO tools",
+          keywordIds: ["kw-1"],
           providers: ["chatgpt"],
         },
       });

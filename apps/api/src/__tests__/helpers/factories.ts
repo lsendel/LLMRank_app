@@ -54,6 +54,7 @@ export function buildProject(
     crawlSchedule: "manual",
     nextCrawlAt: null,
     deletedAt: null,
+    siteDescription: null,
     scoringProfileId: null,
     leaderboardOptIn: false,
     teamId: null,
