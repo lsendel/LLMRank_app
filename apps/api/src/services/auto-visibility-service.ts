@@ -79,6 +79,7 @@ export async function runAutoVisibilityChecks(
         userId: project.userId,
         projectId: input.projectId,
         query: kw.keyword,
+        keywordId: kw.id,
         providers: limits.providers,
         apiKeys: input.apiKeys,
       });
