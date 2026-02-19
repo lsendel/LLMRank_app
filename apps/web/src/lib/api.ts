@@ -437,6 +437,29 @@ export interface PaymentRecord {
   createdAt: string;
 }
 
+export interface PromoInfo {
+  code: string;
+  discountType: "percent_off" | "amount_off" | "free_months";
+  discountValue: number;
+  duration: "once" | "repeating" | "forever";
+  durationMonths: number | null;
+}
+
+export interface Promo {
+  id: string;
+  code: string;
+  stripeCouponId: string;
+  discountType: "percent_off" | "amount_off" | "free_months";
+  discountValue: number;
+  duration: "once" | "repeating" | "forever";
+  durationMonths: number | null;
+  maxRedemptions: number | null;
+  timesRedeemed: number;
+  expiresAt: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
 export interface AdminStats {
   mrr: number;
   mrrByPlan: Record<string, number>;
@@ -1424,6 +1447,22 @@ export const api = {
     async cancelSubscription(): Promise<void> {
       await apiClient.post("/api/billing/cancel");
     },
+
+    async downgrade(plan: string): Promise<{ downgraded: boolean }> {
+      const res = await apiClient.post<ApiEnvelope<{ downgraded: boolean }>>(
+        "/api/billing/downgrade",
+        { plan },
+      );
+      return res.data;
+    },
+
+    async validatePromo(code: string): Promise<PromoInfo> {
+      const res = await apiClient.post<ApiEnvelope<PromoInfo>>(
+        "/api/billing/validate-promo",
+        { code },
+      );
+      return res.data;
+    },
   },
 
   // ── Admin ───────────────────────────────────────────────────────
@@ -1488,6 +1527,63 @@ export const api = {
         `/api/admin/ingest/jobs/${jobId}/cancel`,
         reason ? { reason } : undefined,
       );
+    },
+
+    async blockUser(id: string, reason?: string) {
+      return apiClient.post(`/api/admin/customers/${id}/block`, { reason });
+    },
+
+    async suspendUser(id: string, reason?: string) {
+      return apiClient.post(`/api/admin/customers/${id}/suspend`, { reason });
+    },
+
+    async unblockUser(id: string) {
+      return apiClient.post(`/api/admin/customers/${id}/unblock`, {});
+    },
+
+    async changeUserPlan(id: string, plan: string) {
+      return apiClient.post(`/api/admin/customers/${id}/change-plan`, {
+        plan,
+      });
+    },
+
+    async cancelUserSubscription(id: string) {
+      return apiClient.post(
+        `/api/admin/customers/${id}/cancel-subscription`,
+        {},
+      );
+    },
+
+    async listPromos(): Promise<Promo[]> {
+      const res =
+        await apiClient.get<ApiEnvelope<Promo[]>>("/api/admin/promos");
+      return res.data;
+    },
+
+    async createPromo(data: {
+      code: string;
+      discountType: string;
+      discountValue: number;
+      duration: string;
+      durationMonths?: number;
+      maxRedemptions?: number;
+      expiresAt?: string;
+    }): Promise<Promo> {
+      const res = await apiClient.post<ApiEnvelope<Promo>>(
+        "/api/admin/promos",
+        data,
+      );
+      return res.data;
+    },
+
+    async deactivatePromo(id: string) {
+      return apiClient.delete(`/api/admin/promos/${id}`);
+    },
+
+    async applyPromo(userId: string, promoId: string) {
+      return apiClient.post(`/api/admin/customers/${userId}/apply-promo`, {
+        promoId,
+      });
     },
   },
 

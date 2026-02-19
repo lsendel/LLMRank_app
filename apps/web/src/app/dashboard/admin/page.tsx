@@ -18,6 +18,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DollarSign,
@@ -29,8 +30,20 @@ import {
   AlertTriangle,
   Inbox,
   ShieldCheck,
+  Ban,
+  UserCheck,
+  Tag,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useApiSWR } from "@/lib/use-api-swr";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   api,
   type AdminStats,
@@ -38,6 +51,7 @@ import {
   type AdminIngestDetails,
   type CrawlJobSummary,
   type OutboxEventSummary,
+  type Promo,
 } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 
@@ -109,6 +123,33 @@ export default function AdminPage() {
 
   const [actionTarget, setActionTarget] = useState<string | null>(null);
 
+  // Customer management state
+  const [customerActionDialog, setCustomerActionDialog] = useState<{
+    userId: string;
+    name: string;
+    action: "block" | "suspend" | "unblock" | "change-plan" | "cancel-sub";
+  } | null>(null);
+  const [actionReason, setActionReason] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState("free");
+  const [customerActionLoading, setCustomerActionLoading] = useState(false);
+
+  // Promo state
+  const { data: promos, mutate: refreshPromos } = useApiSWR<Promo[]>(
+    "admin-promos",
+    useCallback(() => api.admin.listPromos(), []),
+  );
+  const [showCreatePromo, setShowCreatePromo] = useState(false);
+  const [newPromo, setNewPromo] = useState({
+    code: "",
+    discountType: "percent_off" as "percent_off" | "amount_off" | "free_months",
+    discountValue: 0,
+    duration: "once" as "once" | "repeating" | "forever",
+    durationMonths: undefined as number | undefined,
+    maxRedemptions: undefined as number | undefined,
+    expiresAt: "",
+  });
+  const [creatingPromo, setCreatingPromo] = useState(false);
+
   async function handleRetryJob(jobId: string) {
     setActionTarget(`job-retry-${jobId}`);
     try {
@@ -145,6 +186,83 @@ export default function AdminPage() {
       await refreshIngestDetails();
     } catch (error) {
       console.error(error);
+    } finally {
+      setActionTarget(null);
+    }
+  }
+
+  async function handleCustomerAction() {
+    if (!customerActionDialog) return;
+    setCustomerActionLoading(true);
+    try {
+      const { userId, action } = customerActionDialog;
+      await withAuth(async () => {
+        switch (action) {
+          case "block":
+            await api.admin.blockUser(userId, actionReason || undefined);
+            break;
+          case "suspend":
+            await api.admin.suspendUser(userId, actionReason || undefined);
+            break;
+          case "unblock":
+            await api.admin.unblockUser(userId);
+            break;
+          case "change-plan":
+            await api.admin.changeUserPlan(userId, selectedPlan);
+            break;
+          case "cancel-sub":
+            await api.admin.cancelUserSubscription(userId);
+            break;
+        }
+      });
+      setCustomerActionDialog(null);
+      setActionReason("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCustomerActionLoading(false);
+    }
+  }
+
+  async function handleCreatePromo() {
+    setCreatingPromo(true);
+    try {
+      await withAuth(async () => {
+        await api.admin.createPromo({
+          code: newPromo.code,
+          discountType: newPromo.discountType,
+          discountValue: newPromo.discountValue,
+          duration: newPromo.duration,
+          durationMonths: newPromo.durationMonths,
+          maxRedemptions: newPromo.maxRedemptions,
+          expiresAt: newPromo.expiresAt || undefined,
+        });
+      });
+      setShowCreatePromo(false);
+      setNewPromo({
+        code: "",
+        discountType: "percent_off",
+        discountValue: 0,
+        duration: "once",
+        durationMonths: undefined,
+        maxRedemptions: undefined,
+        expiresAt: "",
+      });
+      await refreshPromos();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCreatingPromo(false);
+    }
+  }
+
+  async function handleDeactivatePromo(promoId: string) {
+    setActionTarget(`promo-${promoId}`);
+    try {
+      await withAuth(() => api.admin.deactivatePromo(promoId));
+      await refreshPromos();
+    } catch (err) {
+      console.error(err);
     } finally {
       setActionTarget(null);
     }
@@ -461,23 +579,85 @@ export default function AdminPage() {
               {customers.map((customer: AdminCustomer) => (
                 <div
                   key={customer.id}
-                  className="flex items-center justify-between py-3"
+                  className="flex items-center justify-between gap-4 py-3"
                 >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {customer.name ?? "—"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium">
+                        {customer.name ?? "—"}
+                      </p>
+                      {(customer as AdminCustomer & { status?: string })
+                        .status &&
+                        (customer as AdminCustomer & { status?: string })
+                          .status !== "active" && (
+                          <Badge variant="destructive" className="text-[10px]">
+                            {
+                              (customer as AdminCustomer & { status?: string })
+                                .status
+                            }
+                          </Badge>
+                        )}
+                    </div>
+                    <p className="truncate text-sm text-muted-foreground">
                       {customer.email}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-shrink-0 items-center gap-2">
                     <Badge variant={planColors[customer.plan] ?? "default"}>
                       {customer.plan}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(customer.createdAt).toLocaleDateString()}
-                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      title="Change plan"
+                      onClick={() => {
+                        setSelectedPlan(customer.plan);
+                        setCustomerActionDialog({
+                          userId: customer.id,
+                          name: customer.name ?? customer.email,
+                          action: "change-plan",
+                        });
+                      }}
+                    >
+                      <TrendingUp className="h-3.5 w-3.5" />
+                    </Button>
+                    {(customer as AdminCustomer & { status?: string })
+                      .status !== "banned" &&
+                    (customer as AdminCustomer & { status?: string }).status !==
+                      "suspended" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        title="Block user"
+                        onClick={() =>
+                          setCustomerActionDialog({
+                            userId: customer.id,
+                            name: customer.name ?? customer.email,
+                            action: "block",
+                          })
+                        }
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-success hover:text-success"
+                        title="Unblock user"
+                        onClick={() =>
+                          setCustomerActionDialog({
+                            userId: customer.id,
+                            name: customer.name ?? customer.email,
+                            action: "unblock",
+                          })
+                        }
+                      >
+                        <UserCheck className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -511,6 +691,316 @@ export default function AdminPage() {
           !!cancelDialog && actionTarget === `job-cancel-${cancelDialog.jobId}`
         }
       />
+
+      {/* Promo Codes Management */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Tag className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Promo Codes</CardTitle>
+            </div>
+            <Button size="sm" onClick={() => setShowCreatePromo(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              Create Promo
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!promos || promos.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              No promo codes yet.
+            </p>
+          ) : (
+            <div className="divide-y">
+              {promos.map((promo) => (
+                <div
+                  key={promo.id}
+                  className="flex items-center justify-between py-3"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-semibold">
+                        {promo.code}
+                      </span>
+                      <Badge
+                        variant={promo.active ? "default" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {promo.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {promo.discountType === "percent_off"
+                        ? `${promo.discountValue}% off`
+                        : promo.discountType === "free_months"
+                          ? `${promo.discountValue} free months`
+                          : `$${(promo.discountValue / 100).toFixed(2)} off`}{" "}
+                      · {promo.duration}
+                      {promo.durationMonths
+                        ? ` (${promo.durationMonths}mo)`
+                        : ""}{" "}
+                      · {promo.timesRedeemed}
+                      {promo.maxRedemptions
+                        ? `/${promo.maxRedemptions}`
+                        : ""}{" "}
+                      used
+                    </p>
+                  </div>
+                  {promo.active && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                      disabled={actionTarget === `promo-${promo.id}`}
+                      onClick={() => handleDeactivatePromo(promo.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Promo Dialog */}
+      <Dialog open={showCreatePromo} onOpenChange={setShowCreatePromo}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Promo Code</DialogTitle>
+            <DialogDescription>
+              Creates a coupon and promotion code in Stripe.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Code</label>
+              <Input
+                value={newPromo.code}
+                onChange={(e) =>
+                  setNewPromo({ ...newPromo, code: e.target.value })
+                }
+                placeholder="WELCOME20"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Discount Type</label>
+                <Select
+                  value={newPromo.discountType}
+                  onValueChange={(v) =>
+                    setNewPromo({
+                      ...newPromo,
+                      discountType: v as typeof newPromo.discountType,
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent_off">Percent Off</SelectItem>
+                    <SelectItem value="amount_off">
+                      Amount Off (cents)
+                    </SelectItem>
+                    <SelectItem value="free_months">Free Months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Value</label>
+                <Input
+                  type="number"
+                  value={newPromo.discountValue || ""}
+                  onChange={(e) =>
+                    setNewPromo({
+                      ...newPromo,
+                      discountValue: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  placeholder={
+                    newPromo.discountType === "percent_off"
+                      ? "20"
+                      : newPromo.discountType === "free_months"
+                        ? "3"
+                        : "1000"
+                  }
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Duration</label>
+                <Select
+                  value={newPromo.duration}
+                  onValueChange={(v) =>
+                    setNewPromo({
+                      ...newPromo,
+                      duration: v as typeof newPromo.duration,
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="once">Once</SelectItem>
+                    <SelectItem value="repeating">Repeating</SelectItem>
+                    <SelectItem value="forever">Forever</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newPromo.duration === "repeating" && (
+                <div>
+                  <label className="text-sm font-medium">
+                    Duration (months)
+                  </label>
+                  <Input
+                    type="number"
+                    value={newPromo.durationMonths ?? ""}
+                    onChange={(e) =>
+                      setNewPromo({
+                        ...newPromo,
+                        durationMonths: parseInt(e.target.value) || undefined,
+                      })
+                    }
+                    placeholder="3"
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">
+                  Max Redemptions (optional)
+                </label>
+                <Input
+                  type="number"
+                  value={newPromo.maxRedemptions ?? ""}
+                  onChange={(e) =>
+                    setNewPromo({
+                      ...newPromo,
+                      maxRedemptions: parseInt(e.target.value) || undefined,
+                    })
+                  }
+                  placeholder="100"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">
+                  Expires At (optional)
+                </label>
+                <Input
+                  type="date"
+                  value={newPromo.expiresAt}
+                  onChange={(e) =>
+                    setNewPromo({ ...newPromo, expiresAt: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreatePromo(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreatePromo}
+              disabled={creatingPromo || !newPromo.code.trim()}
+            >
+              {creatingPromo ? "Creating..." : "Create Promo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Action Dialog */}
+      <Dialog
+        open={!!customerActionDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCustomerActionDialog(null);
+            setActionReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {customerActionDialog?.action === "block"
+                ? "Block User"
+                : customerActionDialog?.action === "suspend"
+                  ? "Suspend User"
+                  : customerActionDialog?.action === "unblock"
+                    ? "Unblock User"
+                    : customerActionDialog?.action === "change-plan"
+                      ? "Change Plan"
+                      : "Cancel Subscription"}
+            </DialogTitle>
+            <DialogDescription>{customerActionDialog?.name}</DialogDescription>
+          </DialogHeader>
+          {(customerActionDialog?.action === "block" ||
+            customerActionDialog?.action === "suspend") && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="action-reason">
+                Reason (optional)
+              </label>
+              <textarea
+                id="action-reason"
+                className="min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm"
+                value={actionReason}
+                onChange={(e) => setActionReason(e.target.value)}
+                placeholder="Reason for this action..."
+              />
+            </div>
+          )}
+          {customerActionDialog?.action === "change-plan" && (
+            <div>
+              <label className="text-sm font-medium">New Plan</label>
+              <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="starter">Starter</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="agency">Agency</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCustomerActionDialog(null);
+                setActionReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={
+                customerActionDialog?.action === "unblock"
+                  ? "default"
+                  : "destructive"
+              }
+              onClick={handleCustomerAction}
+              disabled={customerActionLoading}
+            >
+              {customerActionLoading ? "Processing..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

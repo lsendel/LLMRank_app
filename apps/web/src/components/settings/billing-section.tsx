@@ -30,11 +30,13 @@ import {
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
+import { Input } from "@/components/ui/input";
 import {
   api,
   type BillingInfo,
   type SubscriptionInfo,
   type PaymentRecord,
+  type PromoInfo,
 } from "@/lib/api";
 
 const plans = [
@@ -126,6 +128,12 @@ export function BillingSection() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [downgradeDialogOpen, setDowngradeDialogOpen] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [downgradingTo, setDowngradingTo] = useState<string | null>(null);
+  const [downgrading, setDowngrading] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValid, setPromoValid] = useState<PromoInfo | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
 
   const currentTier = billing?.plan ?? "free";
   const currentPlanName = planNameMap[currentTier] ?? "Free";
@@ -157,16 +165,55 @@ export function BillingSection() {
     }
   }
 
+  async function handleValidatePromo() {
+    if (!promoCode.trim()) return;
+    setValidatingPromo(true);
+    setPromoError(null);
+    try {
+      const info = await api.billing.validatePromo(promoCode.trim());
+      setPromoValid(info);
+    } catch (err) {
+      setPromoValid(null);
+      setPromoError(err instanceof Error ? err.message : "Invalid promo code");
+    } finally {
+      setValidatingPromo(false);
+    }
+  }
+
+  async function handleDowngrade(targetPlan: string) {
+    setDowngrading(true);
+    try {
+      await withAuth(async () => {
+        await api.billing.downgrade(targetPlan);
+      });
+      setDowngradeDialogOpen(false);
+      setDowngradingTo(null);
+      await mutateSubscription();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDowngrading(false);
+    }
+  }
+
   async function handlePlanAction(planTier: string) {
-    const isDowngradeToFree = planTier === "free";
+    const planIndex = plans.findIndex((p) => p.tier === planTier);
+    const isDowngrade = planIndex < currentTierIndex;
 
     // Downgrading to Free = cancel subscription
-    if (isDowngradeToFree && subscription) {
+    if (planTier === "free" && subscription) {
       setDowngradeDialogOpen(true);
       return;
     }
 
-    // All other cases: Stripe checkout
+    // Paid-to-paid downgrade = swap price
+    if (isDowngrade && subscription) {
+      setDowngradingTo(planTier);
+      setDowngradeDialogOpen(true);
+      return;
+    }
+
+    // Upgrade: Stripe checkout
     setUpgrading(planTier);
     try {
       await withAuth(async () => {
@@ -440,40 +487,93 @@ export function BillingSection() {
               );
             })}
           </div>
+
+          {/* Promo code input */}
+          <div className="mt-4 flex items-center gap-2">
+            <Input
+              placeholder="Promo code"
+              value={promoCode}
+              onChange={(e) => {
+                setPromoCode(e.target.value);
+                setPromoValid(null);
+                setPromoError(null);
+              }}
+              className="max-w-[200px]"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleValidatePromo}
+              disabled={validatingPromo || !promoCode.trim()}
+            >
+              {validatingPromo ? "Checking..." : "Apply"}
+            </Button>
+            {promoValid && (
+              <Badge variant="default">
+                {promoValid.discountType === "percent_off"
+                  ? `${promoValid.discountValue}% off`
+                  : promoValid.discountType === "free_months"
+                    ? `${promoValid.discountValue} free months`
+                    : `$${(promoValid.discountValue / 100).toFixed(2)} off`}
+              </Badge>
+            )}
+            {promoError && (
+              <span className="text-sm text-destructive">{promoError}</span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Downgrade to Free confirmation dialog */}
-      <Dialog open={downgradeDialogOpen} onOpenChange={setDowngradeDialogOpen}>
+      {/* Downgrade confirmation dialog */}
+      <Dialog
+        open={downgradeDialogOpen}
+        onOpenChange={(open) => {
+          setDowngradeDialogOpen(open);
+          if (!open) setDowngradingTo(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Downgrade to Free?</DialogTitle>
+            <DialogTitle>
+              Downgrade to {planNameMap[downgradingTo ?? "free"] ?? "Free"}?
+            </DialogTitle>
             <DialogDescription>
-              Your current subscription will be canceled at the end of the
-              billing period. You&apos;ll keep access to your paid features
-              until then, after which your account will revert to the Free plan
-              limits.
+              {downgradingTo && downgradingTo !== "free"
+                ? `Your plan will be changed to ${planNameMap[downgradingTo]} at the next billing cycle. No proration will be applied.`
+                : "Your current subscription will be canceled at the end of the billing period. You'll keep access to your paid features until then."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/50">
             <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              Projects and data exceeding Free plan limits may become read-only.
+              Projects and data exceeding the new plan limits may become
+              read-only.
             </p>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setDowngradeDialogOpen(false)}
+              onClick={() => {
+                setDowngradeDialogOpen(false);
+                setDowngradingTo(null);
+              }}
             >
               Keep Current Plan
             </Button>
             <Button
               variant="destructive"
-              onClick={handleCancelSubscription}
-              disabled={canceling}
+              onClick={() => {
+                if (downgradingTo && downgradingTo !== "free") {
+                  handleDowngrade(downgradingTo);
+                } else {
+                  handleCancelSubscription();
+                }
+              }}
+              disabled={canceling || downgrading}
             >
-              {canceling ? "Processing..." : "Yes, downgrade to Free"}
+              {canceling || downgrading
+                ? "Processing..."
+                : `Yes, downgrade to ${planNameMap[downgradingTo ?? "free"] ?? "Free"}`}
             </Button>
           </DialogFooter>
         </DialogContent>
