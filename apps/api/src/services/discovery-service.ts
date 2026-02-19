@@ -1,0 +1,249 @@
+import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
+
+interface SiteSignals {
+  brand: string;
+  title: string;
+  description: string;
+  domain: string;
+}
+
+interface IndexPageData {
+  url: string;
+  title?: string | null;
+  metaDescription?: string | null;
+  ogTags?: Record<string, string> | null;
+}
+
+interface DiscoveredPersona {
+  name: string;
+  role: string;
+  jobToBeDone?: string;
+  constraints?: string;
+  successMetrics?: string;
+  decisionCriteria?: string;
+  vocabulary?: string[];
+  sampleQueries?: string[];
+  funnelStage: "education" | "comparison" | "purchase";
+}
+
+interface DiscoveredKeyword {
+  keyword: string;
+  funnelStage?: "education" | "comparison" | "purchase";
+  relevanceScore?: number;
+}
+
+export function extractSiteSignals(page: IndexPageData): SiteSignals {
+  const url = new URL(page.url);
+  const domain = url.hostname.replace(/^www\./, "");
+  const brand = domain.split(".")[0];
+
+  return {
+    brand,
+    domain,
+    title: page.title ?? domain,
+    description: page.metaDescription ?? page.ogTags?.["og:description"] ?? "",
+  };
+}
+
+const DOMAIN_RE =
+  /\b([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.(?:com|io|ai|co|org|net|app|dev|xyz|tech|so))\b/gi;
+
+export function parseCompetitorDomains(
+  responseText: string,
+  ownDomain: string,
+): string[] {
+  const matches = responseText.match(DOMAIN_RE) ?? [];
+  const own = ownDomain.replace(/^www\./, "").toLowerCase();
+  const seen = new Set<string>();
+
+  return matches
+    .map((d) => d.toLowerCase())
+    .filter((d) => {
+      if (d === own || seen.has(d)) return false;
+      seen.add(d);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+export function parsePersonasAndKeywords(jsonStr: string): {
+  personas: DiscoveredPersona[];
+  keywords: DiscoveredKeyword[];
+} {
+  const cleaned = jsonStr.replace(/```json\n?|\n?```/g, "").trim();
+  const data = JSON.parse(cleaned);
+
+  const personas: DiscoveredPersona[] = (data.personas ?? []).map(
+    (p: Record<string, unknown>) => ({
+      name: String(p.name ?? "Unknown"),
+      role: String(p.role ?? p.name ?? "Unknown"),
+      jobToBeDone: p.jobToBeDone as string | undefined,
+      constraints: p.constraints as string | undefined,
+      successMetrics: p.successMetrics as string | undefined,
+      decisionCriteria: p.decisionCriteria as string | undefined,
+      vocabulary: Array.isArray(p.vocabulary) ? p.vocabulary : [],
+      sampleQueries: Array.isArray(p.sampleQueries) ? p.sampleQueries : [],
+      funnelStage: (["education", "comparison", "purchase"].includes(
+        p.funnelStage as string,
+      )
+        ? p.funnelStage
+        : "education") as "education" | "comparison" | "purchase",
+    }),
+  );
+
+  const keywords: DiscoveredKeyword[] = (data.keywords ?? []).map(
+    (k: Record<string, unknown>) => ({
+      keyword: String(k.keyword ?? ""),
+      funnelStage: (["education", "comparison", "purchase"].includes(
+        k.funnelStage as string,
+      )
+        ? k.funnelStage
+        : undefined) as "education" | "comparison" | "purchase" | undefined,
+      relevanceScore:
+        typeof k.relevanceScore === "number" ? k.relevanceScore : undefined,
+    }),
+  );
+
+  return { personas, keywords };
+}
+
+export interface DiscoveryDeps {
+  perplexityApiKey: string;
+  anthropicApiKey: string;
+  personaRepo: {
+    create: (data: Record<string, unknown>) => Promise<unknown>;
+    countByProject: (projectId: string) => Promise<number>;
+  };
+  keywordRepo: {
+    createMany: (rows: Array<Record<string, unknown>>) => Promise<unknown>;
+    countByProject: (projectId: string) => Promise<number>;
+  };
+  competitorRepo: {
+    add: (projectId: string, domain: string) => Promise<unknown>;
+    listByProject: (projectId: string) => Promise<Array<{ domain: string }>>;
+  };
+}
+
+export function createDiscoveryService(deps: DiscoveryDeps) {
+  return {
+    async discoverCompetitors(
+      signals: SiteSignals,
+      projectId: string,
+    ): Promise<string[]> {
+      const perplexity = new OpenAI({
+        apiKey: deps.perplexityApiKey,
+        baseURL: "https://api.perplexity.ai",
+      });
+
+      const prompt = `What are the top alternatives and competitors to ${signals.brand} (${signals.domain})? ${signals.brand} is described as: "${signals.description}". List the top 5-8 competing products or services. For each, include their website domain name.`;
+
+      const response = await perplexity.chat.completions.create({
+        model: "sonar",
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const text = response.choices[0]?.message?.content ?? "";
+      const domains = parseCompetitorDomains(text, signals.domain);
+
+      const existing = await deps.competitorRepo.listByProject(projectId);
+      const existingDomains = new Set(existing.map((c) => c.domain));
+
+      const newDomains: string[] = [];
+      for (const domain of domains) {
+        if (!existingDomains.has(domain)) {
+          await deps.competitorRepo.add(projectId, domain);
+          newDomains.push(domain);
+        }
+      }
+
+      return newDomains;
+    },
+
+    async discoverPersonasAndKeywords(
+      signals: SiteSignals,
+      projectId: string,
+    ): Promise<{
+      personas: DiscoveredPersona[];
+      keywords: DiscoveredKeyword[];
+    }> {
+      const anthropic = new Anthropic({ apiKey: deps.anthropicApiKey });
+
+      const prompt = `Given this website:
+Domain: ${signals.domain}
+Title: ${signals.title}
+Description: ${signals.description}
+
+Generate 3-5 audience personas who would search for this type of product/service in AI search engines (ChatGPT, Perplexity, Claude, Gemini). For each persona provide:
+- name: a descriptive name like "Marketing Director" or "Small Business Owner"
+- role: their job title or function
+- jobToBeDone: what they're trying to accomplish
+- constraints: time, budget, or compliance limitations
+- successMetrics: how they judge a "good" answer
+- decisionCriteria: what proof they need before acting
+- vocabulary: array of natural language patterns/phrases they'd use
+- sampleQueries: array of 5-10 actual queries they'd type into an AI search engine
+- funnelStage: "education" (learning about the topic), "comparison" (evaluating options), or "purchase" (ready to buy/act)
+
+Also generate 10-15 relevant search keywords/queries with:
+- keyword: the search phrase
+- funnelStage: "education", "comparison", or "purchase"
+- relevanceScore: 0-1 confidence score
+
+Return ONLY valid JSON with this structure: { "personas": [...], "keywords": [...] }`;
+
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const text =
+        response.content[0]?.type === "text" ? response.content[0].text : "";
+      const { personas, keywords } = parsePersonasAndKeywords(text);
+
+      for (const p of personas) {
+        await deps.personaRepo.create({
+          projectId,
+          ...p,
+          isAutoGenerated: true,
+        });
+      }
+
+      if (keywords.length > 0) {
+        await deps.keywordRepo.createMany(
+          keywords.map((k) => ({
+            projectId,
+            keyword: k.keyword,
+            source: "auto_discovered" as const,
+            relevanceScore: k.relevanceScore,
+            funnelStage: k.funnelStage,
+          })),
+        );
+      }
+
+      return { personas, keywords };
+    },
+
+    async runFullDiscovery(
+      indexPageData: IndexPageData,
+      projectId: string,
+    ): Promise<{
+      competitors: string[];
+      personas: DiscoveredPersona[];
+      keywords: DiscoveredKeyword[];
+    }> {
+      const signals = extractSiteSignals(indexPageData);
+
+      const [competitors, personasAndKeywords] = await Promise.all([
+        this.discoverCompetitors(signals, projectId),
+        this.discoverPersonasAndKeywords(signals, projectId),
+      ]);
+
+      return {
+        competitors,
+        ...personasAndKeywords,
+      };
+    },
+  };
+}
